@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  IMPORTER
+  EXPORTER
+  IMPORTER_BANK
+  EXPORTER_BANK
+  SHIPPING
+  INSURANCE
+  TAX_AUTHORITY
+  REGULATORS
+  CUSTOMS
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  walletAddress String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  trades    Trade[]  @relation("UserTrades")
+}
+
+model Trade {
+  id          String   @id @default(uuid())
+  blockchainId Int?    @unique
+  importerId  String
+  exporterId  String
+  importer    User     @relation("UserTrades", fields: [importerId], references: [id])
+  status      String   @default("CREATED")
+  amount      Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
