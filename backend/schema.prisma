@@ -1,0 +1,55 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  IMPORTER
+  EXPORTER
+  IMPORTER_BANK
+  EXPORTER_BANK
+  SHIPPING
+  INSURANCE
+  TAX_AUTHORITY
+  REGULATORS
+  CUSTOMS
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  password          String
+  name              String
+  role              Role
+  walletAddress     String?  @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  tradesAsImporter  Trade[]  @relation("ImporterTrades")
+  tradesAsExporter  Trade[]  @relation("ExporterTrades")
+  tradesAsImporterBank Trade[] @relation("ImporterBankTrades")
+  tradesAsExporterBank Trade[] @relation("ExporterBankTrades")
+}
+
+model Trade {
+  id               String   @id @default(uuid())
+  blockchainId     Int?     @unique
+  importerId       String
+  exporterId       String
+  importerBankId   String?
+  exporterBankId   String?
+  importer         User     @relation("ImporterTrades", fields: [importerId], references: [id])
+  exporter         User     @relation("ExporterTrades", fields: [exporterId], references: [id])
+  importerBank     User?    @relation("ImporterBankTrades", fields: [importerBankId], references: [id])
+  exporterBank     User?    @relation("ExporterBankTrades", fields: [exporterBankId], references: [id])
+  status           String   @default("CREATED")
+  amount           Float
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

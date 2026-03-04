@@ -1,0 +1,179 @@
+[
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_tradeRegistry",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "_customs",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "constructor"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "tradeId",
+                "type": "uint256"
+            }
+        ],
+        "name": "DocumentsFullyVerified",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "tradeId",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "ipfsHash",
+                "type": "string"
+            }
+        ],
+        "name": "DocumentsSubmitted",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "tradeId",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "role",
+                "type": "string"
+            },
+            {
+                "indexed": false,
+                "internalType": "bool",
+                "name": "status",
+                "type": "bool"
+            }
+        ],
+        "name": "VerificationUpdated",
+        "type": "event"
+    },
+    {
+        "inputs": [],
+        "name": "customs",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "_tradeId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "string",
+                "name": "_ipfsHash",
+                "type": "string"
+            }
+        ],
+        "name": "submitDocuments",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "tradeRegistry",
+        "outputs": [
+            {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "verifications",
+        "outputs": [
+            {
+                "internalType": "string",
+                "name": "docIpfsHash",
+                "type": "string"
+            },
+            {
+                "internalType": "bool",
+                "name": "customsVerified",
+                "type": "bool"
+            },
+            {
+                "internalType": "bool",
+                "name": "bankVerified",
+                "type": "bool"
+            },
+            {
+                "internalType": "bool",
+                "name": "isFullyVerified",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "_tradeId",
+                "type": "uint256"
+            }
+        ],
+        "name": "verifyAsBank",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "_tradeId",
+                "type": "uint256"
+            }
+        ],
+        "name": "verifyAsCustoms",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    }
+]

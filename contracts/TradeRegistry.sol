@@ -31,10 +31,27 @@ contract TradeRegistry {
     }
 
     mapping(uint256 => Trade) public trades;
+    mapping(address => bool) public authorizedContracts;
+    address public owner;
     uint256 public nextTradeId;
 
     event TradeCreated(uint256 indexed tradeId, address importer, address exporter, uint256 amount);
     event TradeStatusUpdated(uint256 indexed tradeId, TradeStatus newStatus);
+    event ContractAuthorized(address indexed contractAddress, bool authorized);
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner");
+        _;
+    }
+
+    modifier onlyAuthorized() {
+        require(authorizedContracts[msg.sender] || msg.sender == owner, "Not authorized");
+        _;
+    }
 
     modifier onlyParticipant(uint256 _tradeId) {
         Trade storage trade = trades[_tradeId];
@@ -70,8 +87,12 @@ contract TradeRegistry {
         return tradeId;
     }
 
-    function updateStatus(uint256 _tradeId, TradeStatus _newStatus) external {
-        // Logic to restrict status updates based on authorized contracts will be added via access control
+    function setAuthorizedContract(address _contract, bool _authorized) external onlyOwner {
+        authorizedContracts[_contract] = _authorized;
+        emit ContractAuthorized(_contract, _authorized);
+    }
+
+    function updateStatus(uint256 _tradeId, TradeStatus _newStatus) external onlyAuthorized {
         trades[_tradeId].status = _newStatus;
         emit TradeStatusUpdated(_tradeId, _newStatus);
     }

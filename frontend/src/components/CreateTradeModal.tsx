@@ -10,6 +10,8 @@ interface CreateTradeModalProps {
 
 const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, onTradeCreated }) => {
     const [exporterId, setExporterId] = useState('');
+    const [importerBankId, setImporterBankId] = useState('');
+    const [exporterBankId, setExporterBankId] = useState('');
     const [amount, setAmount] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -19,7 +21,12 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post('/trades', { exporterId, amount });
+            await api.post('/trades', {
+                exporterId,
+                amount,
+                importerBankId,
+                exporterBankId
+            });
             onTradeCreated();
             onClose();
         } catch (err) {
@@ -48,10 +55,34 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
                             type="text"
                             required
                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all"
-                            placeholder="0000-0000-0000"
+                            placeholder="Exporter User ID"
                             value={exporterId}
                             onChange={(e) => setExporterId(e.target.value)}
                         />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="group">
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Importer Bank ID</label>
+                            <input
+                                type="text"
+                                required
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all"
+                                placeholder="Bank ID"
+                                value={importerBankId}
+                                onChange={(e) => setImporterBankId(e.target.value)}
+                            />
+                        </div>
+                        <div className="group">
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Exporter Bank ID</label>
+                            <input
+                                type="text"
+                                required
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all"
+                                placeholder="Bank ID"
+                                value={exporterBankId}
+                                onChange={(e) => setExporterBankId(e.target.value)}
+                            />
+                        </div>
                     </div>
                     <div className="group">
                         <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Settlement Amount (USD)</label>

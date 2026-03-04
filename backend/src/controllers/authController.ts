@@ -1,22 +1,18 @@
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Request, Response } from 'express';
-import { sendWelcomeEmail } from '../services/emailService';
+import { prisma } from '../services/PrismaService';
 
-const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
 export const register = async (req: Request, res: Response) => {
     try {
-        const { email, password, name, role, walletAddress } = req.body;
+        const { email, password, name, role } = req.body;
 
-        const existingUser = await prisma.user.findFirst({
-            where: { OR: [{ email }, { walletAddress }] }
-        });
+        const existingUser = await prisma.user.findUnique({ where: { email } });
 
         if (existingUser) {
-            return res.status(400).json({ message: 'User with this email or wallet already exists' });
+            return res.status(400).json({ message: 'User with this email already exists' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -25,8 +21,7 @@ export const register = async (req: Request, res: Response) => {
                 email,
                 password: hashedPassword,
                 name,
-                role,
-                walletAddress
+                role
             }
         });
 
@@ -40,6 +35,7 @@ export const register = async (req: Request, res: Response) => {
 
         res.status(201).json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } });
     } catch (error: any) {
+        console.error('Registration error:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -61,8 +57,23 @@ export const login = async (req: Request, res: Response) => {
             maxAge: 86400000
         });
 
-        res.status(200).json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+        res.status(200).json({ user: { id: user.id, email: user.email, role: user.role, name: user.name, walletAddress: (user as any).walletAddress } });
     } catch (error: any) {
+        console.error('Login error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateWalletAddress = async (req: Request, res: Response) => {
+    try {
+        const { userId, walletAddress } = req.body;
+        const user = await (prisma.user as any).update({
+            where: { id: userId },
+            data: { walletAddress: walletAddress.toLowerCase() }
+        });
+        res.status(200).json({ message: 'Wallet address updated', user });
+    } catch (error: any) {
+        console.error('Update wallet error:', error);
         res.status(500).json({ message: error.message });
     }
 };

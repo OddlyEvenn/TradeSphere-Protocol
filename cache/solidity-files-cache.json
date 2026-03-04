@@ -1,0 +1,156 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\DocumentVerification.sol": {
+      "lastModificationDate": 1772559161740,
+      "contentHash": "3b186aa6dbe45bf4857cc0ac32b9675f",
+      "sourceName": "contracts/DocumentVerification.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./TradeRegistry.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "DocumentVerification"
+      ]
+    },
+    "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\TradeRegistry.sol": {
+      "lastModificationDate": 1772559139567,
+      "contentHash": "aecd82a996e8bcb3c760b2e7543689b1",
+      "sourceName": "contracts/TradeRegistry.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "TradeRegistry"
+      ]
+    },
+    "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\PaymentSettlement.sol": {
+      "lastModificationDate": 1772559165677,
+      "contentHash": "28d1d3a4c00bafb7fe168aa7c38f0d6e",
+      "sourceName": "contracts/PaymentSettlement.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./TradeRegistry.sol",
+        "./DocumentVerification.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "PaymentSettlement"
+      ]
+    },
+    "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\LetterOfCredit.sol": {
+      "lastModificationDate": 1772559141574,
+      "contentHash": "05846875072c1666018e42e3dc46b2c1",
+      "sourceName": "contracts/LetterOfCredit.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./TradeRegistry.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "LetterOfCredit"
+      ]
+    }
+  }
+}

@@ -42,6 +42,8 @@ contract LetterOfCredit {
 
     function requestLoC(uint256 _tradeId, uint256 _expiry) external onlyImporter(_tradeId) {
         TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        require(trade.status == TradeRegistry.TradeStatus.CREATED, "Invalid trade status");
+
         locs[_tradeId] = LoC({
             tradeId: _tradeId,
             amount: trade.amount,
@@ -55,11 +57,14 @@ contract LetterOfCredit {
     }
 
     function issueLoC(uint256 _tradeId) external onlyIssuingBank(_tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        require(trade.status == TradeRegistry.TradeStatus.LOC_REQUESTED, "LoC not requested");
+        
         LoC storage loc = locs[_tradeId];
         require(!loc.isIssued, "Already issued");
         
         loc.isIssued = true;
-        loc.fundsLocked = true; // In a real app, this would involve holding collateral
+        loc.fundsLocked = true;
 
         tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.LOC_ISSUED);
         emit LoCIssued(_tradeId);

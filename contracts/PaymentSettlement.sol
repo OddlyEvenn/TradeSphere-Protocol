@@ -25,6 +25,7 @@ contract PaymentSettlement {
     function confirmReceipt(uint256 _tradeId) external {
         TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
         require(msg.sender == trade.importer, "Only importer can confirm receipt");
+        require(trade.status == TradeRegistry.TradeStatus.DOCS_VERIFIED, "Documents not yet verified");
         
         importerConfirmedReceipt[_tradeId] = true;
         tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.GOODS_RECEIVED);

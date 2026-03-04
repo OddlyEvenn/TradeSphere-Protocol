@@ -1,0 +1,29 @@
+{
+  "name": "blockchain-trade_finance",
+  "version": "1.0.0",
+  "description": "A decentralized, blockchain-based Trade Finance system that modernizes the Letter of Credit (LoC) process using Smart Contracts and a Semaphore-based synchronization model.",
+  "main": "backend_db_setup.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OddlyEvenn/TradeSphere-Protocol.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/OddlyEvenn/TradeSphere-Protocol/issues"
+  },
+  "homepage": "https://github.com/OddlyEvenn/TradeSphere-Protocol#readme",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
+    "dotenv": "^16.6.1",
+    "hardhat": "^2.28.6"
+  }
+}
