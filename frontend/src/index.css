@@ -3,23 +3,65 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light;
-  color: #102a43;
-  background-color: #f0f4f8;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --secondary: #6366f1;
+  --accent: #818cf8;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #4f46e5;
+  --radius: 1rem;
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  width: 100%;
-  overflow-x: hidden;
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl;
+  }
+
+  .glass-dark {
+    @apply bg-slate-900/80 backdrop-blur-lg border border-slate-700/50 shadow-2xl;
+  }
+
+  .nav-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/50;
+  }
+
+  .nav-link-active {
+    @apply flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all text-white bg-indigo-600 shadow-lg shadow-indigo-200/50;
+  }
+
+  .btn-primary {
+    @apply flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100/50 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply flex items-center gap-2 bg-white text-slate-700 border border-slate-200 px-6 py-3 rounded-2xl font-bold transition-all hover:bg-slate-50 active:scale-95;
+  }
+
+  .card-premium {
+    @apply bg-white border border-slate-100 rounded-[2rem] p-8 shadow-premium hover:shadow-premium-hover transition-all;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full hover:bg-slate-300;
 }

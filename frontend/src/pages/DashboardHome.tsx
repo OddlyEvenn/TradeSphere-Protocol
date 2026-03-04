@@ -1,0 +1,35 @@
+import React from 'react';
+import { useOutletContext } from 'react-router-dom';
+import ImporterDashboard from './importer/ImporterDashboard';
+import ExporterDashboard from './exporter/ExporterDashboard';
+import ImporterBankDashboard from './bank/ImporterBankDashboard';
+import ExporterBankDashboard from './bank/ExporterBankDashboard';
+import AuthorityDashboard from './authorities/AuthorityDashboard';
+
+const DashboardHome: React.FC = () => {
+    const { user, account } = useOutletContext<{ user: any, account: string | null }>();
+
+    if (!user) return null;
+
+    switch (user.role) {
+        case 'IMPORTER': return <ImporterDashboard />;
+        case 'EXPORTER': return <ExporterDashboard />;
+        case 'IMPORTER_BANK': return <ImporterBankDashboard />;
+        case 'EXPORTER_BANK': return <ExporterBankDashboard />;
+        case 'CUSTOMS':
+        case 'SHIPPING':
+        case 'INSURANCE':
+        case 'TAX':
+        case 'REGULATOR':
+            return <AuthorityDashboard />;
+        default:
+            return (
+                <div className="card-premium">
+                    <h2 className="text-2xl font-black text-slate-900 mb-2">Welcome, {user.name}</h2>
+                    <p className="text-slate-500 font-medium">Your portal is being prepared. Please select an option from the sidebar.</p>
+                </div>
+            );
+    }
+};
+
+export default DashboardHome;

@@ -41,11 +41,11 @@ model Trade {
   id               String   @id @default(uuid())
   blockchainId     Int?     @unique
   importerId       String
-  exporterId       String
+  exporterId       String?
   importerBankId   String?
   exporterBankId   String?
   importer         User     @relation("ImporterTrades", fields: [importerId], references: [id])
-  exporter         User     @relation("ExporterTrades", fields: [exporterId], references: [id])
+  exporter         User?    @relation("ExporterTrades", fields: [exporterId], references: [id])
   importerBank     User?    @relation("ImporterBankTrades", fields: [importerBankId], references: [id])
   exporterBank     User?    @relation("ExporterBankTrades", fields: [exporterBankId], references: [id])
   status           String   @default("CREATED")

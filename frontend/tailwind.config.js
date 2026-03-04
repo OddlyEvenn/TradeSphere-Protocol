@@ -6,6 +6,10 @@ export default {
   ],
   theme: {
     extend: {
+      boxShadow: {
+        'premium': '0 10px 40px rgba(0, 0, 0, 0.02)',
+        'premium-hover': '0 20px 60px rgba(0, 0, 0, 0.05)',
+      },
       colors: {
         primary: {
           50: '#f0f4f8',

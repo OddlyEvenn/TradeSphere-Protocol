@@ -8,12 +8,12 @@ export const createTrade = async (req: Request, res: Response) => {
 
         const trade = await (prisma.trade as any).create({
             data: {
-                importerId,
-                exporterId,
-                importerBankId,
-                exporterBankId,
                 amount: parseFloat(amount.toString()),
-                status: 'CREATED'
+                status: 'CREATED',
+                importer: { connect: { id: importerId } },
+                ...(exporterId && { exporter: { connect: { id: exporterId } } }),
+                ...(importerBankId && { importerBank: { connect: { id: importerBankId } } }),
+                ...(exporterBankId && { exporterBank: { connect: { id: exporterBankId } } })
             }
         });
 
