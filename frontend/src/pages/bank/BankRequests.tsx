@@ -19,6 +19,9 @@ interface Trade {
     status: string;
     amount: number;
     createdAt: string;
+    productName?: string;
+    importer?: { name: string };
+    exporter?: { name: string };
 }
 
 const BankRequests: React.FC = () => {
@@ -55,8 +58,23 @@ const BankRequests: React.FC = () => {
 
             let tx;
             if (action === 'ISSUE_LOC') {
+                if (trade.blockchainId === null || trade.blockchainId === undefined) throw new Error("This trade has no blockchain ID. It must be created on-chain by the importer first.");
                 tx = await contractLoC.issueLoC(trade.blockchainId);
+            } else if (action === 'VERIFY_LOC') {
+                await api.patch(`/trades/${trade.id}`, { status: 'LOC_VERIFIED' });
+                alert("✅ Letter of Credit Verified! The exporter can now nominate a carrier.");
+                fetchTrades();
+                setActionLoading(null);
+                return;
             } else if (action === 'VERIFY_DOCS') {
+                if (trade.blockchainId === null || trade.blockchainId === undefined) {
+                    // No blockchain ID — fallback to off-chain verification only
+                    await api.patch(`/trades/${trade.id}`, { status: 'DOCS_VERIFIED' });
+                    alert("✅ Documents Verified! Payment settlement can now be initiated.");
+                    fetchTrades();
+                    setActionLoading(null);
+                    return;
+                }
                 tx = await contractDoc.verifyAsBank(trade.blockchainId);
             }
 
@@ -64,6 +82,9 @@ const BankRequests: React.FC = () => {
                 console.log("Transaction sent:", tx.hash);
                 await tx.wait();
                 console.log("Transaction confirmed!");
+                // Sync DB status after on-chain action
+                if (action === 'ISSUE_LOC') await api.patch(`/trades/${trade.id}`, { status: 'LOC_ISSUED' });
+                if (action === 'VERIFY_DOCS') await api.patch(`/trades/${trade.id}`, { status: 'DOCS_VERIFIED' });
                 setTimeout(fetchTrades, 2000);
             }
         } catch (error: any) {
@@ -74,9 +95,24 @@ const BankRequests: React.FC = () => {
         }
     };
 
-    const targetStatus = user.role === 'IMPORTER_BANK' ? 'LOC_REQUESTED' : 'DOCS_SUBMITTED';
-    const actionLabel = user.role === 'IMPORTER_BANK' ? 'Issue LoC' : 'Verify Docs';
-    const actionKey = user.role === 'IMPORTER_BANK' ? 'ISSUE_LOC' : 'VERIFY_DOCS';
+    const getTargetStatuses = () => {
+        if (user.role === 'IMPORTER_BANK') return ['LOC_REQUESTED'];
+        if (user.role === 'EXPORTER_BANK') return ['EXPORTER_BANK_NOMINATED', 'LOC_ISSUED', 'DOCS_SUBMITTED', 'CUSTOMS_CLEARED'];
+        return [];
+    };
+
+    const getActionConfig = (trade: Trade) => {
+        if (user.role === 'IMPORTER_BANK') {
+            return { label: 'Issue LoC', key: 'ISSUE_LOC' };
+        }
+        if (user.role === 'EXPORTER_BANK') {
+            if (trade.status === 'EXPORTER_BANK_NOMINATED' || trade.status === 'LOC_ISSUED') return { label: 'Verify LoC', key: 'VERIFY_LOC' };
+            if (trade.status === 'DOCS_SUBMITTED' || trade.status === 'CUSTOMS_CLEARED') return { label: 'Verify Docs', key: 'VERIFY_DOCS' };
+        }
+        return { label: 'Process', key: 'PROCESS' };
+    };
+
+    const targetStatuses = getTargetStatuses();
 
     return (
         <div className="space-y-10">
@@ -106,52 +142,61 @@ const BankRequests: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {trades.filter(t => t.status === targetStatus).map((trade) => (
-                                <tr key={trade.id} className="hover:bg-slate-50/50 transition-colors">
-                                    <td className="px-8 py-6">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
-                                                ID
+                            {trades.filter(t => targetStatuses.includes(t.status) && t.status !== 'LOC_VERIFIED').map((trade) => {
+                                const config = getActionConfig(trade);
+                                return (
+                                    <tr key={trade.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
+                                                    ID
+                                                </div>
+                                                <div>
+                                                    <p className="font-black text-slate-900">#{trade.blockchainId || trade.id.slice(0, 8)}</p>
+                                                    <p className="text-xs font-bold text-slate-400 tracking-tight">{trade.productName || 'Trade Request'} — {trade.importer?.name || 'N/A'}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="font-black text-slate-900">#{trade.blockchainId || trade.id.slice(0, 8)}</p>
-                                                <p className="text-xs font-bold text-slate-400 tracking-tight">Main Corp Ltd.</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <p className="font-black text-slate-900">${trade.amount.toLocaleString()}</p>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <p className="text-sm font-bold text-slate-500">{new Date(trade.createdAt).toLocaleDateString()}</p>
-                                    </td>
-                                    <td className="px-8 py-6">
-                                        <span className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                            {trade.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-6 text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <button
-                                                onClick={() => handleAction(trade, actionKey)}
-                                                disabled={!!actionLoading}
-                                                className="btn-primary py-2 px-4 text-xs shadow-none"
-                                            >
-                                                {actionLoading === `${trade.id}-${actionKey}` ? (
-                                                    <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
-                                                ) : (
-                                                    <ShieldCheck size={14} />
-                                                )}
-                                                {actionLabel}
-                                            </button>
-                                            <button className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                                                <XCircle size={18} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {trades.filter(t => t.status === targetStatus).length === 0 && (
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <p className="font-black text-slate-900">${trade.amount.toLocaleString()}</p>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <p className="text-sm font-bold text-slate-500">{new Date(trade.createdAt).toLocaleDateString()}</p>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <span className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                                {trade.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-6 text-right">
+                                            {trade.status === 'LOC_VERIFIED' ? (
+                                                <div className="flex items-center justify-end gap-2 text-green-600 font-bold">
+                                                    <CheckCircle size={18} /> Verified
+                                                </div>
+                                            ) : (
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => handleAction(trade, config.key)}
+                                                        disabled={!!actionLoading}
+                                                        className="btn-primary py-2 px-4 text-xs shadow-none"
+                                                    >
+                                                        {actionLoading === `${trade.id}-${config.key}` ? (
+                                                            <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                                                        ) : (
+                                                            <ShieldCheck size={14} />
+                                                        )}
+                                                        {config.label}
+                                                    </button>
+                                                    <button className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                                                        <XCircle size={18} />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {trades.filter(t => targetStatuses.includes(t.status) && t.status !== 'LOC_VERIFIED').length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-8 py-20 text-center">
                                         <ClipboardCheck className="mx-auto text-slate-200 mb-4" size={48} />

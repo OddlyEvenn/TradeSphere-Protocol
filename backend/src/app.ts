@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import morgan from 'morgan';
 import authRoutes from './routes/authRoutes';
 import tradeRoutes from './routes/tradeRoutes';
+import marketplaceRoutes from './routes/marketplaceRoutes';
+import userRoutes from './routes/userRoutes';
 import { EventListenerService } from './services/EventListenerService';
 
 dotenv.config();
@@ -13,8 +15,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(morgan('dev')); // GET/POST/PUT logs
+const allowedOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',') : ['http://localhost:5173'];
+
 app.use(cors({
-    origin: 'http://localhost:5173', // Vite default port
+    origin: allowedOrigins,
     credentials: true
 }));
 app.use(express.json());
@@ -23,6 +27,8 @@ app.use(cookieParser());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/trades', tradeRoutes);
+app.use('/api/marketplace', marketplaceRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date() });

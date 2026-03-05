@@ -35,6 +35,9 @@ model User {
   tradesAsExporter  Trade[]  @relation("ExporterTrades")
   tradesAsImporterBank Trade[] @relation("ImporterBankTrades")
   tradesAsExporterBank Trade[] @relation("ExporterBankTrades")
+  tradesAsShipping     Trade[] @relation("ShippingTrades")
+  listings          MarketplaceListing[]
+  offers            MarketplaceOffer[]
 }
 
 model Trade {
@@ -42,14 +45,69 @@ model Trade {
   blockchainId     Int?     @unique
   importerId       String
   exporterId       String?
+  
+  // Marketplace / RFQ Fields
+  productName      String?
+  quantity         String?
+  destination      String?
+  shippingDeadline DateTime?
+  insuranceRequired Boolean @default(false)
+  additionalConditions String?
+  
   importerBankId   String?
   exporterBankId   String?
+  shippingId       String?
   importer         User     @relation("ImporterTrades", fields: [importerId], references: [id])
   exporter         User?    @relation("ExporterTrades", fields: [exporterId], references: [id])
   importerBank     User?    @relation("ImporterBankTrades", fields: [importerBankId], references: [id])
   exporterBank     User?    @relation("ExporterBankTrades", fields: [exporterBankId], references: [id])
+  shipping         User?    @relation("ShippingTrades", fields: [shippingId], references: [id])
   status           String   @default("CREATED")
   amount           Float
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  offers           MarketplaceOffer[]
+}
+
+model MarketplaceOffer {
+  id               String   @id @default(uuid())
+  tradeId          String
+  trade            Trade    @relation(fields: [tradeId], references: [id])
+  exporterId       String
+  exporter         User     @relation(fields: [exporterId], references: [id])
+  amount           Float
+  message          String?
+  status           String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  products  Product[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  listings    MarketplaceListing[]
+}
+
+model MarketplaceListing {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  exporterId  String
+  exporter    User     @relation(fields: [exporterId], references: [id])
+  price       Float
+  quantity    Int
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

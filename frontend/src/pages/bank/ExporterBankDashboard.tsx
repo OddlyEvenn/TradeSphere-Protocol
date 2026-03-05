@@ -114,28 +114,21 @@ const ExporterBankDashboard: React.FC = () => {
                     )}
                 </div>
 
-                <div className="bg-slate-50 rounded-[2rem] p-8 space-y-6">
-                    <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Recent Settlements</h2>
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
-                                    <CheckCircle size={16} />
-                                </div>
-                                <span className="text-sm font-bold text-slate-700">Settlement #442</span>
+                <div className="bg-slate-900 rounded-[2rem] p-8 space-y-6 text-white overflow-hidden relative">
+                    <div className="relative z-10">
+                        <h2 className="text-lg font-black uppercase tracking-tight mb-2">Verification Insights</h2>
+                        <p className="text-slate-400 text-sm font-medium italic opacity-80 leading-relaxed mb-6">"Every verified document triggers a cryptographically signed proof on the blockchain, ensuring immutable records for all global stakeholders."</p>
+                        <div className="p-5 bg-white/5 rounded-2xl border border-white/10">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Verification Speed</span>
+                                <span className="text-xs font-black text-emerald-400">INSTANT</span>
                             </div>
-                            <span className="text-sm font-black text-slate-900">$42,500</span>
-                        </div>
-                        <div className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100 opacity-60">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
-                                    <CheckCircle size={16} />
-                                </div>
-                                <span className="text-sm font-bold text-slate-700">Settlement #441</span>
+                            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div className="w-full h-full bg-indigo-500"></div>
                             </div>
-                            <span className="text-sm font-black text-slate-900">$18,200</span>
                         </div>
                     </div>
+                    <FileCheck className="absolute -bottom-10 -right-10 text-white/5" size={200} />
                 </div>
             </div>
         </div>

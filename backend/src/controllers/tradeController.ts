@@ -3,13 +3,31 @@ import { prisma } from '../services/PrismaService';
 
 export const createTrade = async (req: Request, res: Response) => {
     try {
-        const { exporterId, amount, importerBankId, exporterBankId } = req.body;
+        const {
+            exporterId,
+            amount,
+            importerBankId,
+            exporterBankId,
+            productName,
+            quantity,
+            destination,
+            shippingDeadline,
+            insuranceRequired,
+            additionalConditions,
+            status
+        } = req.body;
         const importerId = (req as any).user.userId;
 
         const trade = await (prisma.trade as any).create({
             data: {
                 amount: parseFloat(amount.toString()),
-                status: 'CREATED',
+                status: status || 'CREATED',
+                productName,
+                quantity,
+                destination,
+                shippingDeadline: shippingDeadline ? new Date(shippingDeadline) : null,
+                insuranceRequired: insuranceRequired === true || insuranceRequired === 'true',
+                additionalConditions,
                 importer: { connect: { id: importerId } },
                 ...(exporterId && { exporter: { connect: { id: exporterId } } }),
                 ...(importerBankId && { importerBank: { connect: { id: importerBankId } } }),
@@ -38,21 +56,26 @@ export const getMyTrades = async (req: Request, res: Response) => {
         } else if (role === 'EXPORTER') {
             trades = await (prisma.trade as any).findMany({
                 where: { exporterId: userId },
-                include: { importer: true, importerBank: true, exporterBank: true }
+                include: { importer: true, importerBank: true, exporterBank: true, shipping: true }
             });
         } else if (role === 'IMPORTER_BANK') {
             trades = await (prisma.trade as any).findMany({
                 where: { importerBankId: userId },
-                include: { importer: true, exporter: true, exporterBank: true }
+                include: { importer: true, exporter: true, exporterBank: true, shipping: true }
             });
         } else if (role === 'EXPORTER_BANK') {
             trades = await (prisma.trade as any).findMany({
                 where: { exporterBankId: userId },
-                include: { importer: true, exporter: true, importerBank: true }
+                include: { importer: true, exporter: true, importerBank: true, shipping: true }
+            });
+        } else if (role === 'SHIPPING') {
+            trades = await (prisma.trade as any).findMany({
+                where: { shippingId: userId },
+                include: { importer: true, exporter: true, importerBank: true, exporterBank: true }
             });
         } else {
             trades = await (prisma.trade as any).findMany({
-                include: { importer: true, exporter: true, importerBank: true, exporterBank: true }
+                include: { importer: true, exporter: true, importerBank: true, exporterBank: true, shipping: true }
             });
         }
 
@@ -69,10 +92,10 @@ export const getTradeById = async (req: Request, res: Response) => {
         const trade = await (prisma.trade as any).findUnique({
             where: { id: id as string },
             include: {
-                importer: { select: { id: true, name: true, email: true } },
-                exporter: { select: { id: true, name: true, email: true } },
-                importerBank: true,
-                exporterBank: true
+                importer: { select: { id: true, name: true, email: true, walletAddress: true } },
+                exporter: { select: { id: true, name: true, email: true, walletAddress: true } },
+                importerBank: { select: { id: true, name: true, email: true, walletAddress: true } },
+                exporterBank: { select: { id: true, name: true, email: true, walletAddress: true } }
             }
         });
 
@@ -80,6 +103,39 @@ export const getTradeById = async (req: Request, res: Response) => {
         res.json(trade);
     } catch (error: any) {
         console.error("Get trade by id error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getMarketplaceTrades = async (req: Request, res: Response) => {
+    try {
+        const trades = await (prisma.trade as any).findMany({
+            where: { status: 'OPEN_FOR_OFFERS' },
+            include: {
+                importer: { select: { id: true, name: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(trades);
+    } catch (error: any) {
+        console.error("Get marketplace trades error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const updateTrade = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+
+        const trade = await (prisma.trade as any).update({
+            where: { id },
+            data: updates,
+        });
+
+        res.json(trade);
+    } catch (error: any) {
+        console.error("Update trade error:", error);
         res.status(500).json({ message: error.message });
     }
 };

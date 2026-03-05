@@ -77,3 +77,24 @@ export const updateWalletAddress = async (req: Request, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const getUsers = async (req: Request, res: Response) => {
+    try {
+        const { role } = req.query;
+        const users = await prisma.user.findMany({
+            where: role ? { role: role as any } : {},
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                walletAddress: true
+            }
+        });
+        res.status(200).json(users);
+    } catch (error: any) {
+        console.error('Get users error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+

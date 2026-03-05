@@ -107,8 +107,8 @@ const ExporterDashboard: React.FC = () => {
                                         </div>
                                         <div className="text-right">
                                             <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'LOC_ISSUED' ? 'bg-amber-50 text-amber-600' :
-                                                    trade.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' :
-                                                        'bg-indigo-50 text-indigo-700'
+                                                trade.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' :
+                                                    'bg-indigo-50 text-indigo-700'
                                                 }`}>
                                                 {trade.status}
                                             </span>
@@ -129,29 +129,29 @@ const ExporterDashboard: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
-                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">New Opportunities</h2>
+                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Trade Opportunities</h2>
                     <div className="bg-indigo-600 rounded-[2rem] p-8 shadow-xl shadow-indigo-100 text-white space-y-6">
                         <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm">
                             <Globe className="text-indigo-100" size={32} />
                         </div>
                         <div>
-                            <h3 className="text-xl font-black tracking-tight">Marketplace is live</h3>
-                            <p className="text-indigo-100 text-sm mt-1 font-medium italic opacity-80">"Find high-value trade requests from verified global importers."</p>
+                            <h3 className="text-xl font-black tracking-tight">Marketplace Insights</h3>
+                            <p className="text-indigo-100 text-sm mt-1 font-medium italic opacity-80">Discover high-value trade requests from verified global importers.</p>
                         </div>
                         <div className="space-y-3">
                             <div className="flex justify-between text-xs font-bold uppercase tracking-widest">
-                                <span>Total Volume</span>
-                                <span>$4.2M</span>
+                                <span>Active Requests</span>
+                                <span>{trades.length}</span>
                             </div>
                             <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
-                                <div className="w-3/4 h-full bg-indigo-200"></div>
+                                <div className="h-full bg-indigo-200" style={{ width: trades.length > 0 ? '60%' : '0%' }}></div>
                             </div>
                         </div>
                         <button
                             onClick={() => navigate('/dashboard/discovery')}
                             className="w-full py-4 bg-white text-indigo-600 font-black rounded-2xl hover:bg-indigo-50 transition-all text-sm"
                         >
-                            Explore Marketplace
+                            Explore Open Trades
                         </button>
                     </div>
                 </div>

@@ -69,13 +69,13 @@ const Sidebar: React.FC<SidebarProps> = ({ role }) => {
                     { name: 'Policies', path: '/dashboard/policies', icon: ShieldCheck },
                     ...common.slice(1),
                 ];
-            case 'TAX':
+            case 'TAX_AUTHORITY':
                 return [
                     ...common.slice(0, 1),
                     { name: 'Compliance', path: '/dashboard/compliance', icon: BadgePercent },
                     ...common.slice(1),
                 ];
-            case 'REGULATOR':
+            case 'REGULATORS':
                 return [
                     ...common.slice(0, 1),
                     { name: 'Audits', path: '/dashboard/audits', icon: Gavel },

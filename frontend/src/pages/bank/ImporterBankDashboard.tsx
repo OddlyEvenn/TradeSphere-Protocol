@@ -127,37 +127,24 @@ const ImporterBankDashboard: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
-                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Compliance Metrics</h2>
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
-                            <ShieldCheck className="text-emerald-500" size={32} />
-                            <div>
-                                <p className="text-3xl font-black text-slate-900">99.2%</p>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">AML Compliance</p>
-                            </div>
-                        </div>
-                        <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
-                            <TrendingUp className="text-indigo-600" size={32} />
-                            <div>
-                                <p className="text-3xl font-black text-slate-900">12.4k</p>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Tx Volume</p>
-                            </div>
-                        </div>
-                        <div className="bg-slate-900 col-span-2 p-8 rounded-[2rem] text-white shadow-xl shadow-slate-100">
-                            <div className="flex items-center gap-4 mb-4">
-                                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
-                                    <Landmark size={20} />
-                                </div>
-                                <h3 className="text-lg font-black tracking-tight">System Liquidity</h3>
-                            </div>
-                            <div className="flex justify-between items-end">
+                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Compliance Monitor</h2>
+                    <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white overflow-hidden relative shadow-2xl shadow-indigo-200/20">
+                        <div className="relative z-10">
+                            <h3 className="text-xl font-black mb-1 uppercase tracking-tighter">Liquid Capital Reserve</h3>
+                            <p className="text-slate-400 text-sm mb-8 italic">"Total funds currently held in smart contract escrows for active trade letters of credit."</p>
+
+                            <div className="grid grid-cols-2 gap-8">
                                 <div>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Available Reserve</p>
-                                    <p className="text-2xl font-black">$2.45M</p>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Escrow Balance</p>
+                                    <p className="text-3xl font-black text-white">${trades.reduce((acc, t) => acc + (t.status === 'LOC_ISSUED' ? t.amount : 0), 0).toLocaleString()}</p>
                                 </div>
-                                <button className="text-sm font-bold text-indigo-400 hover:text-indigo-300 transition-all">Details</button>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Approval Velocity</p>
+                                    <p className="text-3xl font-black text-emerald-400">98%</p>
+                                </div>
                             </div>
                         </div>
+                        <ShieldCheck className="absolute -bottom-10 -right-10 text-white/5" size={240} />
                     </div>
                 </div>
             </div>

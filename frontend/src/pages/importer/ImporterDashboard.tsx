@@ -108,8 +108,8 @@ const ImporterDashboard: React.FC = () => {
                                         <div className="text-right">
                                             <p className="text-2xl font-black text-slate-900">${trade.amount.toLocaleString()}</p>
                                             <span className={`inline-block mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'CREATED' ? 'bg-amber-50 text-amber-600' :
-                                                    trade.status === 'PAYMENT_AUTHORIZED' ? 'bg-emerald-50 text-emerald-600' :
-                                                        'bg-indigo-50 text-indigo-700'
+                                                trade.status === 'PAYMENT_AUTHORIZED' ? 'bg-emerald-50 text-emerald-600' :
+                                                    'bg-indigo-50 text-indigo-700'
                                                 }`}>
                                                 {trade.status}
                                             </span>
@@ -129,27 +129,16 @@ const ImporterDashboard: React.FC = () => {
 
                 <div className="space-y-6">
                     <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Marketplace Activity</h2>
-                    <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm space-y-6">
-                        <div className="flex gap-4">
-                            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <ClipboardList size={20} />
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-900"><strong>3 new offers</strong> received for "Electronic Components" trade.</p>
-                                <p className="text-xs text-slate-400 mt-1 font-bold">2 hours ago</p>
-                            </div>
+                    <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm space-y-6 text-center">
+                        <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mx-auto">
+                            <ClipboardList size={32} />
                         </div>
-                        <div className="flex gap-4 border-t border-slate-50 pt-6">
-                            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <Shield size={20} />
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-900"><strong>Verification success</strong>: All exporters verified for latest request.</p>
-                                <p className="text-xs text-slate-400 mt-1 font-bold">5 hours ago</p>
-                            </div>
+                        <div>
+                            <p className="text-sm font-bold text-slate-900">Real-time Activity Feed</p>
+                            <p className="text-xs text-slate-400 mt-1">Notifications and offers for your trade requests will appear here in real-time.</p>
                         </div>
-                        <button onClick={() => navigate('/dashboard/marketplace')} className="w-full py-4 bg-slate-50 text-slate-500 font-bold rounded-2xl hover:bg-slate-100 transition-all text-sm flex items-center justify-center gap-2">
-                            Go to Marketplace <ArrowRight size={16} />
+                        <button onClick={() => navigate('/dashboard/marketplace')} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all text-sm flex items-center justify-center gap-2">
+                            Marketplace <ArrowRight size={16} />
                         </button>
                     </div>
                 </div>

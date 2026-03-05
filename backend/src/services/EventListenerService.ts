@@ -8,7 +8,7 @@ export class EventListenerService {
         // 1. Listen for TradeCreated
         blockchainService.tradeRegistry.on(
             "TradeCreated",
-            async (tradeId, importerAddr, exporterAddr, amount, event) => {
+            async (tradeId: any, importerAddr: any, exporterAddr: any, amount: any, event: any) => {
                 console.log(`[TradeCreated] ID: ${tradeId}, Importer: ${importerAddr}, Exporter: ${exporterAddr}`);
 
                 try {
@@ -44,7 +44,7 @@ export class EventListenerService {
         // 2. Listen for TradeStatusUpdated
         blockchainService.tradeRegistry.on(
             "TradeStatusUpdated",
-            async (tradeId, newStatus, event) => {
+            async (tradeId: any, newStatus: any, event: any) => {
                 console.log(`[TradeStatusUpdated] ID: ${tradeId}, Status: ${newStatus}`);
 
                 const statusMap: Record<number, string> = {
@@ -72,7 +72,7 @@ export class EventListenerService {
         // 3. Listen for DocumentsSubmitted (from DocumentVerification contract)
         blockchainService.documentVerification.on(
             "DocumentsSubmitted",
-            async (tradeId, ipfsHash, event) => {
+            async (tradeId: any, ipfsHash: any, event: any) => {
                 console.log(`[DocumentsSubmitted] ID: ${tradeId}, IPFS: ${ipfsHash}`);
                 // We could store the IPFS hash in a separate 'Documents' model or update the Trade record
                 // For now, we just log it and the status update will handle the rest.

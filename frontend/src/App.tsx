@@ -7,9 +7,17 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import DashboardHome from './pages/DashboardHome';
 import ImporterDashboard from './pages/importer/ImporterDashboard';
 import CreateTradeRequest from './pages/importer/CreateTradeRequest';
+import TradeDetails from './pages/importer/TradeDetails';
 import ExporterDashboard from './pages/exporter/ExporterDashboard';
 import MarketplaceDiscovery from './pages/exporter/MarketplaceDiscovery';
+import SubmitOffer from './pages/exporter/SubmitOffer';
 import BankRequests from './pages/bank/BankRequests';
+import ImporterTrades from './pages/importer/ImporterTrades';
+import ShipmentDetails from './pages/exporter/ShipmentDetails';
+import ShippingDashboard from './pages/stakeholders/ShippingDashboard';
+import CustomsDashboard from './pages/stakeholders/CustomsDashboard';
+import TaxDashboard from './pages/stakeholders/TaxDashboard';
+import RegulatorDashboard from './pages/stakeholders/RegulatorDashboard';
 
 // Placeholder components for portals
 const Placeholder = ({ title }: { title: string }) => (
@@ -50,22 +58,25 @@ function App() {
 
                         {/* Importer Routes */}
                         <Route path="marketplace" element={<CreateTradeRequest />} />
-                        <Route path="trades" element={<Placeholder title="My Trades" />} />
+                        <Route path="trades" element={<ImporterTrades />} />
+                        <Route path="trades/:id" element={<TradeDetails />} />
 
                         {/* Exporter Routes */}
                         <Route path="discovery" element={<MarketplaceDiscovery />} />
-                        <Route path="shipments" element={<Placeholder title="Shipments" />} />
+                        <Route path="discovery/submit-offer/:tradeId" element={<SubmitOffer />} />
+                        <Route path="shipments" element={<ExporterDashboard />} />
+                        <Route path="shipments/:id" element={<ShipmentDetails />} />
 
                         {/* Bank Routes */}
                         <Route path="requests" element={<BankRequests />} />
                         <Route path="approvals" element={<BankRequests />} />
 
                         {/* Authority Routes */}
-                        <Route path="inspections" element={<Placeholder title="Customs Inspections" />} />
-                        <Route path="fleet" element={<Placeholder title="Shipping Fleet" />} />
+                        <Route path="inspections" element={<CustomsDashboard />} />
+                        <Route path="fleet" element={<ShippingDashboard />} />
                         <Route path="policies" element={<Placeholder title="Insurance Policies" />} />
-                        <Route path="compliance" element={<Placeholder title="Tax Compliance" />} />
-                        <Route path="audits" element={<Placeholder title="Regulatory Audits" />} />
+                        <Route path="compliance" element={<TaxDashboard />} />
+                        <Route path="audits" element={<RegulatorDashboard />} />
 
                         {/* Common Routes */}
                         <Route path="documents" element={<Placeholder title="Documents" />} />

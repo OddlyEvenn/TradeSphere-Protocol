@@ -16,7 +16,7 @@ const CreateTradeRequest: React.FC = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
-        product: '',
+        productName: '',
         quantity: '',
         destination: '',
         priceRange: '',
@@ -29,14 +29,13 @@ const CreateTradeRequest: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            // In a real app, this would call an endpoint to create a MARKETPLACE request
-            // For now, we might just simulate it or create a trade with status OPEN_FOR_OFFERS
             await api.post('/trades', {
                 ...formData,
                 amount: parseFloat(formData.priceRange.split('-')[1] || formData.priceRange) || 0,
                 status: 'OPEN_FOR_OFFERS'
             });
-            navigate('/dashboard/marketplace');
+            alert("✅ Trade Request Published to Marketplace Successfully!");
+            navigate('/dashboard'); // Go back to dashboard to see results
         } catch (err) {
             console.error('Failed to create trade request', err);
         } finally {
@@ -70,8 +69,8 @@ const CreateTradeRequest: React.FC = () => {
                                 required
                                 className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white rounded-2xl py-4 pl-12 pr-4 text-slate-900 font-bold transition-all"
                                 placeholder="e.g. 500 MT Raw Copper"
-                                value={formData.product}
-                                onChange={e => setFormData({ ...formData, product: e.target.value })}
+                                value={formData.productName}
+                                onChange={e => setFormData({ ...formData, productName: e.target.value })}
                             />
                         </div>
                     </div>

@@ -15,7 +15,8 @@ import {
 
 interface TradeRequest {
     id: string;
-    product: string;
+    product?: string;
+    productName?: string;
     quantity: string;
     destination: string;
     amount: number;
@@ -34,11 +35,34 @@ const MarketplaceDiscovery: React.FC = () => {
 
     const fetchRequests = async () => {
         try {
-            // Fetch trades with OPEN_FOR_OFFERS status
-            const res = await api.get('/trades');
-            setRequests(res.data.filter((t: any) => t.status === 'OPEN_FOR_OFFERS'));
+            // Fetch trades with OPEN_FOR_OFFERS status from the new marketplace endpoint
+            const res = await api.get('/trades/marketplace');
+            setRequests(res.data);
         } catch (err) {
             console.error('Failed to fetch trade requests', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSubmitOffer = async (tradeId: string) => {
+        const amount = prompt("Enter your offer amount (USD):");
+        if (!amount || isNaN(parseFloat(amount))) return;
+
+        const message = prompt("Optional message for the importer:");
+
+        try {
+            setLoading(true);
+            await api.post('/marketplace/offers', {
+                tradeId,
+                amount: parseFloat(amount),
+                message: message || ""
+            });
+            alert("✅ Offer submitted successfully!");
+            // Optionally refresh or update state
+        } catch (err: any) {
+            console.error('Failed to submit offer', err);
+            alert("❌ Failed to submit offer: " + (err.response?.data?.message || err.message));
         } finally {
             setLoading(false);
         }
@@ -85,7 +109,7 @@ const MarketplaceDiscovery: React.FC = () => {
 
                             <div className="flex-1 space-y-4">
                                 <div>
-                                    <h3 className="text-xl font-black text-slate-900 leading-tight">{req.product}</h3>
+                                    <h3 className="text-xl font-black text-slate-900 leading-tight">{req.productName || (req as any).product}</h3>
                                     <div className="flex items-center gap-2 text-slate-400 mt-1">
                                         <MapPin size={14} />
                                         <span className="text-xs font-bold uppercase tracking-wider">{req.destination}</span>
@@ -115,7 +139,10 @@ const MarketplaceDiscovery: React.FC = () => {
                                 </div>
                             </div>
 
-                            <button className="w-full mt-8 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-slate-900 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100">
+                            <button
+                                onClick={() => navigate(`/dashboard/discovery/submit-offer/${req.id}`)}
+                                className="w-full mt-8 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-slate-900 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100"
+                            >
                                 Submit Offer <ArrowRight size={18} />
                             </button>
                         </div>
