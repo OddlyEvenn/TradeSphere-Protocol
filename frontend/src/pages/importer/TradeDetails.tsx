@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import api from '../../services/api';
 import {
     ArrowLeft,
@@ -15,22 +15,31 @@ import {
     Landmark
 } from 'lucide-react';
 import { walletService } from '../../services/WalletService';
+import { useToast } from '../../contexts/ToastContext';
 
 const TradeDetails: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user, account } = useOutletContext<{ user: any, account: string | null }>();
     const [trade, setTrade] = useState<any>(null);
     const [offers, setOffers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [finalizing, setFinalizing] = useState(false);
     const [requestingLoC, setRequestingLoC] = useState(false);
     const [settlingPayment, setSettlingPayment] = useState(false);
     const [banks, setBanks] = useState<any[]>([]);
     const [selectedBankId, setSelectedBankId] = useState('');
+    const toast = useToast();
 
     useEffect(() => {
+        // Redirect exporters to their ShipmentDetails page
+        if (user?.role === 'EXPORTER') {
+            navigate(`/dashboard/shipments/${id}`, { replace: true });
+            return;
+        }
         fetchTradeData();
-    }, [id]);
+    }, [id, user]);
 
     const fetchTradeData = async () => {
         try {
@@ -56,72 +65,134 @@ const TradeDetails: React.FC = () => {
         setFinalizing(true);
         try {
             await api.post(`/marketplace/offers/${offerId}/accept`);
-            alert("✅ Trade Finalized! The workflow has transitioned to the official trade state.");
+            toast.success("Trade Finalized! The workflow has transitioned to the official trade state.");
             fetchTradeData(); // Refresh to show LoC request options
         } catch (err: any) {
             console.error('Finalization failed', err);
-            alert("❌ Failed to finalize trade: " + (err.response?.data?.message || err.message));
+            toast.error("Failed to finalize trade: " + (err.response?.data?.message || err.message));
         } finally {
             setFinalizing(false);
         }
     };
 
+    const handleCreateOnChain = async () => {
+        if (!trade) return;
+        if (!account && !user?.walletAddress) {
+            toast.error("Please connect your wallet or set a manual override in Settings!");
+            return;
+        }
+
+        setActionLoading('CREATE_ON_CHAIN');
+        try {
+            // Check if we are in Manual Wallet Override Mode
+            if (!account && user?.walletAddress) {
+                toast.info("Manual Wallet Mode: Simulating trade registry...");
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                toast.success("Trade registered on-chain successfully!");
+                const fakeId = Math.floor(Math.random() * 10000);
+                await api.patch(`/trades/${trade.id}`, { blockchainId: fakeId });
+                setTrade({ ...trade, blockchainId: fakeId });
+                return;
+            }
+
+            const registry = walletService.getTradeRegistry();
+            const tx = await registry.createTrade(
+                trade.importerId,
+                trade.exporter.walletAddress || "0x123",
+                trade.importerBank?.walletAddress || "0x456",
+                ethers.parseEther((trade.amount / 2000).toString()) // Simplified conversion
+            );
+
+            toast.info("Transaction sent, awaiting confirmation...");
+            const receipt = await tx.wait();
+
+            // Find TradeCreated event to get the ID
+            const event = receipt.logs.find((log: any) => {
+                try {
+                    const parsed = registry.interface.parseLog(log);
+                    return parsed?.name === 'TradeCreated';
+                } catch (e) { return false; }
+            });
+
+            if (!event) throw new Error("TradeCreated event not found in transaction logs.");
+            const parsedEvent = registry.interface.parseLog(event);
+            const blockchainId = Number(parsedEvent!.args.tradeId);
+
+            await api.patch(`/trades/${trade.id}`, { blockchainId });
+            setTrade({ ...trade, blockchainId });
+            toast.success(`Trade registered on-chain with ID: ${blockchainId}`);
+
+        } catch (err: any) {
+            console.error("Failed to create on-chain", err);
+            toast.error(err.reason || err.message || "Failed to create trade on-chain");
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
     const handleRequestLoC = async () => {
-        if (!selectedBankId) return alert("Please select a bank first.");
+        if (!selectedBankId) return toast.error("Please select a bank first.");
         const selectedBank = banks.find(b => b.id === selectedBankId);
-        if (!selectedBank?.walletAddress) return alert("Selected bank has no wallet address linked.");
-        if (!trade.exporter?.walletAddress) return alert("Exporter has no wallet address linked. They must connect their wallet first.");
+        if (!selectedBank?.walletAddress) return toast.error("Selected bank has no wallet address linked.");
+        if (!trade.exporter?.walletAddress) return toast.error("Exporter has no wallet address linked. They must connect their wallet first.");
 
         setRequestingLoC(true);
         try {
+            // Check if we are in Manual Wallet Override Mode
+            if (!account && user?.walletAddress) {
+                let blockchainId = trade.blockchainId;
+                if (blockchainId === null || blockchainId === undefined) {
+                    toast.info("Creating trade on blockchain first...");
+                    await handleCreateOnChain();
+                    const updatedTradeRes = await api.get(`/trades/${id}`);
+                    setTrade(updatedTradeRes.data);
+                    blockchainId = updatedTradeRes.data.blockchainId;
+                    if (blockchainId === null || blockchainId === undefined) {
+                        throw new Error("Failed to simulate trade on blockchain.");
+                    }
+                }
+
+                toast.info("Manual Wallet Mode: Simulating LoC request...");
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                await api.patch(`/trades/${trade.id}`, {
+                    status: 'LOC_REQUESTED',
+                    importerBankId: selectedBankId
+                });
+                setTrade({ ...trade, status: 'LOC_REQUESTED', importerBankId: selectedBankId });
+                toast.success("Letter of Credit Requested! The Importer's Bank will now review the application.");
+                return;
+            }
+
+            // Normal MetaMask Execution Path
+            if (!account) {
+                toast.error("Please connect your wallet first.");
+                return;
+            }
+
             // 1. Initial trade creation on blockchain if not already there
             let blockchainId = trade.blockchainId;
 
             if (blockchainId === null || blockchainId === undefined) {
-                alert("⏳ Creating trade on blockchain first...");
-                const registry = walletService.getTradeRegistry();
-                const amountWei = ethers.parseEther(trade.amount.toString());
-
-                const exporterAddr = trade.exporter?.walletAddress;
-                const bankAddr = selectedBank?.walletAddress;
-
-                if (!exporterAddr || !bankAddr) {
-                    throw new Error("Missing required wallet addresses (Exporter or Bank).");
+                toast.info("Creating trade on blockchain first...");
+                await handleCreateOnChain(); // Call the new function
+                // Re-fetch trade data to get the updated blockchainId
+                const updatedTradeRes = await api.get(`/trades/${id}`);
+                setTrade(updatedTradeRes.data);
+                blockchainId = updatedTradeRes.data.blockchainId;
+                if (blockchainId === null || blockchainId === undefined) {
+                    throw new Error("Failed to create trade on blockchain.");
                 }
-
-                const tx = await registry.createTrade(
-                    exporterAddr,
-                    bankAddr, // Issuing Bank
-                    bankAddr, // Advising Bank (Simplified)
-                    amountWei
-                );
-
-                const receipt = await tx.wait();
-                // Find TradeCreated event to get the ID
-                const event = receipt.logs.find((log: any) => {
-                    try {
-                        const parsed = registry.interface.parseLog(log);
-                        return parsed?.name === 'TradeCreated';
-                    } catch (e) { return false; }
-                });
-
-                if (!event) throw new Error("TradeCreated event not found in transaction logs.");
-                const parsedEvent = registry.interface.parseLog(event);
-                blockchainId = Number(parsedEvent!.args.tradeId);
-
-                // Update DB immediately with blockchainId
-                await api.patch(`/trades/${trade.id}`, { blockchainId });
-                console.log("On-chain trade created with ID:", blockchainId);
             }
 
             // 2. Request LoC via WalletService
-            alert("⏳ Requesting Letter of Credit on blockchain...");
+            toast.info("Requesting Letter of Credit on blockchain...");
             const locContract = walletService.getLetterOfCredit();
             // Set 30 day expiry
             const expiry = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
 
             const tx = await locContract.requestLoC(blockchainId, expiry);
-            alert("⏳ LoC Request transaction sent. Waiting for confirmation...");
+            toast.info("LoC Request transaction sent. Waiting for confirmation...");
             await tx.wait();
 
             // 3. Update DB status and assign bank
@@ -130,11 +201,11 @@ const TradeDetails: React.FC = () => {
                 importerBankId: selectedBankId
             });
 
-            alert("✅ Letter of Credit Requested! The Importer's Bank will now review the application.");
+            toast.success("Letter of Credit Requested! The Importer's Bank will now review the application.");
             fetchTradeData();
         } catch (err: any) {
             console.error('LoC Request failed', err);
-            alert("❌ Failed to process request: " + (err.reason || err.message));
+            toast.error("Failed to process request: " + (err.reason || err.message));
         } finally {
             setRequestingLoC(false);
         }
@@ -142,20 +213,38 @@ const TradeDetails: React.FC = () => {
 
     const handleSettlement = async () => {
         if (!window.confirm("Release payment to Exporter? This action is irreversible.")) return;
+        if (!trade) return;
+
+        if (!account && !user?.walletAddress) {
+            toast.error("Please connect your wallet or set a manual override in Settings!");
+            return;
+        }
+
         setSettlingPayment(true);
         try {
+            // Check if we are in Manual Wallet Override Mode
+            if (!account && user?.walletAddress) {
+                toast.info("Manual Wallet Mode: Simulating payment settlement...");
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                await api.patch(`/trades/${trade.id}`, { status: 'COMPLETED' });
+                setTrade({ ...trade, status: 'COMPLETED' });
+                toast.success("Payment Released! Trade is now COMPLETED.");
+                return;
+            }
+
             if (trade.blockchainId !== null && trade.blockchainId !== undefined) {
                 const settlement = walletService.getPaymentSettlement();
                 const tx = await settlement.settlePayment(trade.blockchainId);
-                alert("⏳ Settlement transaction sent. Waiting for confirmation...");
+                toast.info("Settlement transaction sent. Waiting for confirmation...");
                 await tx.wait();
             }
             await api.patch(`/trades/${trade.id}`, { status: 'COMPLETED' });
-            alert("✅ Payment Released! Trade is now COMPLETED.");
+            toast.success("Payment Released! Trade is now COMPLETED.");
             fetchTradeData();
         } catch (err: any) {
             console.error('Payment settlement failed', err);
-            alert("❌ Settlement failed: " + (err.reason || err.message));
+            toast.error("Settlement failed: " + (err.reason || err.message));
         } finally {
             setSettlingPayment(false);
         }
@@ -276,9 +365,25 @@ const TradeDetails: React.FC = () => {
                         <div className="card-premium border-emerald-100 bg-emerald-50/20">
                             <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
                                 <CheckCircle2 className="text-emerald-600" />
-                                Documents Verified
+                                Settlement & Payment
                             </h2>
-                            <p className="text-sm font-medium text-slate-500 mb-6">All shipping documents have been verified by the Exporter's Bank. You can now release the payment to complete the trade.</p>
+                            <p className="text-sm font-medium text-slate-500 mb-6">Documents verified and taxes assessed. Review the final settlement breakdown before releasing payment.</p>
+
+                            <div className="bg-white rounded-2xl p-4 mb-6 border border-emerald-100/50 space-y-3">
+                                <div className="flex justify-between items-center text-sm font-bold text-slate-600">
+                                    <span>Base Trade Value (Exporter)</span>
+                                    <span>${trade.amount?.toLocaleString() || '0'}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm font-bold text-slate-600">
+                                    <span>Assessed Customs Tax (Authority)</span>
+                                    <span>${trade.taxAmount?.toLocaleString() || '0'}</span>
+                                </div>
+                                <div className="border-t border-slate-100 pt-3 flex justify-between items-center font-black text-slate-900">
+                                    <span>Total Amount Payable</span>
+                                    <span>${((trade.amount || 0) + (trade.taxAmount || 0)).toLocaleString()}</span>
+                                </div>
+                            </div>
+
                             <button
                                 onClick={handleSettlement}
                                 disabled={settlingPayment}

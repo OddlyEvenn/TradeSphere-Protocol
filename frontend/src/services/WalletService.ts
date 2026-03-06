@@ -32,7 +32,7 @@ export class WalletService {
 
     public async connect(): Promise<string | null> {
         if (!window.ethereum) {
-            alert("MetaMask not found! Please install it.");
+            console.error("MetaMask not found! Please install it.");
             return null;
         }
 

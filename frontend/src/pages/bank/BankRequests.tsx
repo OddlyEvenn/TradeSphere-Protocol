@@ -12,6 +12,7 @@ import {
     XCircle,
     Clock
 } from 'lucide-react';
+import { useToast } from '../../contexts/ToastContext';
 
 interface Trade {
     id: string;
@@ -29,6 +30,7 @@ const BankRequests: React.FC = () => {
     const [trades, setTrades] = useState<Trade[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const toast = useToast();
 
     useEffect(() => {
         fetchTrades();
@@ -46,13 +48,32 @@ const BankRequests: React.FC = () => {
     };
 
     const handleAction = async (trade: Trade, action: string) => {
-        if (!account) {
-            alert("Please connect your wallet first!");
+        if (!account && !user?.walletAddress) {
+            toast.error("Please connect your wallet or set a manual override in Settings!");
             return;
         }
 
         setActionLoading(`${trade.id}-${action}`);
         try {
+            // Check if we are in Manual Wallet Override Mode (No MetaMask connected)
+            if (!account && user?.walletAddress) {
+                toast.info("Manual Wallet Mode: Simulating on-chain transaction...");
+
+                // Simulate blockchain delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                toast.success("Transaction simulated successfully!");
+
+                // Proceed directly to DB updates
+                if (action === 'ISSUE_LOC') await api.patch(`/trades/${trade.id}`, { status: 'LOC_ISSUED' });
+                if (action === 'VERIFY_DOCS') await api.patch(`/trades/${trade.id}`, { status: 'DOCS_VERIFIED' });
+                if (action === 'VERIFY_LOC') await api.patch(`/trades/${trade.id}`, { status: 'LOC_VERIFIED' });
+
+                setTimeout(fetchTrades, 1000);
+                return;
+            }
+
+            // Normal MetaMask Execution Path
             const contractLoC = walletService.getLetterOfCredit();
             const contractDoc = walletService.getDocumentVerification();
 
@@ -62,7 +83,7 @@ const BankRequests: React.FC = () => {
                 tx = await contractLoC.issueLoC(trade.blockchainId);
             } else if (action === 'VERIFY_LOC') {
                 await api.patch(`/trades/${trade.id}`, { status: 'LOC_VERIFIED' });
-                alert("✅ Letter of Credit Verified! The exporter can now nominate a carrier.");
+                toast.success("Letter of Credit Verified! The exporter can now nominate a carrier.");
                 fetchTrades();
                 setActionLoading(null);
                 return;
@@ -70,7 +91,7 @@ const BankRequests: React.FC = () => {
                 if (trade.blockchainId === null || trade.blockchainId === undefined) {
                     // No blockchain ID — fallback to off-chain verification only
                     await api.patch(`/trades/${trade.id}`, { status: 'DOCS_VERIFIED' });
-                    alert("✅ Documents Verified! Payment settlement can now be initiated.");
+                    toast.success("Documents Verified! Payment settlement can now be initiated.");
                     fetchTrades();
                     setActionLoading(null);
                     return;
@@ -80,8 +101,10 @@ const BankRequests: React.FC = () => {
 
             if (tx) {
                 console.log("Transaction sent:", tx.hash);
+                toast.info("Transaction sent. Waiting for confirmation...");
                 await tx.wait();
                 console.log("Transaction confirmed!");
+                toast.success("Transaction confirmed successfully!");
                 // Sync DB status after on-chain action
                 if (action === 'ISSUE_LOC') await api.patch(`/trades/${trade.id}`, { status: 'LOC_ISSUED' });
                 if (action === 'VERIFY_DOCS') await api.patch(`/trades/${trade.id}`, { status: 'DOCS_VERIFIED' });
@@ -89,7 +112,7 @@ const BankRequests: React.FC = () => {
             }
         } catch (error: any) {
             console.error(`Action ${action} failed:`, error);
-            alert(`Error: ${error.reason || error.message || "Execution reverted"}`);
+            toast.error(`Error: ${error.reason || error.message || "Execution reverted"}`);
         } finally {
             setActionLoading(null);
         }

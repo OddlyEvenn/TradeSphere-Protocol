@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate, useLocation } from 'react-router-dom';
 import api from '../../services/api';
 import {
     Truck,
@@ -25,6 +25,8 @@ const ExporterDashboard: React.FC = () => {
     const [trades, setTrades] = useState<Trade[]>([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+    const location = useLocation();
+    const isFullView = location.pathname === '/dashboard/shipments';
 
     useEffect(() => {
         fetchTrades();
@@ -79,12 +81,14 @@ const ExporterDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                <div className="lg:col-span-2 space-y-6">
+                <div className={`${isFullView ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
                     <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Active Portfolio</h2>
-                        <button onClick={() => navigate('/dashboard/shipments')} className="text-sm font-bold text-indigo-600 flex items-center gap-1 hover:underline">
-                            View All <ArrowRight size={14} />
-                        </button>
+                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">{isFullView ? 'All Shipments' : 'Active Portfolio'}</h2>
+                        {!isFullView && (
+                            <button onClick={() => navigate('/dashboard/shipments')} className="text-sm font-bold text-indigo-600 flex items-center gap-1 hover:underline">
+                                View All <ArrowRight size={14} />
+                            </button>
+                        )}
                     </div>
 
                     {loading ? (
@@ -93,7 +97,7 @@ const ExporterDashboard: React.FC = () => {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {trades.filter(t => t.status !== 'OPEN_FOR_OFFERS').slice(0, 3).map((trade) => (
+                            {trades.filter(t => t.status !== 'OPEN_FOR_OFFERS').slice(0, isFullView ? undefined : 3).map((trade) => (
                                 <div key={trade.id} className="card-premium group cursor-pointer hover:border-indigo-100" onClick={() => navigate(`/dashboard/shipments/${trade.id}`)}>
                                     <div className="flex justify-between items-start">
                                         <div className="flex gap-5">
@@ -128,33 +132,35 @@ const ExporterDashboard: React.FC = () => {
                     )}
                 </div>
 
-                <div className="space-y-6">
-                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Trade Opportunities</h2>
-                    <div className="bg-indigo-600 rounded-[2rem] p-8 shadow-xl shadow-indigo-100 text-white space-y-6">
-                        <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm">
-                            <Globe className="text-indigo-100" size={32} />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-black tracking-tight">Marketplace Insights</h3>
-                            <p className="text-indigo-100 text-sm mt-1 font-medium italic opacity-80">Discover high-value trade requests from verified global importers.</p>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="flex justify-between text-xs font-bold uppercase tracking-widest">
-                                <span>Active Requests</span>
-                                <span>{trades.length}</span>
+                {!isFullView && (
+                    <div className="space-y-6">
+                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Trade Opportunities</h2>
+                        <div className="bg-indigo-600 rounded-[2rem] p-8 shadow-xl shadow-indigo-100 text-white space-y-6">
+                            <div className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm">
+                                <Globe className="text-indigo-100" size={32} />
                             </div>
-                            <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
-                                <div className="h-full bg-indigo-200" style={{ width: trades.length > 0 ? '60%' : '0%' }}></div>
+                            <div>
+                                <h3 className="text-xl font-black tracking-tight">Marketplace Insights</h3>
+                                <p className="text-indigo-100 text-sm mt-1 font-medium italic opacity-80">Discover high-value trade requests from verified global importers.</p>
                             </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between text-xs font-bold uppercase tracking-widest">
+                                    <span>Active Requests</span>
+                                    <span>{trades.length}</span>
+                                </div>
+                                <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                                    <div className="h-full bg-indigo-200" style={{ width: trades.length > 0 ? '60%' : '0%' }}></div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => navigate('/dashboard/discovery')}
+                                className="w-full py-4 bg-white text-indigo-600 font-black rounded-2xl hover:bg-indigo-50 transition-all text-sm"
+                            >
+                                Explore Open Trades
+                            </button>
                         </div>
-                        <button
-                            onClick={() => navigate('/dashboard/discovery')}
-                            className="w-full py-4 bg-white text-indigo-600 font-black rounded-2xl hover:bg-indigo-50 transition-all text-sm"
-                        >
-                            Explore Open Trades
-                        </button>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

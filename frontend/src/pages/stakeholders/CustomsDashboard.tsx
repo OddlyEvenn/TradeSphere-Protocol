@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { ShieldCheck, Search, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
+import { useToast } from '../../contexts/ToastContext';
 
 const CustomsDashboard: React.FC = () => {
     const [trades, setTrades] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const toast = useToast();
 
     useEffect(() => {
         fetchTrades();
@@ -27,11 +29,11 @@ const CustomsDashboard: React.FC = () => {
     const handleClearShipment = async (tradeId: string) => {
         try {
             await api.patch(`/trades/${tradeId}`, { status: 'CUSTOMS_CLEARED' });
-            alert("✅ Shipment Cleared by Customs!");
+            toast.success("Shipment Cleared by Customs!");
             fetchTrades();
         } catch (err) {
             console.error('Failed to clear shipment', err);
-            alert("❌ Failed to clear shipment");
+            toast.error("Failed to clear shipment");
         }
     };
 

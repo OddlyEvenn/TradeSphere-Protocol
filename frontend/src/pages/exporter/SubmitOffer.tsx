@@ -12,6 +12,7 @@ import {
     Info,
     CheckCircle2
 } from 'lucide-react';
+import { useToast } from '../../contexts/ToastContext';
 
 const SubmitOffer: React.FC = () => {
     const { tradeId } = useParams();
@@ -21,6 +22,7 @@ const SubmitOffer: React.FC = () => {
     const [trade, setTrade] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const toast = useToast();
 
     const [formData, setFormData] = useState({
         amount: '',
@@ -56,11 +58,11 @@ const SubmitOffer: React.FC = () => {
                 message: formData.message,
                 status: 'PENDING'
             });
-            alert("✅ Offer submitted successfully! The Importer will review and finalize the trade.");
+            toast.success("Offer submitted successfully! The Importer will review and finalize the trade.");
             navigate('/dashboard/discovery');
         } catch (err: any) {
             console.error('Submission failed', err);
-            alert("❌ Failed to submit offer: " + (err.response?.data?.message || err.message));
+            toast.error("Failed to submit offer: " + (err.response?.data?.message || err.message));
         } finally {
             setSubmitting(false);
         }

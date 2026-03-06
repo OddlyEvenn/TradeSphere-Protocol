@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { Truck, MapPin, CheckCircle2, Clock, ShieldCheck } from 'lucide-react';
+import { useToast } from '../../contexts/ToastContext';
 
 const ShippingDashboard: React.FC = () => {
     const [trades, setTrades] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const toast = useToast();
 
     useEffect(() => {
         fetchTrades();
@@ -26,11 +28,11 @@ const ShippingDashboard: React.FC = () => {
     const handleAction = async (tradeId: string, nextStatus: string) => {
         try {
             await api.patch(`/trades/${tradeId}`, { status: nextStatus });
-            alert(`✅ Status updated to ${nextStatus.replace(/_/g, ' ')}`);
+            toast.success(`Status updated to ${nextStatus.replace(/_/g, ' ')}`);
             fetchTrades();
         } catch (err) {
             console.error('Failed to update shipment status', err);
-            alert('❌ Failed to update status');
+            toast.error('Failed to update status');
         }
     };
 

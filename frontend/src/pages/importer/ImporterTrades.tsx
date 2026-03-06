@@ -5,8 +5,10 @@ import {
     Package,
     ArrowLeft,
     Search,
-    Filter
+    Filter,
+    Trash2
 } from 'lucide-react';
+import { useToast } from '../../contexts/ToastContext';
 
 interface Trade {
     id: string;
@@ -21,7 +23,9 @@ const ImporterTrades: React.FC = () => {
     const [trades, setTrades] = useState<Trade[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const navigate = useNavigate();
+    const toast = useToast();
 
     useEffect(() => {
         fetchTrades();
@@ -35,6 +39,23 @@ const ImporterTrades: React.FC = () => {
             console.error('Failed to fetch trades', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!window.confirm("Are you sure you want to delete this trade request? This action cannot be undone.")) return;
+
+        setDeletingId(id);
+        try {
+            await api.delete(`/trades/${id}`);
+            toast.success("Trade request deleted successfully");
+            setTrades(trades.filter(t => t.id !== id));
+        } catch (err: any) {
+            console.error('Failed to delete trade', err);
+            toast.error(err.response?.data?.message || "Failed to delete trade request");
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -100,8 +121,24 @@ const ImporterTrades: React.FC = () => {
                                         <p className="text-xs font-bold text-slate-400 mt-0.5">Created on {new Date(trade.createdAt).toLocaleDateString()}</p>
                                     </div>
                                 </div>
-                                <div className="text-left md:text-right">
-                                    <p className="text-2xl font-black text-slate-900">${trade.amount.toLocaleString()}</p>
+                                <div className="text-left md:text-right flex flex-col items-end">
+                                    <div className="flex items-center gap-4">
+                                        <p className="text-2xl font-black text-slate-900">${trade.amount.toLocaleString()}</p>
+                                        {(trade.status === 'CREATED' || trade.status === 'OPEN_FOR_OFFERS') && (
+                                            <button
+                                                onClick={(e) => handleDelete(e, trade.id)}
+                                                disabled={deletingId === trade.id}
+                                                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                                title="Delete Trade Request"
+                                            >
+                                                {deletingId === trade.id ? (
+                                                    <div className="w-5 h-5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+                                                ) : (
+                                                    <Trash2 size={20} />
+                                                )}
+                                            </button>
+                                        )}
+                                    </div>
                                     <span className={`inline-block mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'CREATED' ? 'bg-amber-50 text-amber-600' :
                                         trade.status === 'PAYMENT_AUTHORIZED' ? 'bg-emerald-50 text-emerald-600' :
                                             'bg-indigo-50 text-indigo-700'

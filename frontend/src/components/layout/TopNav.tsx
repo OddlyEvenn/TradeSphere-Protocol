@@ -15,7 +15,7 @@ const TopNav: React.FC<TopNavProps> = ({ user, account, onConnect }) => {
     };
 
     return (
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-10">
+        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-50">
             <div className="flex items-center gap-4 flex-1">
                 <div className="relative w-96 group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={18} />
@@ -37,13 +37,13 @@ const TopNav: React.FC<TopNavProps> = ({ user, account, onConnect }) => {
 
                 <button
                     onClick={onConnect}
-                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${account
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                            : 'bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100'
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all ${account || user?.walletAddress
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                        : 'bg-indigo-50 text-indigo-700 border border-indigo-100 hover:bg-indigo-100'
                         }`}
                 >
                     <Wallet size={18} />
-                    {account ? `${account.slice(0, 6)}...${account.slice(-4)}` : 'Connect Wallet'}
+                    {(account || user?.walletAddress) ? `${(account || user?.walletAddress).slice(0, 6)}...${(account || user?.walletAddress).slice(-4)}` : 'Connect Wallet'}
                 </button>
 
                 <div className="flex items-center gap-3 pl-4">

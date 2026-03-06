@@ -5,7 +5,7 @@ import ExporterDashboard from './exporter/ExporterDashboard';
 import ImporterBankDashboard from './bank/ImporterBankDashboard';
 import ExporterBankDashboard from './bank/ExporterBankDashboard';
 import ShippingDashboard from './stakeholders/ShippingDashboard';
-import CustomsDashboard from './stakeholders/CustomsDashboard';
+import CustomsOverview from './stakeholders/CustomsOverview';
 import TaxDashboard from './stakeholders/TaxDashboard';
 import RegulatorDashboard from './stakeholders/RegulatorDashboard';
 
@@ -19,7 +19,7 @@ const DashboardHome: React.FC = () => {
         case 'EXPORTER': return <ExporterDashboard />;
         case 'IMPORTER_BANK': return <ImporterBankDashboard />;
         case 'EXPORTER_BANK': return <ExporterBankDashboard />;
-        case 'CUSTOMS': return <CustomsDashboard />;
+        case 'CUSTOMS': return <CustomsOverview />;
         case 'SHIPPING': return <ShippingDashboard />;
         case 'TAX_AUTHORITY': return <TaxDashboard />;
         case 'REGULATORS': return <RegulatorDashboard />;

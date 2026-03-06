@@ -12,6 +12,7 @@ import {
     Upload
 } from 'lucide-react';
 import { walletService } from '../../services/WalletService';
+import { useToast } from '../../contexts/ToastContext';
 
 const ShipmentDetails: React.FC = () => {
     const { id } = useParams();
@@ -24,6 +25,7 @@ const ShipmentDetails: React.FC = () => {
     const [selectedCarrierId, setSelectedCarrierId] = useState('');
     const [processing, setProcessing] = useState(false);
     const [account, setAccount] = useState<string | null>(null);
+    const toast = useToast();
 
     useEffect(() => {
         fetchData();
@@ -52,36 +54,36 @@ const ShipmentDetails: React.FC = () => {
     };
 
     const handleNominateBank = async () => {
-        if (!selectedBankId) return alert("Please select a bank first.");
+        if (!selectedBankId) return toast.error("Please select a bank first.");
         setProcessing(true);
         try {
             await api.patch(`/trades/${id}`, {
                 exporterBankId: selectedBankId,
                 status: 'EXPORTER_BANK_NOMINATED'
             });
-            alert("✅ Exporter Bank Nominated! They will now review the Letter of Credit.");
+            toast.success("Exporter Bank Nominated! They will now review the Letter of Credit.");
             fetchData();
         } catch (err) {
             console.error('Failed to nominate bank', err);
-            alert("❌ Failed to nominate bank.");
+            toast.error("Failed to nominate bank.");
         } finally {
             setProcessing(false);
         }
     };
 
     const handleNominateCarrier = async () => {
-        if (!selectedCarrierId) return alert("Please select a shipping carrier first.");
+        if (!selectedCarrierId) return toast.error("Please select a shipping carrier first.");
         setProcessing(true);
         try {
             await api.patch(`/trades/${id}`, {
                 shippingId: selectedCarrierId,
                 status: 'SHIPPING_NOMINATED'
             });
-            alert("✅ Shipping Carrier Nominated! You can now proceed to ship the goods.");
+            toast.success("Shipping Carrier Nominated! You can now proceed to ship the goods.");
             fetchData();
         } catch (err) {
             console.error('Failed to nominate carrier', err);
-            alert("❌ Failed to nominate carrier.");
+            toast.error("Failed to nominate carrier.");
         } finally {
             setProcessing(false);
         }
@@ -91,11 +93,11 @@ const ShipmentDetails: React.FC = () => {
         setProcessing(true);
         try {
             await api.patch(`/trades/${id}`, { status: 'GOODS_SHIPPED' });
-            alert("✅ Goods marked as SHIPPED! Documents are now ready for verification.");
+            toast.success("Goods marked as SHIPPED! Documents are now ready for verification.");
             fetchData();
         } catch (err) {
             console.error('Failed to ship goods', err);
-            alert("❌ Failed to update shipping status.");
+            toast.error("Failed to update shipping status.");
         } finally {
             setProcessing(false);
         }

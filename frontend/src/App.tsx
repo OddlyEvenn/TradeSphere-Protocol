@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastProvider } from './contexts/ToastContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -18,6 +19,10 @@ import ShippingDashboard from './pages/stakeholders/ShippingDashboard';
 import CustomsDashboard from './pages/stakeholders/CustomsDashboard';
 import TaxDashboard from './pages/stakeholders/TaxDashboard';
 import RegulatorDashboard from './pages/stakeholders/RegulatorDashboard';
+
+import DocumentsPage from './pages/DocumentsPage';
+import HistoryPage from './pages/HistoryPage';
+import SettingsPage from './pages/SettingsPage';
 
 // Placeholder components for portals
 const Placeholder = ({ title }: { title: string }) => (
@@ -41,54 +46,56 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
 
 function App() {
     return (
-        <Router>
-            <div className="min-h-screen w-full bg-slate-50 text-slate-900 font-sans">
-                <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
+        <ToastProvider>
+            <Router>
+                <div className="min-h-screen w-full bg-slate-50 text-slate-900 font-sans">
+                    <Routes>
+                        <Route path="/" element={<Home />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/register" element={<Register />} />
 
-                    {/* Dashboard Routes */}
-                    <Route path="/dashboard" element={
-                        <ProtectedRoute>
-                            <DashboardLayout />
-                        </ProtectedRoute>
-                    }>
-                        <Route index element={<DashboardHome />} />
+                        {/* Dashboard Routes */}
+                        <Route path="/dashboard" element={
+                            <ProtectedRoute>
+                                <DashboardLayout />
+                            </ProtectedRoute>
+                        }>
+                            <Route index element={<DashboardHome />} />
 
-                        {/* Importer Routes */}
-                        <Route path="marketplace" element={<CreateTradeRequest />} />
-                        <Route path="trades" element={<ImporterTrades />} />
-                        <Route path="trades/:id" element={<TradeDetails />} />
+                            {/* Importer Routes */}
+                            <Route path="marketplace" element={<CreateTradeRequest />} />
+                            <Route path="trades" element={<ImporterTrades />} />
+                            <Route path="trades/:id" element={<TradeDetails />} />
 
-                        {/* Exporter Routes */}
-                        <Route path="discovery" element={<MarketplaceDiscovery />} />
-                        <Route path="discovery/submit-offer/:tradeId" element={<SubmitOffer />} />
-                        <Route path="shipments" element={<ExporterDashboard />} />
-                        <Route path="shipments/:id" element={<ShipmentDetails />} />
+                            {/* Exporter Routes */}
+                            <Route path="discovery" element={<MarketplaceDiscovery />} />
+                            <Route path="discovery/submit-offer/:tradeId" element={<SubmitOffer />} />
+                            <Route path="shipments" element={<ExporterDashboard />} />
+                            <Route path="shipments/:id" element={<ShipmentDetails />} />
 
-                        {/* Bank Routes */}
-                        <Route path="requests" element={<BankRequests />} />
-                        <Route path="approvals" element={<BankRequests />} />
+                            {/* Bank Routes */}
+                            <Route path="requests" element={<BankRequests />} />
+                            <Route path="approvals" element={<BankRequests />} />
 
-                        {/* Authority Routes */}
-                        <Route path="inspections" element={<CustomsDashboard />} />
-                        <Route path="fleet" element={<ShippingDashboard />} />
-                        <Route path="policies" element={<Placeholder title="Insurance Policies" />} />
-                        <Route path="compliance" element={<TaxDashboard />} />
-                        <Route path="audits" element={<RegulatorDashboard />} />
+                            {/* Authority Routes */}
+                            <Route path="inspections" element={<CustomsDashboard />} />
+                            <Route path="fleet" element={<ShippingDashboard />} />
+                            <Route path="policies" element={<Placeholder title="Insurance Policies" />} />
+                            <Route path="compliance" element={<TaxDashboard />} />
+                            <Route path="audits" element={<RegulatorDashboard />} />
 
-                        {/* Common Routes */}
-                        <Route path="documents" element={<Placeholder title="Documents" />} />
-                        <Route path="history" element={<Placeholder title="History" />} />
-                        <Route path="settings" element={<Placeholder title="Settings" />} />
-                    </Route>
+                            {/* Common Routes */}
+                            <Route path="documents" element={<DocumentsPage />} />
+                            <Route path="history" element={<HistoryPage />} />
+                            <Route path="settings" element={<SettingsPage />} />
+                        </Route>
 
-                    {/* Fallback */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </div>
-        </Router>
+                        {/* Fallback */}
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                </div>
+            </Router>
+        </ToastProvider>
     );
 }
 

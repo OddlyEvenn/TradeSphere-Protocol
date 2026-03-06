@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 import {
     ArrowLeft,
     Send,
@@ -15,6 +16,7 @@ import {
 const CreateTradeRequest: React.FC = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const toast = useToast();
     const [formData, setFormData] = useState({
         productName: '',
         quantity: '',
@@ -34,10 +36,11 @@ const CreateTradeRequest: React.FC = () => {
                 amount: parseFloat(formData.priceRange.split('-')[1] || formData.priceRange) || 0,
                 status: 'OPEN_FOR_OFFERS'
             });
-            alert("✅ Trade Request Published to Marketplace Successfully!");
-            navigate('/dashboard'); // Go back to dashboard to see results
+            toast.success("Trade Request Published to Marketplace Successfully!");
+            navigate('/dashboard/trades');
         } catch (err) {
             console.error('Failed to create trade request', err);
+            toast.error("Failed to publish trade request.");
         } finally {
             setLoading(false);
         }

@@ -139,3 +139,44 @@ export const updateTrade = async (req: Request, res: Response) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const deleteTrade = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).user.userId;
+
+        // Check if trade exists
+        const trade = await (prisma.trade as any).findUnique({
+            where: { id }
+        });
+
+        if (!trade) {
+            return res.status(404).json({ message: 'Trade not found' });
+        }
+
+        // Only importer who created it can delete it
+        if (trade.importerId !== userId) {
+            return res.status(403).json({ message: 'Only the creator can delete this trade' });
+        }
+
+        // Only allow deletion if no serious progress has been made
+        if (trade.status !== 'OPEN_FOR_OFFERS' && trade.status !== 'CREATED') {
+            return res.status(400).json({ message: `Cannot delete trade with status: ${trade.status}` });
+        }
+
+        // Delete associated offers first to avoid foreign key constraints
+        await (prisma.marketplaceOffer as any).deleteMany({
+            where: { tradeId: id }
+        });
+
+        // Delete the trade
+        await (prisma.trade as any).delete({
+            where: { id }
+        });
+
+        res.status(200).json({ message: 'Trade deleted successfully' });
+    } catch (error: any) {
+        console.error("Delete trade error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};

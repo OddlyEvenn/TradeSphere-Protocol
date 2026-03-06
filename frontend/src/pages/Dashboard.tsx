@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { walletService } from '../services/WalletService';
 import { Plus, Package, FileText, CheckCircle, Clock, Shield, Globe, Lock, Truck, Landmark, Activity, Gavel, Percent, Wallet, ArrowRight } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
 
 import CreateTradeModal from '../components/CreateTradeModal';
 
@@ -20,6 +21,7 @@ const Dashboard: React.FC = () => {
     const [user, setUser] = useState<any>(null);
     const [account, setAccount] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const toast = useToast();
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -56,8 +58,8 @@ const Dashboard: React.FC = () => {
     };
 
     const handleBlockchainAction = async (trade: Trade, action: string) => {
-        if (!account) {
-            alert("Please connect your wallet first!");
+        if (!account && !user?.walletAddress) {
+            toast.error("Please connect your wallet or set a manual override in Settings!");
             return;
         }
 
@@ -80,14 +82,16 @@ const Dashboard: React.FC = () => {
 
             if (tx) {
                 console.log("Transaction sent:", tx.hash);
+                toast.info("Transaction sent. Waiting for confirmation...");
                 await tx.wait();
                 console.log("Transaction confirmed!");
+                toast.success("Transaction confirmed successfully!");
                 // The backend listener will pick this up, but we refresh anyway
                 setTimeout(fetchTrades, 3000);
             }
         } catch (error: any) {
             console.error(`Action ${action} failed:`, error);
-            alert(`Error: ${error.reason || error.message || "Execution reverted"}`);
+            toast.error(`Error: ${error.reason || error.message || "Execution reverted"}`);
         } finally {
             setActionLoading(null);
         }

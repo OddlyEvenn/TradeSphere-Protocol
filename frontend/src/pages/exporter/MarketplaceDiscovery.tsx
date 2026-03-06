@@ -12,6 +12,7 @@ import {
     ArrowRight,
     Filter
 } from 'lucide-react';
+import { useToast } from '../../contexts/ToastContext';
 
 interface TradeRequest {
     id: string;
@@ -27,7 +28,9 @@ const MarketplaceDiscovery: React.FC = () => {
     const { user, account } = useOutletContext<{ user: any, account: string | null }>();
     const [requests, setRequests] = useState<TradeRequest[]>([]);
     const [loading, setLoading] = useState(true);
+    const [submittingOfferId, setSubmittingOfferId] = useState<string | null>(null);
     const navigate = useNavigate();
+    const toast = useToast();
 
     useEffect(() => {
         fetchRequests();
@@ -52,19 +55,19 @@ const MarketplaceDiscovery: React.FC = () => {
         const message = prompt("Optional message for the importer:");
 
         try {
-            setLoading(true);
+            setSubmittingOfferId(tradeId); // Indicate which offer is being submitted
             await api.post('/marketplace/offers', {
                 tradeId,
                 amount: parseFloat(amount),
                 message: message || ""
             });
-            alert("✅ Offer submitted successfully!");
-            // Optionally refresh or update state
+            toast.success("Offer submitted successfully!");
+            navigate('/dashboard/exporter-trades'); // Navigate after successful submission
         } catch (err: any) {
             console.error('Failed to submit offer', err);
-            alert("❌ Failed to submit offer: " + (err.response?.data?.message || err.message));
+            toast.error("Failed to submit offer: " + (err.response?.data?.message || err.message));
         } finally {
-            setLoading(false);
+            setSubmittingOfferId(null); // Reset submitting state
         }
     };
 
