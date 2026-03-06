@@ -10,7 +10,8 @@ import {
     DollarSign,
     Calendar,
     ShieldCheck,
-    Info
+    Info,
+    Award
 } from 'lucide-react';
 
 const CreateTradeRequest: React.FC = () => {
@@ -24,6 +25,7 @@ const CreateTradeRequest: React.FC = () => {
         priceRange: '',
         shippingDeadline: '',
         insuranceRequired: true,
+        qualityStandards: '',
         additionalConditions: ''
     });
 
@@ -148,6 +150,21 @@ const CreateTradeRequest: React.FC = () => {
                             <ShieldCheck className={formData.insuranceRequired ? 'text-indigo-600' : 'text-slate-300'} size={20} />
                             <span className="text-sm font-bold text-slate-700">Insurance Required</span>
                         </div>
+                    </div>
+                </div>
+
+                {/* Quality Standards Field */}
+                <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Quality Standards</label>
+                    <div className="relative">
+                        <Award className="absolute left-4 top-4 text-slate-300" size={18} />
+                        <textarea
+                            rows={3}
+                            className="w-full bg-slate-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white rounded-3xl py-4 pl-12 pr-6 text-slate-900 font-bold transition-all resize-none"
+                            placeholder="e.g. ISO 9001 certified, Grade A purity ≥99.5%, SGS inspection required..."
+                            value={formData.qualityStandards}
+                            onChange={e => setFormData({ ...formData, qualityStandards: e.target.value })}
+                        ></textarea>
                     </div>
                 </div>
 

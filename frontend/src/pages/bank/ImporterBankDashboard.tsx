@@ -43,8 +43,8 @@ const ImporterBankDashboard: React.FC = () => {
     };
 
     const stats = [
-        { label: 'Pending LoCs', value: trades.filter(t => t.status === 'LOC_REQUESTED').length.toString(), icon: ClipboardCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-        { label: 'Locked Funds', value: `$${trades.filter(t => t.status === 'LOC_ISSUED').reduce((acc, t) => acc + t.amount, 0).toLocaleString()}`, icon: Lock, color: 'text-amber-600', bg: 'bg-amber-50' },
+        { label: 'Pending LoCs', value: trades.filter(t => t.status === 'LOC_INITIATED').length.toString(), icon: ClipboardCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { label: 'Locked Funds', value: `$${trades.filter(t => t.status === 'LOC_ISSUED' || t.status === 'LOC_UPLOADED' || t.status === 'FUNDS_LOCKED').reduce((acc, t) => acc + t.amount, 0).toLocaleString()}`, icon: Lock, color: 'text-amber-600', bg: 'bg-amber-50' },
         { label: 'Verified Docs', value: trades.filter(t => t.status === 'DOCS_VERIFIED').length.toString(), icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
         { label: 'Settlements', value: trades.filter(t => t.status === 'PAYMENT_AUTHORIZED').length.toString(), icon: Clock, color: 'text-rose-600', bg: 'bg-rose-50' },
     ];
@@ -96,7 +96,7 @@ const ImporterBankDashboard: React.FC = () => {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {trades.filter(t => t.status === 'LOC_REQUESTED').slice(0, 3).map((trade) => (
+                            {trades.filter(t => t.status === 'LOC_INITIATED').slice(0, 3).map((trade) => (
                                 <div key={trade.id} className="card-premium group hover:border-indigo-100">
                                     <div className="flex justify-between items-center">
                                         <div className="flex gap-5 items-center">
@@ -117,7 +117,7 @@ const ImporterBankDashboard: React.FC = () => {
                                     </div>
                                 </div>
                             ))}
-                            {trades.filter(t => t.status === 'LOC_REQUESTED').length === 0 && (
+                            {trades.filter(t => t.status === 'LOC_INITIATED').length === 0 && (
                                 <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] p-12 text-center text-slate-400 font-medium">
                                     No pending LoC requests in queue.
                                 </div>
@@ -136,7 +136,7 @@ const ImporterBankDashboard: React.FC = () => {
                             <div className="grid grid-cols-2 gap-8">
                                 <div>
                                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Escrow Balance</p>
-                                    <p className="text-3xl font-black text-white">${trades.reduce((acc, t) => acc + (t.status === 'LOC_ISSUED' ? t.amount : 0), 0).toLocaleString()}</p>
+                                    <p className="text-3xl font-black text-white">${trades.reduce((acc, t) => acc + (['FUNDS_LOCKED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED'].includes(t.status) ? t.amount : 0), 0).toLocaleString()}</p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Approval Velocity</p>

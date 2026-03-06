@@ -12,40 +12,39 @@ async function main() {
   const tradeRegistryAddress = await tradeRegistry.getAddress();
   console.log("TradeRegistry deployed to:", tradeRegistryAddress);
 
-  // 2. Deploy LetterOfCredit
+  // 2. Deploy LetterOfCredit (depends on TradeRegistry)
   const LetterOfCredit = await ethers.getContractFactory("LetterOfCredit");
   const letterOfCredit = await LetterOfCredit.deploy(tradeRegistryAddress);
   await letterOfCredit.waitForDeployment();
   const locAddress = await letterOfCredit.getAddress();
   console.log("LetterOfCredit deployed to:", locAddress);
 
-  // 3. Deploy DocumentVerification
-  // For demo purposes, we'll use the deployer as the Customs address
+  // 3. Deploy DocumentVerification (depends on TradeRegistry only)
   const DocumentVerification = await ethers.getContractFactory("DocumentVerification");
-  const docVerification = await DocumentVerification.deploy(tradeRegistryAddress, deployer.address);
+  const docVerification = await DocumentVerification.deploy(tradeRegistryAddress);
   await docVerification.waitForDeployment();
   const docVerificationAddress = await docVerification.getAddress();
   console.log("DocumentVerification deployed to:", docVerificationAddress);
 
-  // 4. Deploy PaymentSettlement
+  // 4. Deploy PaymentSettlement (depends on TradeRegistry)
   const PaymentSettlement = await ethers.getContractFactory("PaymentSettlement");
-  const paymentSettlement = await PaymentSettlement.deploy(tradeRegistryAddress, docVerificationAddress);
+  const paymentSettlement = await PaymentSettlement.deploy(tradeRegistryAddress);
   await paymentSettlement.waitForDeployment();
   const paymentSettlementAddress = await paymentSettlement.getAddress();
   console.log("PaymentSettlement deployed to:", paymentSettlementAddress);
 
-  // 5. Authorize contracts in TradeRegistry
-  console.log("Authorizing contracts in TradeRegistry...");
+  // 5. Authorize satellite contracts in TradeRegistry
+  console.log("\nAuthorizing satellite contracts in TradeRegistry...");
   await tradeRegistry.setAuthorizedContract(locAddress, true);
   await tradeRegistry.setAuthorizedContract(docVerificationAddress, true);
   await tradeRegistry.setAuthorizedContract(paymentSettlementAddress, true);
   console.log("Authorization complete.");
 
   console.log("\n--- Deployment Summary ---");
-  console.log("TradeRegistry:", tradeRegistryAddress);
-  console.log("LetterOfCredit:", locAddress);
-  console.log("DocumentVerification:", docVerificationAddress);
-  console.log("PaymentSettlement:", paymentSettlementAddress);
+  console.log("TRADE_REGISTRY_ADDRESS=       ", tradeRegistryAddress);
+  console.log("LETTER_OF_CREDIT_ADDRESS=     ", locAddress);
+  console.log("DOCUMENT_VERIFICATION_ADDRESS=", docVerificationAddress);
+  console.log("PAYMENT_SETTLEMENT_ADDRESS=   ", paymentSettlementAddress);
 }
 
 main()

@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import api from '../../services/api';
-import { ShieldCheck, Search, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
+import { walletService } from '../../services/WalletService';
+import { ShieldCheck, Search, CheckCircle2, AlertCircle, FileText, XCircle } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
 const CustomsDashboard: React.FC = () => {
+    const { user, account } = useOutletContext<{ user: any, account: string | null }>();
     const [trades, setTrades] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
     const toast = useToast();
 
     useEffect(() => {
@@ -15,9 +19,8 @@ const CustomsDashboard: React.FC = () => {
     const fetchTrades = async () => {
         try {
             const res = await api.get('/trades');
-            // Customs can see goods once shipped or after docs are submitted
             setTrades(res.data.filter((t: any) =>
-                ['GOODS_SHIPPED', 'DOCS_SUBMITTED', 'CUSTOMS_CLEARED', 'DOCS_VERIFIED'].includes(t.status)
+                ['GOODS_SHIPPED', 'DUTY_PENDING', 'CUSTOMS_CLEARED', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(t.status)
             ));
         } catch (err) {
             console.error(err);
@@ -26,14 +29,70 @@ const CustomsDashboard: React.FC = () => {
         }
     };
 
-    const handleClearShipment = async (tradeId: string) => {
+    const handleViewDocument = async (tradeId: string) => {
         try {
-            await api.patch(`/trades/${tradeId}`, { status: 'CUSTOMS_CLEARED' });
-            toast.success("Shipment Cleared by Customs!");
-            fetchTrades();
+            const res = await api.get(`/documents/${tradeId}/GOODS_SHIPPED`);
+            if (res.data.url) {
+                window.open(res.data.url, '_blank');
+            } else {
+                toast.error("Document not found on IPFS.");
+            }
         } catch (err) {
-            console.error('Failed to clear shipment', err);
-            toast.error("Failed to clear shipment");
+            console.error(err);
+            toast.error("Failed to retrieve document.");
+        }
+    };
+
+    const handleCustomsDecision = async (trade: any, cleared: boolean) => {
+        if (!account && !user?.walletAddress) {
+            toast.error("Please connect your wallet first!");
+            return;
+        }
+
+        const actionKey = cleared ? 'CLEAR' : 'FLAG';
+        setActionLoading(`${trade.id}-${actionKey}`);
+
+        try {
+            const nextStatus = cleared ? 'CUSTOMS_CLEARED' : 'DUTY_PENDING';
+            const logName = cleared ? 'CUSTOMS_CLEARED' : 'CUSTOMS_REJECTED'; // Using rejected temporarily to represent flagged
+
+            // Manual Mode
+            if (!account && user?.walletAddress) {
+                toast.info("Manual Mode: Simulating Customs Decision...");
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                await api.patch(`/trades/${trade.id}/state`, {
+                    status: nextStatus,
+                    eventName: logName
+                });
+                toast.success(`Shipment ${cleared ? 'Cleared' : 'Flagged for Duty'}!`);
+                fetchTrades();
+                return;
+            }
+
+            // Normal Flow
+            const contractDoc = walletService.getDocumentVerification();
+            if (trade.blockchainId === null || trade.blockchainId === undefined) {
+                throw new Error("This trade has no blockchain ID.");
+            }
+
+            toast.info("Sending Customs decision to blockchain...");
+            const tx = await contractDoc.verifyAsCustoms(trade.blockchainId, cleared);
+            await tx.wait();
+
+            await api.patch(`/trades/${trade.id}/state`, {
+                status: nextStatus,
+                txHash: tx.hash,
+                eventName: logName
+            });
+
+            toast.success(`Shipment officially ${cleared ? 'Cleared' : 'Flagged'} on-chain!`);
+            fetchTrades();
+        } catch (error: any) {
+            console.error("Customs action failed:", error);
+            toast.error(`Error: ${error.reason || error.message}`);
+        } finally {
+            setActionLoading(null);
         }
     };
 
@@ -41,50 +100,82 @@ const CustomsDashboard: React.FC = () => {
         <div className="space-y-10">
             <div>
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">Customs & Inspection</h1>
-                <p className="text-slate-500 font-medium mt-1">Audit import documents and clear shipments for entry.</p>
+                <p className="text-slate-500 font-medium mt-1">Audit import documents (BoL) and clear shipments for entry.</p>
             </div>
 
             <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
-                <table className="w-full text-left">
-                    <thead className="bg-slate-50">
-                        <tr>
-                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase">Product / origin</th>
-                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-center">Status</th>
-                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                        {trades.map(trade => (
-                            <tr key={trade.id}>
-                                <td className="px-8 py-6">
-                                    <p className="font-black text-slate-900">{trade.productName}</p>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{trade.destination}</p>
-                                </td>
-                                <td className="px-8 py-6 text-center">
-                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${['CUSTOMS_CLEARED', 'DOCS_VERIFIED'].includes(trade.status) ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                                        <ShieldCheck size={12} />
-                                        {trade.status.replace(/_/g, ' ')}
-                                    </span>
-                                </td>
-                                <td className="px-8 py-6 text-right">
-                                    {['GOODS_SHIPPED', 'DOCS_SUBMITTED'].includes(trade.status) ? (
-                                        <button
-                                            onClick={() => handleClearShipment(trade.id)}
-                                            className="btn-primary text-[10px] py-2 px-4 shadow-none"
-                                        >
-                                            Inspect & Clear
-                                        </button>
-                                    ) : (
-                                        <div className="flex items-center justify-end gap-1 text-emerald-600 font-bold text-[10px] uppercase">
-                                            <CheckCircle2 size={12} />
-                                            Authorized
-                                        </div>
-                                    )}
-                                </td>
+                {loading ? (
+                    <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-4 border-t-indigo-600"></div></div>
+                ) : (
+                    <table className="w-full text-left">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase">Product / origin</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-center">Status</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-center">Documents</th>
+                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-right">Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {trades.map(trade => (
+                                <tr key={trade.id}>
+                                    <td className="px-8 py-6">
+                                        <p className="font-black text-slate-900">{trade.productName}</p>
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-indigo-600">ID: #{trade.blockchainId || trade.id.slice(0, 8)}</p>
+                                    </td>
+                                    <td className="px-8 py-6 text-center">
+                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'GOODS_SHIPPED' ? 'bg-indigo-50 text-indigo-600' : trade.status === 'DUTY_PENDING' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                            <ShieldCheck size={12} />
+                                            {trade.status.replace(/_/g, ' ')}
+                                        </span>
+                                    </td>
+                                    <td className="px-8 py-6 text-center">
+                                        <button
+                                            onClick={() => handleViewDocument(trade.id)}
+                                            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-indigo-100"
+                                        >
+                                            <FileText size={14} /> View BoL
+                                        </button>
+                                    </td>
+                                    <td className="px-8 py-6 text-right flex justify-end gap-2">
+                                        {trade.status === 'GOODS_SHIPPED' ? (
+                                            <>
+                                                <button
+                                                    onClick={() => handleCustomsDecision(trade, true)}
+                                                    disabled={!!actionLoading}
+                                                    className="btn-primary text-xs py-2 px-4 shadow-none bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1"
+                                                >
+                                                    {actionLoading === `${trade.id}-CLEAR` ? (
+                                                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                                                    ) : <CheckCircle2 size={14} />}
+                                                    Clear
+                                                </button>
+                                                <button
+                                                    onClick={() => handleCustomsDecision(trade, false)}
+                                                    disabled={!!actionLoading}
+                                                    className="btn-primary text-xs py-2 px-4 shadow-none bg-amber-600 hover:bg-amber-700 flex items-center gap-1"
+                                                >
+                                                    {actionLoading === `${trade.id}-FLAG` ? (
+                                                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                                                    ) : <AlertCircle size={14} />}
+                                                    Flag for Tax
+                                                </button>
+                                            </>
+                                        ) : trade.status === 'DUTY_PENDING' ? (
+                                            <div className="flex items-center justify-end gap-1 text-amber-600 font-bold text-xs uppercase">
+                                                <AlertCircle size={14} /> Pending Tax Payment
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-end gap-1 text-emerald-600 font-bold text-xs uppercase">
+                                                <CheckCircle2 size={14} /> Cleared
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
                 {trades.length === 0 && !loading && (
                     <div className="p-20 text-center">
                         <Search className="mx-auto text-slate-200 mb-4" size={48} />

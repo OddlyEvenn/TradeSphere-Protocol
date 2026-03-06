@@ -8,8 +8,9 @@ const contracts = [
   'PaymentSettlement'
 ];
 
-const artifactsDir = 'c:/Users/evanc/Desktop/BLOCKCHAIN-TRADE_FINANCE/artifacts/contracts';
-const outputDir = 'c:/Users/evanc/Desktop/BLOCKCHAIN-TRADE_FINANCE/backend/src/abis';
+const projectRoot = path.resolve(__dirname);
+const artifactsDir = path.join(projectRoot, 'artifacts', 'contracts');
+const outputDir = path.join(projectRoot, 'backend', 'src', 'abis');
 
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
@@ -23,8 +24,8 @@ contracts.forEach(contract => {
       path.join(outputDir, `${contract}.json`),
       JSON.stringify(data.abi, null, 2)
     );
-    console.log(`Extracted ABI for ${contract}`);
+    console.log(`✅ Extracted ABI for ${contract}`);
   } else {
-    console.error(`Artifact not found for ${contract}`);
+    console.error(`❌ Artifact not found for ${contract} at: ${filePath}`);
   }
 });

@@ -39,21 +39,67 @@ export const getAllListings = async (req: Request, res: Response) => {
 
 export const submitOffer = async (req: Request, res: Response) => {
     try {
-        const { tradeId, amount, message } = req.body;
+        const { tradeId, amount, shippingTimeline, termsAndConditions, deliveryTerms, message, validUntil } = req.body;
         const exporterId = (req as any).user.userId;
+
+        // Validate required fields
+        if (!tradeId || !amount || !shippingTimeline || !termsAndConditions) {
+            return res.status(400).json({
+                message: 'Missing required fields: tradeId, amount, shippingTimeline, termsAndConditions'
+            });
+        }
+
+        // Check trade exists and is open for offers
+        const trade = await (prisma.trade as any).findUnique({
+            where: { id: tradeId }
+        });
+
+        if (!trade) {
+            return res.status(404).json({ message: 'Trade not found' });
+        }
+
+        if (trade.status !== 'OPEN_FOR_OFFERS') {
+            return res.status(400).json({ message: 'This trade is no longer accepting offers' });
+        }
+
+        // Check exporter hasn't already submitted an offer for this trade
+        const existingOffer = await (prisma.marketplaceOffer as any).findFirst({
+            where: { tradeId, exporterId }
+        });
+
+        if (existingOffer) {
+            return res.status(400).json({ message: 'You have already submitted an offer for this trade' });
+        }
 
         const offer = await (prisma.marketplaceOffer as any).create({
             data: {
                 tradeId,
                 exporterId,
-                amount: parseFloat(amount),
-                message,
+                amount: parseFloat(amount.toString()),
+                shippingTimeline,
+                termsAndConditions,
+                deliveryTerms: deliveryTerms || 'CIF',
+                message: message || null,
+                validUntil: validUntil ? new Date(validUntil) : null,
                 status: 'PENDING'
+            }
+        });
+
+        // Log event
+        await (prisma.tradeEvent as any).create({
+            data: {
+                tradeId,
+                actorId: exporterId,
+                actorRole: 'EXPORTER',
+                event: 'OFFER_SUBMITTED',
+                toStatus: 'OPEN_FOR_OFFERS',
+                metadata: { offerId: offer.id, amount: offer.amount }
             }
         });
 
         res.status(201).json(offer);
     } catch (error: any) {
+        console.error("Submit offer error:", error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -64,11 +110,13 @@ export const getOffersForTrade = async (req: Request, res: Response) => {
         const offers = await (prisma.marketplaceOffer as any).findMany({
             where: { tradeId },
             include: {
-                exporter: { select: { id: true, name: true } }
-            }
+                exporter: { select: { id: true, name: true, email: true, organizationName: true, country: true } }
+            },
+            orderBy: { createdAt: 'asc' }
         });
         res.json(offers);
     } catch (error: any) {
+        console.error("Get offers error:", error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -84,36 +132,105 @@ export const finalizeOffer = async (req: Request, res: Response) => {
             include: { trade: true }
         });
 
-        if (!offer || offer.trade.importerId !== importerId) {
-            return res.status(403).json({ message: "Unauthorized or offer not found" });
+        if (!offer) {
+            return res.status(404).json({ message: "Offer not found" });
         }
 
-        // 2. Transact: Accept this offer, reject others, update trade
+        if (offer.trade.importerId !== importerId) {
+            return res.status(403).json({ message: "Only the trade creator can accept offers" });
+        }
+
+        if (offer.trade.status !== 'OPEN_FOR_OFFERS') {
+            return res.status(400).json({ message: "This trade is no longer accepting offers" });
+        }
+
+        if (offer.status !== 'PENDING') {
+            return res.status(400).json({ message: "This offer is no longer pending" });
+        }
+
+        // 2. Transact: Accept this offer, decline others, update trade
         await (prisma as any).$transaction([
-            // Update this offer to ACCEPTED
+            // Accept this offer
             (prisma.marketplaceOffer as any).update({
                 where: { id: offerId },
                 data: { status: 'ACCEPTED' }
             }),
-            // Reject all other offers for this trade
+            // Decline all other pending offers for this trade
             (prisma.marketplaceOffer as any).updateMany({
-                where: { tradeId: offer.tradeId, id: { not: offerId } },
-                data: { status: 'REJECTED' }
+                where: { tradeId: offer.tradeId, id: { not: offerId }, status: 'PENDING' },
+                data: { status: 'DECLINED' }
             }),
-            // Update the trade with the exporter details and status
+            // Update the trade: set exporter, amount, and transition to OFFER_ACCEPTED
             (prisma.trade as any).update({
                 where: { id: offer.tradeId },
                 data: {
-                    status: 'CREATED', // Transition from OPEN_FOR_OFFERS to CREATED
+                    status: 'OFFER_ACCEPTED',
                     exporterId: offer.exporterId,
                     amount: offer.amount
+                }
+            }),
+            // Log event
+            (prisma.tradeEvent as any).create({
+                data: {
+                    tradeId: offer.tradeId,
+                    actorId: importerId,
+                    actorRole: 'IMPORTER',
+                    event: 'OFFER_ACCEPTED',
+                    fromStatus: 'OPEN_FOR_OFFERS',
+                    toStatus: 'OFFER_ACCEPTED',
+                    metadata: { offerId: offer.id, exporterId: offer.exporterId, amount: offer.amount }
                 }
             })
         ]);
 
-        res.json({ message: "Offer finalized successfully" });
+        res.json({ message: "Offer accepted successfully. Trade moves to OFFER_ACCEPTED." });
     } catch (error: any) {
         console.error("Finalize offer error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const declineOffer = async (req: Request, res: Response) => {
+    try {
+        const { offerId } = req.params;
+        const importerId = (req as any).user.userId;
+
+        const offer = await (prisma.marketplaceOffer as any).findUnique({
+            where: { id: offerId },
+            include: { trade: true }
+        });
+
+        if (!offer) {
+            return res.status(404).json({ message: "Offer not found" });
+        }
+
+        if (offer.trade.importerId !== importerId) {
+            return res.status(403).json({ message: "Only the trade creator can decline offers" });
+        }
+
+        if (offer.status !== 'PENDING') {
+            return res.status(400).json({ message: "This offer is not in PENDING status" });
+        }
+
+        await (prisma.marketplaceOffer as any).update({
+            where: { id: offerId },
+            data: { status: 'DECLINED' }
+        });
+
+        // Log event
+        await (prisma.tradeEvent as any).create({
+            data: {
+                tradeId: offer.tradeId,
+                actorId: importerId,
+                actorRole: 'IMPORTER',
+                event: 'OFFER_DECLINED',
+                metadata: { offerId: offer.id, exporterId: offer.exporterId }
+            }
+        });
+
+        res.json({ message: "Offer declined successfully" });
+    } catch (error: any) {
+        console.error("Decline offer error:", error);
         res.status(500).json({ message: error.message });
     }
 };

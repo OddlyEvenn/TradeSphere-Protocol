@@ -10,7 +10,9 @@ import {
     ShieldCheck,
     Truck,
     Info,
-    CheckCircle2
+    CheckCircle2,
+    Clock,
+    Award
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -26,9 +28,10 @@ const SubmitOffer: React.FC = () => {
 
     const [formData, setFormData] = useState({
         amount: '',
-        message: '',
-        validUntil: '',
-        deliveryTerms: 'CIF' // Cost, Insurance, and Freight
+        shippingTimeline: '',
+        termsAndConditions: '',
+        deliveryTerms: 'CIF',
+        message: ''
     });
 
     useEffect(() => {
@@ -50,12 +53,24 @@ const SubmitOffer: React.FC = () => {
         e.preventDefault();
         if (!tradeId) return;
 
+        if (!formData.shippingTimeline.trim()) {
+            toast.error("Please provide a shipping timeline.");
+            return;
+        }
+        if (!formData.termsAndConditions.trim()) {
+            toast.error("Please provide your terms and conditions.");
+            return;
+        }
+
         setSubmitting(true);
         try {
             await api.post('/marketplace/offers', {
                 tradeId,
                 amount: parseFloat(formData.amount),
-                message: formData.message,
+                shippingTimeline: formData.shippingTimeline,
+                termsAndConditions: formData.termsAndConditions,
+                deliveryTerms: formData.deliveryTerms,
+                message: formData.message || null,
                 status: 'PENDING'
             });
             toast.success("Offer submitted successfully! The Importer will review and finalize the trade.");
@@ -110,6 +125,18 @@ const SubmitOffer: React.FC = () => {
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Insurance Required</p>
                                 <p className="font-bold text-emerald-400">{trade?.insuranceRequired ? 'Yes' : 'No'}</p>
                             </div>
+                            {trade?.qualityStandards && (
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quality Standards</p>
+                                    <p className="font-bold text-amber-400 text-sm">{trade.qualityStandards}</p>
+                                </div>
+                            )}
+                            {trade?.priceRange && (
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Budget Range</p>
+                                    <p className="font-bold text-emerald-400">${trade.priceRange}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -127,8 +154,9 @@ const SubmitOffer: React.FC = () => {
                 {/* Left Column: Form */}
                 <form onSubmit={handleSubmit} className="lg:col-span-2 card-premium space-y-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Price Quotation */}
                         <div className="space-y-2">
-                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Your Quote (Total USD)</label>
+                            <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Price Quotation (USD)</label>
                             <div className="relative">
                                 <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
                                 <input
@@ -142,6 +170,7 @@ const SubmitOffer: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* Delivery Terms (Incoterms) */}
                         <div className="space-y-2">
                             <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Delivery Terms (Incoterms)</label>
                             <select
@@ -157,12 +186,45 @@ const SubmitOffer: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Shipping Timeline */}
                     <div className="space-y-2">
-                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Terms & Conditions / Message</label>
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Shipping Timeline</label>
+                        <div className="relative">
+                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                            <input
+                                type="text"
+                                required
+                                className="input-premium pl-12"
+                                placeholder="e.g. 12–15 business days from LoC issuance"
+                                value={formData.shippingTimeline}
+                                onChange={e => setFormData({ ...formData, shippingTimeline: e.target.value })}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Terms & Conditions */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Terms & Conditions</label>
+                        <div className="relative">
+                            <FileText className="absolute left-4 top-4 text-slate-300" size={18} />
+                            <textarea
+                                rows={5}
+                                required
+                                className="input-premium py-4 pl-12"
+                                placeholder="Detail payment terms, warranty, penalties for delays, quality guarantees, inspection rights..."
+                                value={formData.termsAndConditions}
+                                onChange={e => setFormData({ ...formData, termsAndConditions: e.target.value })}
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    {/* Additional Message (Optional) */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Additional Message <span className="text-slate-300">(Optional)</span></label>
                         <textarea
-                            rows={6}
+                            rows={3}
                             className="input-premium py-4"
-                            placeholder="Detail your shipping capabilities, product quality specifications, and any extra terms..."
+                            placeholder="Any extra notes for the importer..."
                             value={formData.message}
                             onChange={e => setFormData({ ...formData, message: e.target.value })}
                         ></textarea>
@@ -172,10 +234,10 @@ const SubmitOffer: React.FC = () => {
                         <h4 className="font-black text-indigo-900 text-sm italic">Next Steps after Finalization:</h4>
                         <ul className="space-y-3">
                             {[
-                                "Importer Accepts your offer",
+                                "Importer compares & accepts your offer",
+                                "Both parties confirm → Trade Initiated on blockchain",
                                 "Importer's Bank issues Digital Letter of Credit",
-                                "Exporter signs and processes shipment",
-                                "Digital B/L verified by Customs & Shipping stakeholders"
+                                "Exporter ships goods & Bill of Lading is verified"
                             ].map((step, i) => (
                                 <li key={i} className="flex items-center gap-3 text-xs font-bold text-indigo-700">
                                     <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">{i + 1}</div>

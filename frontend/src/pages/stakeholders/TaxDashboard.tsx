@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import api from '../../services/api';
+import { walletService } from '../../services/WalletService';
 import { BadgePercent, TrendingUp, ShieldCheck, AlertCircle, FileText, Search, CheckCircle } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
 const TaxDashboard: React.FC = () => {
+    const { user, account } = useOutletContext<{ user: any, account: string | null }>();
     const [trades, setTrades] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [taxInputs, setTaxInputs] = useState<Record<string, string>>({});
@@ -17,9 +20,9 @@ const TaxDashboard: React.FC = () => {
     const fetchTrades = async () => {
         try {
             const res = await api.get('/trades');
-            // Tax authority monitors cleared and completed trades
+            // Tax authority monitors trades flagged by Customs or already paid
             setTrades(res.data.filter((t: any) =>
-                ['CUSTOMS_CLEARED', 'DOCS_VERIFIED', 'COMPLETED'].includes(t.status)
+                ['DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(t.status)
             ));
         } catch (err) {
             console.error(err);
@@ -37,11 +40,13 @@ const TaxDashboard: React.FC = () => {
 
         setAssessingId(tradeId);
         try {
-            await api.patch(`/trades/${tradeId}`, {
-                status: 'DOCS_VERIFIED',
-                taxAmount: amount
+            // We just update the tax amount and log the event. The status remains DUTY_PENDING
+            // until the importer actually pays it via their dashboard.
+            await api.patch(`/trades/${tradeId}/state`, {
+                taxAmount: amount,
+                eventName: 'DUTY_ASSESSED'
             });
-            toast.success("Trade cleared for final settlement.");
+            toast.success("Duty Assessed! The Importer has been notified to pay.");
             fetchTrades();
         } catch (err) {
             console.error(err);
@@ -51,8 +56,45 @@ const TaxDashboard: React.FC = () => {
         }
     };
 
+    const handleReleaseGoods = async (tradeId: string, blockchainId: number | null) => {
+        setAssessingId(tradeId);
+        try {
+            if (!account && user?.walletAddress) {
+                toast.info("Manual Wallet Mode: Simulating Tax Release...");
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                await api.patch(`/trades/${tradeId}/state`, {
+                    status: 'CUSTOMS_CLEARED',
+                    eventName: 'GOODS_RELEASED_FROM_DUTY'
+                });
+                toast.success("Goods officially released to Customs!");
+                fetchTrades();
+                return;
+            }
+
+            if (blockchainId !== null && blockchainId !== undefined) {
+                const docContract = walletService.getDocumentVerification();
+                const tx = await docContract.releaseFromDuty(blockchainId);
+                toast.info("Transaction sent. Waiting for confirmation...");
+                await tx.wait();
+
+                await api.patch(`/trades/${tradeId}/state`, {
+                    status: 'CUSTOMS_CLEARED',
+                    txHash: tx.hash,
+                    eventName: 'GOODS_RELEASED_FROM_DUTY'
+                });
+                toast.success("Goods officially released on-chain!");
+                fetchTrades();
+            }
+        } catch (err: any) {
+            console.error(err);
+            toast.error("Failed to release goods: " + (err.reason || err.message));
+        } finally {
+            setAssessingId(null);
+        }
+    };
+
     const handleAuditLog = () => {
-        toast.info("Recording manual assessment securely to the ledger...");
+        toast.info("Opening secure tax ledger...");
     };
 
     const handleTaxInputChange = (tradeId: string, value: string) => {
@@ -60,13 +102,13 @@ const TaxDashboard: React.FC = () => {
     };
 
     const totalMonitored = trades.reduce((sum, t) => sum + (t.amount || 0), 0);
-    const pendingAssessments = trades.filter(t => t.status === 'CUSTOMS_CLEARED').length;
+    const pendingAssessments = trades.filter(t => t.status === 'DUTY_PENDING' && !t.taxAmount).length;
 
     return (
         <div className="space-y-10">
             <div>
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">Tax & Revenue Authority</h1>
-                <p className="text-slate-500 font-medium mt-1">Cross-chain tax compliance and trade volume monitoring.</p>
+                <p className="text-slate-500 font-medium mt-1">Cross-chain tax compliance, duty assessment, and revenue monitoring.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -76,7 +118,7 @@ const TaxDashboard: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-3xl font-black text-slate-900">${totalMonitored.toLocaleString()}</p>
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Active Trade Value</p>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Monitored Trade Value</p>
                     </div>
                 </div>
                 <div className="card-premium space-y-4">
@@ -85,7 +127,7 @@ const TaxDashboard: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-3xl font-black text-slate-900">100%</p>
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Compliance Rate</p>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Compliance Engine</p>
                     </div>
                 </div>
                 <div className="card-premium space-y-4 border-rose-100 bg-rose-50/10">
@@ -103,7 +145,7 @@ const TaxDashboard: React.FC = () => {
                 <div className="p-8 border-b border-slate-50 flex justify-between items-center">
                     <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
                         <FileText className="text-indigo-600" />
-                        Revenue Monitoring Queue
+                        Customs Revenue Queue
                     </h2>
                 </div>
                 {loading ? (
@@ -112,9 +154,10 @@ const TaxDashboard: React.FC = () => {
                     <table className="w-full text-left">
                         <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Product</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Product & ID</th>
                                 <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Base Value</th>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Tax Assessment (USD)</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Duty Assessment (USD)</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -122,11 +165,29 @@ const TaxDashboard: React.FC = () => {
                                 <tr key={trade.id}>
                                     <td className="px-8 py-6">
                                         <p className="font-black text-slate-900 text-sm">{trade.productName}</p>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">To: {trade.destination}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase">ID: #{trade.blockchainId || trade.id.slice(0, 8)}</p>
                                     </td>
                                     <td className="px-8 py-6 font-bold text-slate-600">${trade.amount?.toLocaleString()}</td>
+                                    <td className="px-8 py-6 text-center">
+                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'DUTY_PENDING' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                            {trade.status === 'DUTY_PENDING' ? (trade.taxAmount ? 'WAITING FOR PAYMENT' : 'NEEDS ASSESSMENT') : trade.status.replace(/_/g, ' ')}
+                                        </span>
+                                    </td>
                                     <td className="px-8 py-6 text-right">
-                                        {trade.status === 'CUSTOMS_CLEARED' ? (
+                                        {trade.status === 'DUTY_PAID' ? (
+                                            <div className="flex items-center justify-end gap-3">
+                                                <div className="text-emerald-600 font-bold flex items-center gap-1 text-xs">
+                                                    <CheckCircle size={14} /> Paid
+                                                </div>
+                                                <button
+                                                    onClick={() => handleReleaseGoods(trade.id, trade.blockchainId)}
+                                                    disabled={assessingId === trade.id}
+                                                    className="btn-primary py-2 px-4 shadow-none text-xs bg-emerald-600 hover:bg-emerald-700"
+                                                >
+                                                    {assessingId === trade.id ? 'Processing...' : 'Release Goods'}
+                                                </button>
+                                            </div>
+                                        ) : trade.status === 'DUTY_PENDING' && !trade.taxAmount ? (
                                             <div className="flex items-center justify-end gap-3">
                                                 <div className="relative w-32">
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
@@ -147,9 +208,9 @@ const TaxDashboard: React.FC = () => {
                                                 </button>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center justify-end gap-2 text-emerald-600 font-bold">
+                                            <div className="flex items-center justify-end gap-2 font-bold text-slate-900">
                                                 <span>${trade.taxAmount?.toLocaleString() || '0'}</span>
-                                                <CheckCircle size={16} />
+                                                {trade.status !== 'DUTY_PENDING' && <CheckCircle className="text-emerald-500" size={16} />}
                                             </div>
                                         )}
                                     </td>
@@ -162,18 +223,9 @@ const TaxDashboard: React.FC = () => {
                     <div className="p-20 text-center">
                         <Search className="mx-auto text-slate-200 mb-4" size={48} />
                         <h3 className="text-xl font-bold text-slate-900">No Pending Assessments</h3>
-                        <p className="text-slate-400">Activity will appear here after customs clearance.</p>
+                        <p className="text-slate-400">Activity will appear here after customs flags goods for import duties.</p>
                     </div>
                 )}
-            </div>
-
-            <div className="bg-slate-900 rounded-[2.5rem] p-12 text-white overflow-hidden relative shadow-2xl shadow-indigo-200/50">
-                <div className="relative z-10">
-                    <h2 className="text-2xl font-black mb-2 uppercase tracking-tighter">Record Tax Assessment</h2>
-                    <p className="text-slate-400 max-w-md mb-8">System securely records all assessed taxes against the trade. This amount is automatically deducted and routed to the Tax Authority during final settlement.</p>
-                    <button onClick={handleAuditLog} className="btn-primary bg-white text-slate-900 px-8 hover:bg-slate-100 transition-all">View Tax Ledger</button>
-                </div>
-                <BadgePercent className="absolute -bottom-10 -right-10 text-white/5" size={300} />
             </div>
         </div>
     );

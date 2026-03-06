@@ -32,25 +32,25 @@ export class BlockchainService {
 
         this.tradeRegistry = new ethers.Contract(
             process.env.TRADE_REGISTRY_ADDRESS!,
-            TradeRegistryABI,
+            ((TradeRegistryABI as any).abi || TradeRegistryABI) as any,
             this.wallet
         );
 
         this.letterOfCredit = new ethers.Contract(
             process.env.LETTER_OF_CREDIT_ADDRESS!,
-            LetterOfCreditABI,
+            ((LetterOfCreditABI as any).abi || LetterOfCreditABI) as any,
             this.wallet
         );
 
         this.documentVerification = new ethers.Contract(
             process.env.DOCUMENT_VERIFICATION_ADDRESS!,
-            DocumentVerificationABI,
+            ((DocumentVerificationABI as any).abi || DocumentVerificationABI) as any,
             this.wallet
         );
 
         this.paymentSettlement = new ethers.Contract(
             process.env.PAYMENT_SETTLEMENT_ADDRESS!,
-            PaymentSettlementABI,
+            ((PaymentSettlementABI as any).abi || PaymentSettlementABI) as any,
             this.wallet
         );
     }

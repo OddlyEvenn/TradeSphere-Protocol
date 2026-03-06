@@ -14,6 +14,7 @@ import MarketplaceDiscovery from './pages/exporter/MarketplaceDiscovery';
 import SubmitOffer from './pages/exporter/SubmitOffer';
 import BankRequests from './pages/bank/BankRequests';
 import ImporterTrades from './pages/importer/ImporterTrades';
+import OfferComparison from './pages/importer/OfferComparison';
 import ShipmentDetails from './pages/exporter/ShipmentDetails';
 import ShippingDashboard from './pages/stakeholders/ShippingDashboard';
 import CustomsDashboard from './pages/stakeholders/CustomsDashboard';
@@ -66,6 +67,7 @@ function App() {
                             <Route path="marketplace" element={<CreateTradeRequest />} />
                             <Route path="trades" element={<ImporterTrades />} />
                             <Route path="trades/:id" element={<TradeDetails />} />
+                            <Route path="trades/:tradeId/offers" element={<OfferComparison />} />
 
                             {/* Exporter Routes */}
                             <Route path="discovery" element={<MarketplaceDiscovery />} />

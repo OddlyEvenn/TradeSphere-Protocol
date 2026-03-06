@@ -10,7 +10,9 @@ import {
     ShieldCheck,
     Package,
     ArrowRight,
-    Filter
+    Filter,
+    Award,
+    Calendar
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -21,14 +23,18 @@ interface TradeRequest {
     quantity: string;
     destination: string;
     amount: number;
+    qualityStandards?: string;
+    shippingDeadline?: string;
+    insuranceRequired?: boolean;
     createdAt: string;
+    _count?: { offers: number };
 }
 
 const MarketplaceDiscovery: React.FC = () => {
     const { user, account } = useOutletContext<{ user: any, account: string | null }>();
     const [requests, setRequests] = useState<TradeRequest[]>([]);
     const [loading, setLoading] = useState(true);
-    const [submittingOfferId, setSubmittingOfferId] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
     const navigate = useNavigate();
     const toast = useToast();
 
@@ -38,7 +44,6 @@ const MarketplaceDiscovery: React.FC = () => {
 
     const fetchRequests = async () => {
         try {
-            // Fetch trades with OPEN_FOR_OFFERS status from the new marketplace endpoint
             const res = await api.get('/trades/marketplace');
             setRequests(res.data);
         } catch (err) {
@@ -48,28 +53,12 @@ const MarketplaceDiscovery: React.FC = () => {
         }
     };
 
-    const handleSubmitOffer = async (tradeId: string) => {
-        const amount = prompt("Enter your offer amount (USD):");
-        if (!amount || isNaN(parseFloat(amount))) return;
-
-        const message = prompt("Optional message for the importer:");
-
-        try {
-            setSubmittingOfferId(tradeId); // Indicate which offer is being submitted
-            await api.post('/marketplace/offers', {
-                tradeId,
-                amount: parseFloat(amount),
-                message: message || ""
-            });
-            toast.success("Offer submitted successfully!");
-            navigate('/dashboard/exporter-trades'); // Navigate after successful submission
-        } catch (err: any) {
-            console.error('Failed to submit offer', err);
-            toast.error("Failed to submit offer: " + (err.response?.data?.message || err.message));
-        } finally {
-            setSubmittingOfferId(null); // Reset submitting state
-        }
-    };
+    const filteredRequests = requests.filter(req => {
+        const name = (req.productName || req.product || '').toLowerCase();
+        const dest = (req.destination || '').toLowerCase();
+        const search = searchTerm.toLowerCase();
+        return name.includes(search) || dest.includes(search);
+    });
 
     return (
         <div className="space-y-10">
@@ -83,13 +72,12 @@ const MarketplaceDiscovery: React.FC = () => {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                         <input
                             type="text"
-                            placeholder="Filter by product..."
+                            placeholder="Filter by product or destination..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full bg-white border border-slate-100 rounded-2xl py-3 pl-12 pr-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-100 transition-all"
                         />
                     </div>
-                    <button className="btn-secondary px-4 py-3">
-                        <Filter size={20} />
-                    </button>
                 </div>
             </div>
 
@@ -97,17 +85,24 @@ const MarketplaceDiscovery: React.FC = () => {
                 <div className="flex justify-center py-20">
                     <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-indigo-600"></div>
                 </div>
-            ) : requests.length > 0 ? (
+            ) : filteredRequests.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {requests.map((req) => (
+                    {filteredRequests.map((req) => (
                         <div key={req.id} className="card-premium flex flex-col group hover:scale-[1.02] transition-transform">
                             <div className="flex justify-between items-start mb-6">
                                 <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all">
                                     <Globe size={28} />
                                 </div>
-                                <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                    Verified Importer
-                                </span>
+                                <div className="flex flex-col items-end gap-2">
+                                    <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                        Verified Importer
+                                    </span>
+                                    {(req._count?.offers || 0) > 0 && (
+                                        <span className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                            {req._count?.offers} {req._count?.offers === 1 ? 'Offer' : 'Offers'}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="flex-1 space-y-4">
@@ -130,14 +125,27 @@ const MarketplaceDiscovery: React.FC = () => {
                                     </div>
                                 </div>
 
+                                {/* Quality Standards */}
+                                {req.qualityStandards && (
+                                    <div className="flex items-start gap-2 p-3 bg-amber-50/50 rounded-xl border border-amber-100/50">
+                                        <Award size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+                                        <div>
+                                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Quality Standards</p>
+                                            <p className="text-xs font-bold text-amber-800 mt-0.5">{req.qualityStandards}</p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
                                     <div className="flex items-center gap-1.5">
-                                        <Clock size={12} />
-                                        Expires in 5 days
+                                        <Calendar size={12} />
+                                        {req.shippingDeadline
+                                            ? `By ${new Date(req.shippingDeadline).toLocaleDateString()}`
+                                            : 'No deadline'}
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         <ShieldCheck size={12} />
-                                        LoC Protected
+                                        {req.insuranceRequired ? 'Insurance Req.' : 'No Insurance'}
                                     </div>
                                 </div>
                             </div>

@@ -1,5 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// ─────────────────────────────────────────────────────────────
+// TradeSphere-Protocol — Full Updated Prisma Schema
+// Covers Phase 1 (Marketplace) + Phase 2 (Full Trade Lifecycle)
+// ─────────────────────────────────────────────────────────────
 
 generator client {
   provider = "prisma-client-js"
@@ -10,82 +12,325 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Enums ───────────────────────────────────────────────────
+
 enum Role {
   IMPORTER
   EXPORTER
   IMPORTER_BANK
   EXPORTER_BANK
   SHIPPING
-  INSURANCE
+  CUSTOMS
   TAX_AUTHORITY
   REGULATORS
-  CUSTOMS
+  INSURANCE
 }
 
+enum TradeStatus {
+  OPEN_FOR_OFFERS
+  OFFER_ACCEPTED
+  TRADE_INITIATED
+  LOC_INITIATED
+  LOC_UPLOADED
+  LOC_APPROVED
+  FUNDS_LOCKED
+  SHIPPING_ASSIGNED
+  GOODS_SHIPPED
+  CUSTOMS_UNDER_REVIEW
+  CUSTOMS_CLEARED
+  DUTY_PENDING
+  DUTY_PAID
+  PAYMENT_AUTHORIZED
+  SETTLEMENT_CONFIRMED
+  COMPLETED
+  DISPUTED
+  EXPIRED
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum LoCStatus {
+  REQUESTED
+  UPLOADED
+  APPROVED
+  FUNDS_LOCKED
+  EXPIRED
+}
+
+enum DutyStatus {
+  ASSESSED
+  NOTIFIED
+  PAID
+}
+
+enum DocumentType {
+  LETTER_OF_CREDIT
+  BILL_OF_LADING
+  CUSTOMS_CERTIFICATE
+  TAX_CLEARANCE
+  TRADE_AGREEMENT
+  INSURANCE_CERTIFICATE
+  OTHER
+}
+
+// ─── User ─────────────────────────────────────────────────────
+
 model User {
-  id                String   @id @default(uuid())
-  email             String   @unique
-  password          String
-  name              String
-  role              Role
-  walletAddress     String?  @unique
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  tradesAsImporter  Trade[]  @relation("ImporterTrades")
-  tradesAsExporter  Trade[]  @relation("ExporterTrades")
+  id               String   @id @default(uuid())
+  email            String   @unique
+  password         String
+  name             String
+  role             Role
+  walletAddress    String?  @unique
+  phone            String?
+  country          String?
+  organizationName String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Trade relations
+  tradesAsImporter     Trade[] @relation("ImporterTrades")
+  tradesAsExporter     Trade[] @relation("ExporterTrades")
   tradesAsImporterBank Trade[] @relation("ImporterBankTrades")
   tradesAsExporterBank Trade[] @relation("ExporterBankTrades")
   tradesAsShipping     Trade[] @relation("ShippingTrades")
-  listings          MarketplaceListing[]
-  offers            MarketplaceOffer[]
+  tradesAsCustoms      Trade[] @relation("CustomsTrades")
+  tradesAsTaxAuthority Trade[] @relation("TaxAuthorityTrades")
+
+  // Other relations
+  offers               MarketplaceOffer[]
+  listings             MarketplaceListing[]
+  uploadedDocuments    Document[]
+  tradeEvents          TradeEvent[]
+  locAsImporterBank    LetterOfCredit[]      @relation("LoCImporterBank")
+  locAsExporterBank    LetterOfCredit[]      @relation("LoCExporterBank")
+  bolAsShipping        BillOfLading[]
+  customsVerifications CustomsVerification[]
+  dutyAssessments      DutyAssessment[]
 }
 
+// ─── Trade ────────────────────────────────────────────────────
+
 model Trade {
-  id               String   @id @default(uuid())
-  blockchainId     Int?     @unique
-  importerId       String
-  exporterId       String?
-  
-  // Marketplace / RFQ Fields
-  productName      String?
-  quantity         String?
-  destination      String?
-  shippingDeadline DateTime?
-  insuranceRequired Boolean @default(false)
+  id               String      @id @default(uuid())
+  blockchainId     Int?        @unique
+  blockchainTxHash String?
+  status           TradeStatus @default(OPEN_FOR_OFFERS)
+
+  // Importer's trade request fields
+  importerId           String
+  productName          String
+  quantity             String
+  destination          String
+  priceRange           String?
+  shippingDeadline     DateTime?
+  insuranceRequired    Boolean   @default(false)
+  qualityStandards     String?
   additionalConditions String?
-  
+
+  // Participants (set as the trade progresses)
+  exporterId       String?
   importerBankId   String?
   exporterBankId   String?
   shippingId       String?
-  importer         User     @relation("ImporterTrades", fields: [importerId], references: [id])
-  exporter         User?    @relation("ExporterTrades", fields: [exporterId], references: [id])
-  importerBank     User?    @relation("ImporterBankTrades", fields: [importerBankId], references: [id])
-  exporterBank     User?    @relation("ExporterBankTrades", fields: [exporterBankId], references: [id])
-  shipping         User?    @relation("ShippingTrades", fields: [shippingId], references: [id])
-  status           String   @default("CREATED")
-  amount           Float
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  offers           MarketplaceOffer[]
+  customsOfficerId String?
+  taxAuthorityId   String?
+
+  // Financials
+  amount     Float
+  dutyAmount Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  importer     User  @relation("ImporterTrades", fields: [importerId], references: [id])
+  exporter     User? @relation("ExporterTrades", fields: [exporterId], references: [id])
+  importerBank User? @relation("ImporterBankTrades", fields: [importerBankId], references: [id])
+  exporterBank User? @relation("ExporterBankTrades", fields: [exporterBankId], references: [id])
+  shipping     User? @relation("ShippingTrades", fields: [shippingId], references: [id])
+  customs      User? @relation("CustomsTrades", fields: [customsOfficerId], references: [id])
+  taxAuthority User? @relation("TaxAuthorityTrades", fields: [taxAuthorityId], references: [id])
+
+  offers              MarketplaceOffer[]
+  letterOfCredit      LetterOfCredit?
+  billOfLading        BillOfLading?
+  customsVerification CustomsVerification?
+  dutyAssessment      DutyAssessment?
+  documents           Document[]
+  events              TradeEvent[]
 }
+
+// ─── MarketplaceOffer ─────────────────────────────────────────
 
 model MarketplaceOffer {
-  id               String   @id @default(uuid())
-  tradeId          String
-  trade            Trade    @relation(fields: [tradeId], references: [id])
-  exporterId       String
-  exporter         User     @relation(fields: [exporterId], references: [id])
-  amount           Float
-  message          String?
-  status           String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                 String      @id @default(uuid())
+  tradeId            String
+  exporterId         String
+  amount             Float
+  shippingTimeline   String
+  termsAndConditions String
+  deliveryTerms      String      @default("CIF")
+  message            String?
+  validUntil         DateTime?
+  status             OfferStatus @default(PENDING)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  trade    Trade @relation(fields: [tradeId], references: [id])
+  exporter User  @relation(fields: [exporterId], references: [id])
 }
 
+// ─── LetterOfCredit ───────────────────────────────────────────
+
+model LetterOfCredit {
+  id             String    @id @default(uuid())
+  tradeId        String    @unique
+  importerBankId String
+  exporterBankId String?
+  amount         Float
+  expiryDate     DateTime
+  ipfsHash       String?
+  documentTxHash String?
+  status         LoCStatus @default(REQUESTED)
+  uploadedAt     DateTime?
+  approvedAt     DateTime?
+  fundsLockedAt  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  trade        Trade @relation(fields: [tradeId], references: [id])
+  importerBank User  @relation("LoCImporterBank", fields: [importerBankId], references: [id])
+  exporterBank User? @relation("LoCExporterBank", fields: [exporterBankId], references: [id])
+}
+
+// ─── BillOfLading ─────────────────────────────────────────────
+
+model BillOfLading {
+  id                String    @id @default(uuid())
+  tradeId           String    @unique
+  shippingCompanyId String
+  bolNumber         String
+  vesselName        String?
+  portOfLoading     String
+  portOfDischarge   String
+  estimatedArrival  DateTime?
+  goodsAccepted     Boolean   @default(true)
+  rejectionReason   String?
+  ipfsHash          String?
+  documentTxHash    String?
+  issuedAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  trade           Trade @relation(fields: [tradeId], references: [id])
+  shippingCompany User  @relation(fields: [shippingCompanyId], references: [id])
+}
+
+// ─── CustomsVerification ──────────────────────────────────────
+
+model CustomsVerification {
+  id               String    @id @default(uuid())
+  tradeId          String    @unique
+  customsOfficerId String
+  isCleared        Boolean?
+  remarks          String?
+  ipfsHash         String?
+  documentTxHash   String?
+  verifiedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  trade          Trade @relation(fields: [tradeId], references: [id])
+  customsOfficer User  @relation(fields: [customsOfficerId], references: [id])
+}
+
+// ─── DutyAssessment ───────────────────────────────────────────
+
+model DutyAssessment {
+  id             String     @id @default(uuid())
+  tradeId        String     @unique
+  taxAuthorityId String
+  dutyAmount     Float
+  tariffRate     Float?
+  taxType        String?
+  description    String?
+  status         DutyStatus @default(ASSESSED)
+  notifiedAt     DateTime?
+  paidAt         DateTime?
+  paymentTxHash  String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  trade        Trade @relation(fields: [tradeId], references: [id])
+  taxAuthority User  @relation(fields: [taxAuthorityId], references: [id])
+}
+
+// ─── Document ─────────────────────────────────────────────────
+
+model Document {
+  id               String       @id @default(uuid())
+  tradeId          String
+  uploadedById     String
+  uploadedByRole   Role
+  type             DocumentType
+  fileName         String
+  fileSize         Int?
+  mimeType         String?
+  ipfsHash         String
+  ipfsGatewayUrl   String?
+  blockchainTxHash String?
+  createdAt        DateTime     @default(now())
+
+  trade      Trade @relation(fields: [tradeId], references: [id])
+  uploadedBy User  @relation(fields: [uploadedById], references: [id])
+}
+
+// ─── TradeEvent (Audit Log) ───────────────────────────────────
+
+model TradeEvent {
+  id         String   @id @default(uuid())
+  tradeId    String
+  actorId    String?
+  actorRole  String
+  event      String
+  fromStatus String?
+  toStatus   String?
+  txHash     String?
+  ipfsHash   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  trade Trade @relation(fields: [tradeId], references: [id])
+  actor User? @relation(fields: [actorId], references: [id])
+}
+
+// ─── MarketplaceListing ───────────────────────────────────────
+
+model MarketplaceListing {
+  id         String   @id @default(uuid())
+  productId  String
+  exporterId String
+  price      Float
+  quantity   Int
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product  Product @relation(fields: [productId], references: [id])
+  exporter User    @relation(fields: [exporterId], references: [id])
+}
+
+// ─── Product & Category ───────────────────────────────────────
+
 model Category {
-  id        String    @id @default(uuid())
-  name      String    @unique
-  products  Product[]
+  id       String    @id @default(uuid())
+  name     String    @unique
+  products Product[]
 }
 
 model Product {
@@ -93,21 +338,9 @@ model Product {
   name        String
   description String?
   categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  listings    MarketplaceListing[]
-}
 
-model MarketplaceListing {
-  id          String   @id @default(uuid())
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
-  exporterId  String
-  exporter    User     @relation(fields: [exporterId], references: [id])
-  price       Float
-  quantity    Int
-  status      String   @default("ACTIVE")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  category Category?          @relation(fields: [categoryId], references: [id])
+  listings MarketplaceListing[]
 }

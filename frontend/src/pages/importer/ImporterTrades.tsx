@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import {
     Package,
-    ArrowLeft,
     Search,
-    Filter,
-    Trash2
+    Trash2,
+    MessageSquare
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -17,6 +16,8 @@ interface Trade {
     amount: number;
     createdAt: string;
     productName?: string;
+    qualityStandards?: string;
+    _count?: { offers: number };
 }
 
 const ImporterTrades: React.FC = () => {
@@ -59,6 +60,15 @@ const ImporterTrades: React.FC = () => {
         }
     };
 
+    const handleTradeClick = (trade: Trade) => {
+        // If trade is open for offers and has offers, go to comparison page
+        if (trade.status === 'OPEN_FOR_OFFERS' && (trade._count?.offers || 0) > 0) {
+            navigate(`/dashboard/trades/${trade.id}/offers`);
+        } else {
+            navigate(`/dashboard/trades/${trade.id}`);
+        }
+    };
+
     const filteredTrades = trades.filter(trade => {
         const id = trade?.id || '';
         const name = trade?.productName || '';
@@ -66,6 +76,24 @@ const ImporterTrades: React.FC = () => {
         return id.toLowerCase().includes(search.toLowerCase()) ||
             name.toLowerCase().includes(search.toLowerCase());
     });
+
+    const getStatusStyle = (status: string) => {
+        switch (status) {
+            case 'OPEN_FOR_OFFERS':
+                return 'bg-amber-50 text-amber-600';
+            case 'OFFER_ACCEPTED':
+                return 'bg-blue-50 text-blue-600';
+            case 'TRADE_INITIATED':
+                return 'bg-indigo-50 text-indigo-600';
+            case 'COMPLETED':
+            case 'SETTLEMENT_CONFIRMED':
+                return 'bg-emerald-50 text-emerald-600';
+            case 'DISPUTED':
+                return 'bg-rose-50 text-rose-600';
+            default:
+                return 'bg-indigo-50 text-indigo-700';
+        }
+    };
 
     if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-indigo-600"></div></div>;
 
@@ -103,7 +131,7 @@ const ImporterTrades: React.FC = () => {
                         {filteredTrades.map((trade) => (
                             <div
                                 key={trade.id}
-                                onClick={() => navigate(`/dashboard/trades/${trade.id}`)}
+                                onClick={() => handleTradeClick(trade)}
                                 className="p-6 hover:bg-slate-50 transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between group gap-4"
                             >
                                 <div className="flex items-center gap-6">
@@ -121,10 +149,19 @@ const ImporterTrades: React.FC = () => {
                                         <p className="text-xs font-bold text-slate-400 mt-0.5">Created on {new Date(trade.createdAt).toLocaleDateString()}</p>
                                     </div>
                                 </div>
-                                <div className="text-left md:text-right flex flex-col items-end">
+                                <div className="text-left md:text-right flex flex-col items-end gap-2">
                                     <div className="flex items-center gap-4">
                                         <p className="text-2xl font-black text-slate-900">${trade.amount.toLocaleString()}</p>
-                                        {(trade.status === 'CREATED' || trade.status === 'OPEN_FOR_OFFERS') && (
+
+                                        {/* Offer Count Badge */}
+                                        {trade.status === 'OPEN_FOR_OFFERS' && (trade._count?.offers || 0) > 0 && (
+                                            <div className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-full">
+                                                <MessageSquare size={14} />
+                                                <span className="text-xs font-black">{trade._count?.offers} {trade._count?.offers === 1 ? 'Offer' : 'Offers'}</span>
+                                            </div>
+                                        )}
+
+                                        {(trade.status === 'OPEN_FOR_OFFERS') && (
                                             <button
                                                 onClick={(e) => handleDelete(e, trade.id)}
                                                 disabled={deletingId === trade.id}
@@ -139,11 +176,8 @@ const ImporterTrades: React.FC = () => {
                                             </button>
                                         )}
                                     </div>
-                                    <span className={`inline-block mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'CREATED' ? 'bg-amber-50 text-amber-600' :
-                                        trade.status === 'PAYMENT_AUTHORIZED' ? 'bg-emerald-50 text-emerald-600' :
-                                            'bg-indigo-50 text-indigo-700'
-                                        }`}>
-                                        {trade.status}
+                                    <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusStyle(trade.status)}`}>
+                                        {trade.status.replace(/_/g, ' ')}
                                     </span>
                                 </div>
                             </div>

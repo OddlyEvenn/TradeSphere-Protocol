@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import api from '../../services/api';
 import {
     ArrowLeft,
@@ -15,6 +15,7 @@ import { walletService } from '../../services/WalletService';
 import { useToast } from '../../contexts/ToastContext';
 
 const ShipmentDetails: React.FC = () => {
+    const { user } = useOutletContext<any>() || {};
     const { id } = useParams();
     const navigate = useNavigate();
     const [trade, setTrade] = useState<any>(null);
@@ -57,9 +58,46 @@ const ShipmentDetails: React.FC = () => {
         if (!selectedBankId) return toast.error("Please select a bank first.");
         setProcessing(true);
         try {
+            const selectedBank = banks.find(b => b.id === selectedBankId);
+            if (!selectedBank?.walletAddress) {
+                toast.error("Selected bank does not have a linked wallet address.");
+                setProcessing(false);
+                return;
+            }
+
+            // If no MetaMask account connected — DB-only update
+            if (!account) {
+                // No wallet connected — just update the database
+            } else if (trade.blockchainId !== null && trade.blockchainId !== undefined) {
+                const registry = walletService.getTradeRegistry();
+                const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+                const onChainTrade = await registry.getTrade(trade.blockchainId);
+                const onChainExporter = onChainTrade.exporter.toLowerCase();
+
+                if (onChainExporter === ZERO_ADDRESS) {
+                    // No valid on-chain trade — skip blockchain, update DB only
+                    console.warn(`On-chain trade ${trade.blockchainId} has zero-address exporter. DB-only update.`);
+                } else {
+                    const currentWallet = account.toLowerCase();
+                    if (onChainExporter !== currentWallet) {
+                        toast.error(
+                            `Wallet mismatch! On-chain exporter is ${onChainExporter.slice(0, 6)}…${onChainExporter.slice(-4)}, ` +
+                            `but you are connected as ${currentWallet.slice(0, 6)}…${currentWallet.slice(-4)}. ` +
+                            `Please switch to the correct MetaMask account.`
+                        );
+                        setProcessing(false);
+                        return;
+                    }
+
+                    toast.info("Registering Exporter Bank on the blockchain...");
+                    const tx = await registry.assignAdvisingBank(trade.blockchainId, selectedBank.walletAddress);
+                    await tx.wait();
+                }
+            }
+
             await api.patch(`/trades/${id}`, {
-                exporterBankId: selectedBankId,
-                status: 'EXPORTER_BANK_NOMINATED'
+                exporterBankId: selectedBankId
             });
             toast.success("Exporter Bank Nominated! They will now review the Letter of Credit.");
             fetchData();
@@ -77,7 +115,7 @@ const ShipmentDetails: React.FC = () => {
         try {
             await api.patch(`/trades/${id}`, {
                 shippingId: selectedCarrierId,
-                status: 'SHIPPING_NOMINATED'
+                status: 'SHIPPING_ASSIGNED'
             });
             toast.success("Shipping Carrier Nominated! You can now proceed to ship the goods.");
             fetchData();
@@ -126,12 +164,12 @@ const ShipmentDetails: React.FC = () => {
                         </h2>
                         <div className="space-y-6">
                             {[
-                                { status: 'LOC_ISSUED', label: 'LoC Issued', done: ['LOC_ISSUED', 'EXPORTER_BANK_NOMINATED', 'LOC_VERIFIED', 'SHIPPING_NOMINATED', 'GOODS_SHIPPED', 'DOCS_SUBMITTED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status) },
-                                { status: 'EXPORTER_BANK_NOMINATED', label: 'Bank Nominated', done: ['EXPORTER_BANK_NOMINATED', 'LOC_VERIFIED', 'SHIPPING_NOMINATED', 'GOODS_SHIPPED', 'DOCS_SUBMITTED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status) },
-                                { status: 'LOC_VERIFIED', label: 'LoC Verified by Bank', done: ['LOC_VERIFIED', 'SHIPPING_NOMINATED', 'GOODS_SHIPPED', 'DOCS_SUBMITTED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status) },
-                                { status: 'SHIPPING_NOMINATED', label: 'Carrier Assigned', done: ['SHIPPING_NOMINATED', 'GOODS_SHIPPED', 'DOCS_SUBMITTED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status) },
-                                { status: 'GOODS_SHIPPED', label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'DOCS_SUBMITTED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status) },
-                                { status: 'DOCS_VERIFIED', label: 'Documents Cleared', done: ['DOCS_VERIFIED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'LoC Issued', done: ['LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Bank Nominated', done: !!trade.exporterBankId },
+                                { label: 'LoC Approved by Bank', done: ['LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Carrier Assigned', done: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'COMPLETED'].includes(trade.status) },
                             ].map((s, i) => (
                                 <div key={i} className="flex gap-4">
                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${s.done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
@@ -145,8 +183,8 @@ const ShipmentDetails: React.FC = () => {
                 </div>
 
                 <div className="lg:col-span-2 space-y-8">
-                    {/* Bank Selection */}
-                    {trade.status === 'LOC_ISSUED' && (
+                    {/* Bank Selection — show whenever bank not yet assigned */}
+                    {!trade.exporterBankId && ['LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED'].includes(trade.status) && (
                         <div className="card-premium border-indigo-100 bg-indigo-50/10">
                             <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
                                 <Landmark className="text-indigo-600" size={24} />
@@ -173,14 +211,21 @@ const ShipmentDetails: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Shipping Nomination */}
-                    {trade.status === 'LOC_VERIFIED' && (
+                    {trade.exporterBankId && ['LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED'].includes(trade.status) && (
+                        <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center gap-3 text-indigo-700">
+                            <CheckCircle2 size={20} className="flex-shrink-0" />
+                            <p className="text-xs font-bold uppercase tracking-tight">Advising Bank Nominated — Awaiting LoC Approval</p>
+                        </div>
+                    )}
+
+                    {/* Shipping Nomination — show when funds are locked (bank approved + locked escrow) */}
+                    {['FUNDS_LOCKED', 'LOC_APPROVED'].includes(trade.status) && !trade.shippingId && (
                         <div className="card-premium border-indigo-100 bg-indigo-50/10">
                             <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
                                 <Truck className="text-indigo-600" size={24} />
                                 Nominate Shipping Carrier
                             </h2>
-                            <p className="text-slate-500 text-sm mb-6">Select the logistics provider responsible for transporting your goods.</p>
+                            <p className="text-slate-500 text-sm mb-6">Funds are secured. Select the logistics provider responsible for transporting your goods.</p>
                             <div className="flex gap-4">
                                 <select
                                     className="input-premium flex-1"
@@ -188,6 +233,7 @@ const ShipmentDetails: React.FC = () => {
                                     onChange={(e) => setSelectedCarrierId(e.target.value)}
                                 >
                                     <option value="">Choose a carrier...</option>
+
                                     {carriers.map(carrier => <option key={carrier.id} value={carrier.id}>{carrier.name}</option>)}
                                 </select>
                                 <button
@@ -202,7 +248,7 @@ const ShipmentDetails: React.FC = () => {
                     )}
 
                     {/* Shipping Action */}
-                    {(trade.status === 'SHIPPING_NOMINATED' || trade.status === 'GOODS_SHIPPED') && (
+                    {(trade.status === 'SHIPPING_ASSIGNED' || trade.status === 'GOODS_SHIPPED') && (
                         <div className="card-premium border-emerald-100 bg-emerald-50/10">
                             <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
                                 <Truck className="text-emerald-600" size={24} />

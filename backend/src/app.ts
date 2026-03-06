@@ -7,6 +7,7 @@ import authRoutes from './routes/authRoutes';
 import tradeRoutes from './routes/tradeRoutes';
 import marketplaceRoutes from './routes/marketplaceRoutes';
 import userRoutes from './routes/userRoutes';
+import documentRoutes from './routes/documentRoutes';
 import { EventListenerService } from './services/EventListenerService';
 
 dotenv.config();
@@ -29,6 +30,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/trades', tradeRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/documents', documentRoutes);
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date() });
