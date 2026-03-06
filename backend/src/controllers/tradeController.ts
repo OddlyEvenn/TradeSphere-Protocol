@@ -99,20 +99,23 @@ export const getMyTrades = async (req: Request, res: Response) => {
                 orderBy: { createdAt: 'desc' }
             });
         } else if (role === 'SHIPPING') {
+            // Shipping sees all trades that need dispatch or are in transit
             trades = await (prisma.trade as any).findMany({
-                where: { shippingId: userId },
+                where: { status: { in: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'COMPLETED'] } },
                 include: includeBase,
                 orderBy: { createdAt: 'desc' }
             });
         } else if (role === 'CUSTOMS') {
+            // Customs sees all trades that are in shipment/clearance statuses
             trades = await (prisma.trade as any).findMany({
-                where: { customsOfficerId: userId },
+                where: { status: { in: ['GOODS_SHIPPED', 'DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'COMPLETED'] } },
                 include: includeBase,
                 orderBy: { createdAt: 'desc' }
             });
         } else if (role === 'TAX_AUTHORITY') {
+            // Tax authority sees all trades with duty pending
             trades = await (prisma.trade as any).findMany({
-                where: { taxAuthorityId: userId },
+                where: { status: { in: ['DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'COMPLETED'] } },
                 include: includeBase,
                 orderBy: { createdAt: 'desc' }
             });
@@ -250,16 +253,23 @@ export const deleteTrade = async (req: Request, res: Response) => {
 export const updateTradeState = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { status, txHash, ipfsHash, eventName } = req.body;
+        const { status, txHash, ipfsHash, eventName, taxAmount } = req.body;
         const userId = (req as any).user.userId;
         const role = (req as any).user.role;
 
         const trade = await (prisma.trade as any).findUnique({ where: { id } });
         if (!trade) return res.status(404).json({ message: 'Trade not found' });
 
+        // Build the update data — only include optional fields if provided
+        const updateData: any = {};
+        if (status) updateData.status = status;
+        // taxAmount from frontend maps to dutyAmount in the DB schema
+        if (taxAmount !== undefined && taxAmount !== null) updateData.dutyAmount = parseFloat(taxAmount);
+        if (ipfsHash) updateData.ipfsHash = ipfsHash;
+
         const updatedTrade = await (prisma.trade as any).update({
             where: { id },
-            data: { status }
+            data: updateData
         });
 
         await (prisma.tradeEvent as any).create({
@@ -267,15 +277,15 @@ export const updateTradeState = async (req: Request, res: Response) => {
                 tradeId: id,
                 actorId: userId,
                 actorRole: role,
-                event: eventName || status,
+                event: eventName || status || 'TRADE_UPDATED',
                 fromStatus: trade.status,
-                toStatus: status,
+                toStatus: status || trade.status,
                 txHash: txHash || null,
                 ipfsHash: ipfsHash || null
             }
         });
 
-        res.json({ message: `Trade status updated to ${status}`, trade: updatedTrade });
+        res.json({ message: `Trade updated successfully`, trade: updatedTrade });
     } catch (error: any) {
         console.error("Update trade state error:", error);
         res.status(500).json({ message: error.message });

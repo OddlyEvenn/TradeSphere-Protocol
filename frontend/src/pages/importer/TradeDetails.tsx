@@ -222,8 +222,8 @@ const TradeDetails: React.FC = () => {
     };
 
     const handleDutyPayment = async () => {
-        if (!window.confirm(`Pay tax assessment of $${trade.taxAmount}?`)) return;
-        if (!trade || !trade.taxAmount) return;
+        if (!window.confirm(`Pay tax assessment of $${trade.dutyAmount}?`)) return;
+        if (!trade || !trade.dutyAmount) return;
 
         if (!account && !user?.walletAddress) {
             toast.error("Please connect your wallet or set a manual override in Settings!");
@@ -386,7 +386,7 @@ const TradeDetails: React.FC = () => {
                                 <CheckCircle2 className="text-emerald-600" />
                                 Customs & Settlement
                             </h2>
-                            {trade.status === 'DUTY_PENDING' && trade.taxAmount ? (
+                            {trade.status === 'DUTY_PENDING' && trade.dutyAmount ? (
                                 <>
                                     <p className="text-sm font-medium text-slate-500 mb-6">Customs requires duty payment before clearance.</p>
                                     <div className="bg-white rounded-2xl p-4 mb-6 border border-emerald-100/50 space-y-3">
@@ -396,7 +396,7 @@ const TradeDetails: React.FC = () => {
                                         </div>
                                         <div className="border-t border-slate-100 pt-3 flex justify-between items-center font-black text-rose-600">
                                             <span>Assessed Customs Duty</span>
-                                            <span>${trade.taxAmount?.toLocaleString()}</span>
+                                            <span>${trade.dutyAmount?.toLocaleString()}</span>
                                         </div>
                                     </div>
                                     <button
@@ -404,7 +404,7 @@ const TradeDetails: React.FC = () => {
                                         disabled={settlingPayment}
                                         className="btn-primary w-full py-4 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
                                     >
-                                        {settlingPayment ? 'Processing...' : `Pay $${trade.taxAmount?.toLocaleString()} Duty`}
+                                        {settlingPayment ? 'Processing...' : `Pay $${trade.dutyAmount?.toLocaleString()} Duty`}
                                     </button>
                                 </>
                             ) : (

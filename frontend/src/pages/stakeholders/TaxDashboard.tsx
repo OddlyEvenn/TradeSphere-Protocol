@@ -102,7 +102,7 @@ const TaxDashboard: React.FC = () => {
     };
 
     const totalMonitored = trades.reduce((sum, t) => sum + (t.amount || 0), 0);
-    const pendingAssessments = trades.filter(t => t.status === 'DUTY_PENDING' && !t.taxAmount).length;
+    const pendingAssessments = trades.filter(t => t.status === 'DUTY_PENDING' && !t.dutyAmount).length;
 
     return (
         <div className="space-y-10">
@@ -170,7 +170,7 @@ const TaxDashboard: React.FC = () => {
                                     <td className="px-8 py-6 font-bold text-slate-600">${trade.amount?.toLocaleString()}</td>
                                     <td className="px-8 py-6 text-center">
                                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'DUTY_PENDING' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                            {trade.status === 'DUTY_PENDING' ? (trade.taxAmount ? 'WAITING FOR PAYMENT' : 'NEEDS ASSESSMENT') : trade.status.replace(/_/g, ' ')}
+                                            {trade.status === 'DUTY_PENDING' ? (trade.dutyAmount ? 'WAITING FOR PAYMENT' : 'NEEDS ASSESSMENT') : trade.status.replace(/_/g, ' ')}
                                         </span>
                                     </td>
                                     <td className="px-8 py-6 text-right">
@@ -187,7 +187,7 @@ const TaxDashboard: React.FC = () => {
                                                     {assessingId === trade.id ? 'Processing...' : 'Release Goods'}
                                                 </button>
                                             </div>
-                                        ) : trade.status === 'DUTY_PENDING' && !trade.taxAmount ? (
+                                        ) : trade.status === 'DUTY_PENDING' && !trade.dutyAmount ? (
                                             <div className="flex items-center justify-end gap-3">
                                                 <div className="relative w-32">
                                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
@@ -209,7 +209,7 @@ const TaxDashboard: React.FC = () => {
                                             </div>
                                         ) : (
                                             <div className="flex items-center justify-end gap-2 font-bold text-slate-900">
-                                                <span>${trade.taxAmount?.toLocaleString() || '0'}</span>
+                                                <span>${trade.dutyAmount?.toLocaleString() || '0'}</span>
                                                 {trade.status !== 'DUTY_PENDING' && <CheckCircle className="text-emerald-500" size={16} />}
                                             </div>
                                         )}

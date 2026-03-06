@@ -247,26 +247,23 @@ const ShipmentDetails: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Shipping Action */}
-                    {(trade.status === 'SHIPPING_ASSIGNED' || trade.status === 'GOODS_SHIPPED') && (
-                        <div className="card-premium border-emerald-100 bg-emerald-50/10">
+                    {/* Shipping Action — handled by shipping company, show status to exporter */}
+                    {trade.status === 'SHIPPING_ASSIGNED' && (
+                        <div className="card-premium border-amber-100 bg-amber-50/10">
                             <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
-                                <Truck className="text-emerald-600" size={24} />
-                                {trade.status === 'GOODS_SHIPPED' ? 'Shipment in Transit' : 'Initiate Shipment'}
+                                <Truck className="text-amber-600" size={24} />
+                                Awaiting Shipment
                             </h2>
-                            <p className="text-slate-500 text-sm mb-6">
-                                {trade.status === 'GOODS_SHIPPED'
-                                    ? 'The goods have been marked as shipped. Shipping carrier will now verify the load.'
-                                    : 'Once goods are loaded, mark this trade as shipped to trigger document verification.'}
+                            <p className="text-slate-500 text-sm">
+                                The shipping carrier has been notified. They will upload the Bill of Lading and confirm dispatch from their dashboard.
                             </p>
-                            <button
-                                onClick={handleMarkAsShipped}
-                                disabled={processing || trade.status === 'GOODS_SHIPPED'}
-                                className="btn-primary bg-emerald-600 hover:bg-emerald-700 w-full py-4 text-white disabled:opacity-50"
-                            >
-                                <Truck size={18} />
-                                {processing ? 'Updating...' : trade.status === 'GOODS_SHIPPED' ? 'Goods Shipped' : 'Confirm Goods Shipped'}
-                            </button>
+                        </div>
+                    )}
+
+                    {trade.status === 'GOODS_SHIPPED' && (
+                        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">
+                            <Truck size={20} className="flex-shrink-0" />
+                            <p className="text-xs font-bold uppercase tracking-tight">Goods Shipped — Bill of Lading Issued by Carrier</p>
                         </div>
                     )}
 

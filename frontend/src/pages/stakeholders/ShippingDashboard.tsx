@@ -32,6 +32,18 @@ const ShippingDashboard: React.FC = () => {
         }
     };
 
+    // Returns true if the on-chain trade exists (importer is not zero address)
+    const checkOnChainValid = async (blockchainId: number): Promise<boolean> => {
+        try {
+            const registry = walletService.getTradeRegistry();
+            const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+            const onChainTrade = await registry.getTrade(blockchainId);
+            return onChainTrade.importer.toLowerCase() !== ZERO_ADDRESS;
+        } catch {
+            return false;
+        }
+    };
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !uploadTarget) return;
@@ -67,13 +79,34 @@ const ShippingDashboard: React.FC = () => {
                 return;
             }
 
-            // Normal Flow
-            const contractDoc = walletService.getDocumentVerification();
             if (uploadTarget.blockchainId === null || uploadTarget.blockchainId === undefined) {
-                throw new Error("This trade has no blockchain ID.");
+                // No blockchainId at all — DB-only update
+                await api.patch(`/trades/${uploadTarget.id}/state`, {
+                    status: 'GOODS_SHIPPED',
+                    ipfsHash: ipfsHash,
+                    eventName: 'GOODS_SHIPPED'
+                });
+                toast.success("Bill of Lading recorded!");
+                fetchTrades();
+                return;
+            }
+
+            // Check if on-chain trade is valid before sending blockchain tx
+            const onChainValid = await checkOnChainValid(uploadTarget.blockchainId);
+            if (!onChainValid) {
+                console.warn(`On-chain trade ${uploadTarget.blockchainId} is invalid — DB-only update.`);
+                await api.patch(`/trades/${uploadTarget.id}/state`, {
+                    status: 'GOODS_SHIPPED',
+                    ipfsHash: ipfsHash,
+                    eventName: 'GOODS_SHIPPED'
+                });
+                toast.success("Bill of Lading recorded!");
+                fetchTrades();
+                return;
             }
 
             toast.info("Sending transaction to blockchain...");
+            const contractDoc = walletService.getDocumentVerification();
             const tx = await contractDoc.issueBillOfLading(uploadTarget.blockchainId, ipfsHash);
             await tx.wait();
 
