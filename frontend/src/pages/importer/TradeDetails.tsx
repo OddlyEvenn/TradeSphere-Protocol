@@ -32,7 +32,24 @@ const TradeDetails: React.FC = () => {
     const [settlingPayment, setSettlingPayment] = useState(false);
     const [banks, setBanks] = useState<any[]>([]);
     const [selectedBankId, setSelectedBankId] = useState('');
+    const [carriers, setCarriers] = useState<any[]>([]);
+    const [selectedCarrierId, setSelectedCarrierId] = useState('');
+    const [nominatingCarrier, setNominatingCarrier] = useState(false);
     const toast = useToast();
+
+    /**
+     * Ensures MetaMask is connected before blockchain actions.
+     * If account from layout context is null, tries to auto-connect.
+     * Returns the connected wallet address or null if failed.
+     */
+    const ensureWalletConnected = async (): Promise<string | null> => {
+        if (account) return account;
+        // Try auto-connecting MetaMask
+        const connected = await walletService.connect();
+        if (connected) return connected;
+        toast.error("MetaMask wallet required. Please connect your wallet to proceed.");
+        return null;
+    };
 
     useEffect(() => {
         // Redirect exporters to their ShipmentDetails page
@@ -45,17 +62,20 @@ const TradeDetails: React.FC = () => {
 
     const fetchTradeData = async () => {
         try {
-            const [tradeRes, offersRes, banksRes, eventsRes] = await Promise.all([
+            const [tradeRes, offersRes, banksRes, carriersRes, eventsRes] = await Promise.all([
                 api.get(`/trades/${id}`),
                 api.get(`/marketplace/trades/${id}/offers`),
                 api.get('/users?role=IMPORTER_BANK'),
+                api.get('/users?role=SHIPPING'),
                 api.get(`/trades/${id}/events`)
             ]);
             setTrade(tradeRes.data);
             setOffers(offersRes.data);
             setBanks(banksRes.data);
+            setCarriers(carriersRes.data);
             setEvents(eventsRes.data);
             if (tradeRes.data.importerBankId) setSelectedBankId(tradeRes.data.importerBankId);
+            if (tradeRes.data.shippingId) setSelectedCarrierId(tradeRes.data.shippingId);
         } catch (err) {
             console.error('Failed to fetch trade data', err);
         } finally {
@@ -79,43 +99,35 @@ const TradeDetails: React.FC = () => {
         }
     };
 
+    /**
+     * ARCHITECTURE: Creates the trade on-chain via TradeRegistry.createTrade().
+     * The EventListenerService listens to TradeCreated and syncs the blockchainId to DB.
+     * No fake IDs. No Manual Mode. MetaMask required.
+     */
     const handleCreateOnChain = async (bankWalletAddress: string) => {
         if (!trade) return;
-        if (!account && !user?.walletAddress) {
-            toast.error("Please connect your wallet or set a manual override in Settings!");
-            throw new Error("No wallet connected");
-        }
+        const walletAddr = await ensureWalletConnected();
+        if (!walletAddr) throw new Error("No wallet connected");
+        if (!trade.exporter?.walletAddress) throw new Error("Exporter has no wallet linked.");
+        if (!bankWalletAddress) throw new Error("Bank has no wallet linked.");
 
         setActionLoading('CREATE_ON_CHAIN');
         try {
-            // Check if we are in Manual Wallet Override Mode
-            if (!account && user?.walletAddress) {
-                toast.info("Manual Wallet Mode: Simulating trade registry...");
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                toast.success("Trade registered on-chain successfully!");
-                const fakeId = Math.floor(Math.random() * 10000);
-                await api.patch(`/trades/${trade.id}`, { blockchainId: fakeId });
-                setTrade({ ...trade, blockchainId: fakeId });
-                return;
-            }
-
-            if (!trade.exporter?.walletAddress) throw new Error("Exporter has no wallet linked.");
-            if (!bankWalletAddress) throw new Error("Bank has no wallet linked.");
-
             const registry = walletService.getTradeRegistry();
-            const amountInEth = (trade.amount / 2000).toFixed(4); // limit decimals to avoid parse errors
+            const amountInEth = (trade.amount / 2000).toFixed(4);
 
+            toast.info("Registering trade on the blockchain...");
             const tx = await registry.createTrade(
                 trade.exporter.walletAddress,
                 bankWalletAddress,
-                ethers.ZeroAddress, // advisingBank (optional for now)
+                ethers.ZeroAddress,
                 ethers.parseEther(amountInEth)
             );
 
-            toast.info("Transaction sent, awaiting confirmation...");
+            toast.info("Transaction sent — awaiting confirmation...");
             const receipt = await tx.wait();
 
-            // Find TradeCreated event to get the ID
+            // Extract the blockchainId from the TradeCreated event
             const event = receipt.logs.find((log: any) => {
                 try {
                     const parsed = registry.interface.parseLog(log);
@@ -127,147 +139,117 @@ const TradeDetails: React.FC = () => {
             const parsedEvent = registry.interface.parseLog(event);
             const blockchainId = Number(parsedEvent!.args.tradeId);
 
-            await api.patch(`/trades/${trade.id}`, { blockchainId });
-            setTrade({ ...trade, blockchainId });
-            toast.success(`Trade registered on-chain with ID: ${blockchainId}`);
+            // Manual push as backup to event listener (idempotent)
+            try {
+                await api.patch(`/trades/${trade.id}`, { blockchainId });
+            } catch (e) {
+                console.warn("Manual blockchainId push failed (might be already synced)", e);
+            }
+
+            toast.success(`Trade registered on-chain! (ID: ${blockchainId})`);
+            return blockchainId;
 
         } catch (err: any) {
             console.error("Failed to create on-chain", err);
             toast.error(err.reason || err.message || "Failed to create trade on-chain");
-            throw err; // Re-throw so caller can handle it
+            return null;
         } finally {
             setActionLoading(null);
         }
     };
 
+    /**
+     * ARCHITECTURE: LoC request is a REQUIRED ON-CHAIN action.
+     *
+     * According to Phase 2 Blockchain Architecture:
+     *   1. Importer creates trade on-chain (createTrade) — if not done.
+     *   2. Importer requests LoC on-chain (requestLetterOfCredit) — Transitions to LOC_INITIATED.
+     *   3. Importer selects bank in DB — Tracks the relationship.
+     *   4. Bank uploads LoC (uploadLocDocument) — Transitions to LOC_UPLOADED.
+     */
     const handleRequestLoC = async () => {
         if (!trade) return toast.error("Trade data not loaded.");
         if (!selectedBankId) return toast.error("Please select a bank first.");
+        const walletAddr = await ensureWalletConnected();
+        if (!walletAddr) return;
+
         const selectedBank = banks.find(b => b.id === selectedBankId);
         if (!selectedBank?.walletAddress) return toast.error("Selected bank has no wallet address linked.");
         if (!trade?.exporter?.walletAddress) return toast.error("Exporter has no wallet address linked. They must connect their wallet first.");
 
         setRequestingLoC(true);
         try {
-            // Check if we are in Manual Wallet Override Mode
-            if (!account && user?.walletAddress) {
-                let blockchainId = trade.blockchainId;
-                if (blockchainId === null || blockchainId === undefined) {
-                    toast.info("Creating trade on blockchain first...");
-                    await handleCreateOnChain(selectedBank.walletAddress);
-                    const updatedTradeRes = await api.get(`/trades/${id}`);
-                    setTrade(updatedTradeRes.data);
-                    blockchainId = updatedTradeRes.data.blockchainId;
-                    if (blockchainId === null || blockchainId === undefined) {
-                        throw new Error("Failed to simulate trade on blockchain.");
-                    }
-                }
-
-                toast.info("Manual Wallet Mode: Simulating LoC request...");
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
-                await api.patch(`/trades/${trade.id}`, {
-                    status: 'LOC_INITIATED',
-                    importerBankId: selectedBankId
-                });
-                setTrade({ ...trade, status: 'LOC_INITIATED', importerBankId: selectedBankId });
-                toast.success("Letter of Credit Requested! The Importer's Bank will now upload the LoC.");
-                return;
-            }
-
-            // Normal MetaMask Execution Path
-            if (!account) {
-                toast.error("Please connect your wallet first.");
-                return;
-            }
-
-            // 1. Initial trade creation on blockchain if not already there
+            // Step 1: Register trade on-chain if not already done
             let blockchainId = trade?.blockchainId;
-
             if (blockchainId === null || blockchainId === undefined) {
-                toast.info("Creating trade on blockchain first...");
-                await handleCreateOnChain(selectedBank.walletAddress); // Call the new function
-                // Re-fetch trade data to get the updated blockchainId
-                const updatedTradeRes = await api.get(`/trades/${id}`);
-                setTrade(updatedTradeRes.data);
-                blockchainId = updatedTradeRes.data.blockchainId;
-                if (blockchainId === null || blockchainId === undefined) {
-                    throw new Error("Failed to create trade on blockchain.");
+                const newId = await handleCreateOnChain(selectedBank.walletAddress);
+                if (newId === null || newId === undefined) {
+                    throw new Error("Trade was not registered on blockchain. Cannot proceed.");
                 }
+                blockchainId = newId;
             }
 
-            // 2. Request LoC via TradeRegistry
+            // Step 2: Request LoC via TradeRegistry.requestLetterOfCredit(tradeId)
             toast.info("Requesting Letter of Credit on blockchain...");
             const registry = walletService.getTradeRegistry();
-
             const tx = await registry.requestLetterOfCredit(blockchainId);
-            toast.info("LoC Request transaction sent. Waiting for confirmation...");
+            toast.info("LoC Request submitted. Awaiting confirmation...");
             await tx.wait();
 
-            // 3. Update DB status and assign bank
+            // Step 3: Assign bank in DB (Manual Sync)
             await api.patch(`/trades/${trade.id}`, {
-                status: 'LOC_INITIATED',
                 importerBankId: selectedBankId
             });
 
-            toast.success("Bank selected! The Importer's Bank must now upload the LoC.");
-            fetchTradeData();
+            // Step 4: Small delay then refresh
+            setTimeout(() => {
+                toast.success("Letter of Credit requested on-chain! Syncing UI...");
+                fetchTradeData();
+            }, 1000);
         } catch (err: any) {
             console.error('LoC Request failed', err);
-            const errorMsg = err?.reason || err?.message || (typeof err === 'string' ? err : "Unknown error");
-            toast.error("Failed to process request: " + errorMsg);
+            toast.error("Failed to request LoC: " + (err?.reason || err?.message || "Unknown error"));
         } finally {
             setRequestingLoC(false);
         }
     };
 
-    const handleDutyPayment = async () => {
-        if (!window.confirm(`Pay tax assessment of $${trade.dutyAmount}?`)) return;
-        if (!trade || !trade.dutyAmount) return;
+    /**
+     * ARCHITECTURE: Carrier nomination is a REQUIRED ON-CHAIN action.
+     * Only the Importer can nominate the carrier on-chain according to TradeRegistry.sol.
+     */
+    const handleNominateCarrier = async () => {
+        if (trade?.blockchainId === null || trade?.blockchainId === undefined) return toast.error("Trade must be registered on-chain first.");
+        if (!selectedCarrierId) return toast.error("Please select a shipping carrier first.");
+        const walletAddr = await ensureWalletConnected();
+        if (!walletAddr) return;
 
-        if (!account && !user?.walletAddress) {
-            toast.error("Please connect your wallet or set a manual override in Settings!");
-            return;
-        }
+        const carrier = carriers.find(c => c.id === selectedCarrierId);
+        if (!carrier?.walletAddress) return toast.error("Selected carrier has no wallet address linked.");
 
-        setSettlingPayment(true);
+        setNominatingCarrier(true);
         try {
-            // Check if we are in Manual Wallet Override Mode
-            if (!account && user?.walletAddress) {
-                toast.info("Manual Wallet Mode: Simulating duty payment...");
-                await new Promise(resolve => setTimeout(resolve, 2000));
+            toast.info("Assigning shipping carrier on blockchain...");
+            const registry = walletService.getTradeRegistry();
+            const tx = await registry.assignShippingCompany(trade.blockchainId, carrier.walletAddress);
+            toast.info("Carrier assignment submitted. Awaiting confirmation...");
+            await tx.wait();
 
-                await api.patch(`/trades/${trade.id}/state`, {
-                    status: 'DUTY_PAID',
-                    eventName: 'DUTY_PAID'
-                });
-                setTrade({ ...trade, status: 'DUTY_PAID' });
-                toast.success("Duty Paid successfully! Customs will now release goods.");
-                return;
-            }
-
-            if (trade.blockchainId !== null && trade.blockchainId !== undefined) {
-                const docContract = walletService.getDocumentVerification();
-                const tx = await docContract.recordDutyPayment(trade.blockchainId);
-                toast.info("Payment transaction sent. Waiting for confirmation...");
-                await tx.wait();
-
-                // Eager UI update
-                await api.patch(`/trades/${trade.id}/state`, {
-                    status: 'DUTY_PAID',
-                    txHash: tx.hash,
-                    eventName: 'DUTY_PAID'
-                });
-                toast.success("Duty Paid successfully! Customs will now release goods.");
+            // Persist to DB via EventListener auto-sync
+            setTimeout(() => {
+                toast.success("Shipping Carrier Nominated on-chain! Refreshing data...");
                 fetchTradeData();
-            }
+            }, 2000);
         } catch (err: any) {
-            console.error('Duty payment failed', err);
-            toast.error("Payment failed: " + (err.reason || err.message));
+            console.error('Carrier nomination failed', err);
+            toast.error("Failed to nominate carrier: " + (err?.reason || err?.message || "Unknown error"));
         } finally {
-            setSettlingPayment(false);
+            setNominatingCarrier(false);
         }
     };
+
+    // Duty payment recording is now handled by the Tax Authority on-chain in TaxDashboard.tsx
+    // according to Step 11/40 of Blockchain_Architecture_Phases.md.
 
     if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-4 border-t-indigo-600"></div></div>;
     if (!trade) return (
@@ -379,6 +361,51 @@ const TradeDetails: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Step 6: Shipping Nomination (Importer Only) */}
+                    {(trade.status === 'FUNDS_LOCKED' || trade.status === 'SHIPPING_ASSIGNED') && (
+                        <div className="card-premium border-indigo-100 bg-indigo-50/20">
+                            <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+                                <Package className="text-indigo-600" />
+                                Logistics Setup
+                            </h2>
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Shipping Carrier</label>
+                                    <select
+                                        className="input-premium py-3 text-sm"
+                                        value={selectedCarrierId}
+                                        onChange={(e) => setSelectedCarrierId(e.target.value)}
+                                        disabled={trade.status !== 'FUNDS_LOCKED'}
+                                    >
+                                        <option value="">Select a Carrier...</option>
+                                        {carriers.map(carrier => (
+                                            <option key={carrier.id} value={carrier.id}>{carrier.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {trade.status === 'FUNDS_LOCKED' && (
+                                    <button
+                                        onClick={handleNominateCarrier}
+                                        disabled={nominatingCarrier}
+                                        className="btn-primary w-full py-4 shadow-indigo-100"
+                                    >
+                                        {nominatingCarrier ? 'Processing...' : 'Assign Carrier on Blockchain'}
+                                        <Package size={18} />
+                                    </button>
+                                )}
+
+                                {trade.status === 'SHIPPING_ASSIGNED' && (
+                                    <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">
+                                        <CheckCircle2 size={20} className="flex-shrink-0" />
+                                        <p className="text-xs font-bold uppercase tracking-tight">Carrier Assigned On-Chain</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+
                     {/* Phase 3 & 4: Settlement & Customs */}
                     {['DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED'].includes(trade.status) && (
                         <div className="card-premium border-emerald-100 bg-emerald-50/20">
@@ -399,13 +426,10 @@ const TradeDetails: React.FC = () => {
                                             <span>${trade.dutyAmount?.toLocaleString()}</span>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={handleDutyPayment}
-                                        disabled={settlingPayment}
-                                        className="btn-primary w-full py-4 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
-                                    >
-                                        {settlingPayment ? 'Processing...' : `Pay $${trade.dutyAmount?.toLocaleString()} Duty`}
-                                    </button>
+                                    <div className="bg-white rounded-2xl p-4 mb-6 border border-emerald-100/50 space-y-3 font-bold text-center">
+                                        <p className="text-amber-600 uppercase text-xs">Waiting for Tax Authority to Record Receipt of ${trade.dutyAmount?.toLocaleString()}</p>
+                                        <p className="text-slate-400 text-[10px] font-medium mt-1 uppercase tracking-tighter">Please ensure payment is processed via authorized channels.</p>
+                                    </div>
                                 </>
                             ) : (
                                 <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">

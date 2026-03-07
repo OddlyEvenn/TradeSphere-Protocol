@@ -37,7 +37,7 @@ const DocumentsPage: React.FC = () => {
                         id: `doc-loc-${trade.id.slice(0, 8)}`,
                         tradeId: trade.id,
                         type: 'Letter of Credit',
-                        name: `LOC-${trade.productName.substring(0, 3).toUpperCase()}-${trade.blockchainId || 'PENDING'}`,
+                        name: `LOC-${trade.productName.substring(0, 3).toUpperCase()}-${trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : 'PENDING'}`,
                         status: ['LOC_ISSUED', 'LOC_VERIFIED', 'SHIPPING_NOMINATED', 'GOODS_SHIPPED', 'DOCS_SUBMITTED', 'CUSTOMS_CLEARED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status) ? 'ISSUED' : 'PENDING',
                         date: trade.createdAt,
                         verified: ['LOC_VERIFIED', 'SHIPPING_NOMINATED', 'GOODS_SHIPPED', 'DOCS_SUBMITTED', 'CUSTOMS_CLEARED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status)
@@ -48,7 +48,7 @@ const DocumentsPage: React.FC = () => {
                         id: `doc-bol-${trade.id.slice(0, 8)}`,
                         tradeId: trade.id,
                         type: 'Bill of Lading',
-                        name: `BOL-${trade.destination.substring(0, 3).toUpperCase()}-${trade.blockchainId || 'PENDING'}`,
+                        name: `BOL-${trade.destination.substring(0, 3).toUpperCase()}-${trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : 'PENDING'}`,
                         status: 'SUBMITTED',
                         date: new Date().toISOString(), // Mocking recent date for submission
                         verified: ['DOCS_VERIFIED', 'COMPLETED'].includes(trade.status)

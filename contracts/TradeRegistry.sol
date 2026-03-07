@@ -25,21 +25,22 @@ contract TradeRegistry {
 
     // ── Enums ──────────────────────────────────────────────────────────────
     enum TradeStatus {
-        OFFER_ACCEPTED,        // 0  – Importer accepted exporter offer (DB side triggers)
-        TRADE_INITIATED,       // 1  – Both parties confirmed on-chain
-        LOC_INITIATED,         // 2  – Importer selected bank; LoC process started
-        LOC_UPLOADED,          // 3  – Importer bank uploaded LoC document (IPFS hash stored)
-        LOC_APPROVED,          // 4  – Exporter bank approved the LoC
-        FUNDS_LOCKED,          // 5  – Importer bank locked funds in escrow
-        GOODS_SHIPPED,         // 6  – Shipping company issued Bill of Lading
-        CUSTOMS_CLEARED,       // 7  – Customs authority cleared the goods
-        DUTY_PENDING,          // 8  – Goods held; tax authority calculating duty
-        DUTY_PAID,             // 9  – Importer paid the required duty
-        PAYMENT_AUTHORIZED,    // 10 – Importer bank authorized payment release
-        SETTLEMENT_CONFIRMED,  // 11 – Exporter bank confirmed off-chain settlement
-        COMPLETED,             // 12 – Trade fully completed
-        DISPUTED,              // 13 – Trade under dispute
-        EXPIRED                // 14 – Trade expired without completion
+        OFFER_ACCEPTED,        // 0
+        TRADE_INITIATED,       // 1
+        LOC_INITIATED,         // 2
+        LOC_UPLOADED,          // 3
+        LOC_APPROVED,          // 4
+        FUNDS_LOCKED,          // 5
+        SHIPPING_ASSIGNED,     // 6
+        GOODS_SHIPPED,         // 7
+        CUSTOMS_CLEARED,       // 8
+        DUTY_PENDING,          // 9
+        DUTY_PAID,             // 10
+        PAYMENT_AUTHORIZED,    // 11
+        SETTLEMENT_CONFIRMED,  // 12
+        COMPLETED,             // 13
+        DISPUTED,              // 14
+        EXPIRED                // 15
     }
 
     // ── Structs ────────────────────────────────────────────────────────────
@@ -69,6 +70,8 @@ contract TradeRegistry {
     event TradeConfirmed(uint256 indexed tradeId, address confirmedBy);
     event TradeInitiated(uint256 indexed tradeId);
     event ContractAuthorized(address indexed contractAddress, bool authorized);
+    event AdvisingBankAssigned(uint256 indexed tradeId, address advisingBank);
+    event ShippingCompanyAssigned(uint256 indexed tradeId, address shippingCompany);
 
     // ── Constructor ────────────────────────────────────────────────────────
     constructor() {
@@ -191,7 +194,13 @@ contract TradeRegistry {
         require(msg.sender == trade.importer, "Only importer");
         require(trade.status == TradeStatus.FUNDS_LOCKED, "Funds not locked yet");
         require(_shippingCompany != address(0), "Invalid address");
+        
         trade.shippingCompany = _shippingCompany;
+        emit ShippingCompanyAssigned(_tradeId, _shippingCompany);
+
+        TradeStatus old = trade.status;
+        trade.status = TradeStatus.SHIPPING_ASSIGNED;
+        emit TradeStatusUpdated(_tradeId, old, TradeStatus.SHIPPING_ASSIGNED);
     }
 
     /**
@@ -203,6 +212,7 @@ contract TradeRegistry {
         require(msg.sender == trade.exporter, "Only exporter");
         require(_advisingBank != address(0), "Invalid address");
         trade.advisingBank = _advisingBank;
+        emit AdvisingBankAssigned(_tradeId, _advisingBank);
     }
 
     /**

@@ -140,8 +140,8 @@ const ImporterTrades: React.FC = () => {
                                     </div>
                                     <div>
                                         <h3 className="font-black text-slate-900 text-lg flex items-center gap-2">
-                                            Trade #{trade.blockchainId || trade.id.slice(0, 8)}
-                                            {trade.blockchainId && (
+                                            Trade #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}
+                                            {trade.blockchainId !== null && trade.blockchainId !== undefined && (
                                                 <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] rounded-md uppercase tracking-wider">On-chain</span>
                                             )}
                                         </h3>

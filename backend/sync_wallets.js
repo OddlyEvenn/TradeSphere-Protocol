@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 
 async function main() {
     console.log("Starting trade/wallet sync...");
-    const MY_METAMASK = "0x46a01a0b50aad7bea813b09ce1acb6d06cdbc2e0";
+    const MY_METAMASK = "0x8b949eFE4D80d5Ac5561A7547C3ca8a05fB66a36";
 
     // 1. Find or create a user with this wallet
     let user = await prisma.user.findUnique({ where: { walletAddress: MY_METAMASK } });

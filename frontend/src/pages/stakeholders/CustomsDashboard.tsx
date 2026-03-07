@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import api from '../../services/api';
 import { walletService } from '../../services/WalletService';
-import { ShieldCheck, Search, CheckCircle2, AlertCircle, FileText, XCircle } from 'lucide-react';
+import { ShieldCheck, Search, CheckCircle2, AlertCircle, FileText, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
 const CustomsDashboard: React.FC = () => {
@@ -31,7 +31,6 @@ const CustomsDashboard: React.FC = () => {
 
     const handleViewDocument = async (trade: any) => {
         try {
-            // Check if we already have the IPFS hash in the trade object
             if (trade.billOfLading?.ipfsHash) {
                 const url = trade.billOfLading.ipfsHash.startsWith('http')
                     ? trade.billOfLading.ipfsHash
@@ -39,8 +38,6 @@ const CustomsDashboard: React.FC = () => {
                 window.open(url, '_blank');
                 return;
             }
-
-            // Fallback to API if not in the object
             const res = await api.get(`/documents/${trade.id}/BOL`);
             if (res.data.url) {
                 window.open(res.data.url, '_blank');
@@ -53,9 +50,22 @@ const CustomsDashboard: React.FC = () => {
         }
     };
 
+    /**
+     * ARCHITECTURE: Customs decisions MUST be submitted to the DocumentVerification smart contract.
+     * The CustomsDecision event is caught by EventListenerService which updates the DB status.
+     * No Manual Mode. No DB-only fallback.
+     */
     const handleCustomsDecision = async (trade: any, cleared: boolean) => {
-        if (!account && !user?.walletAddress) {
-            toast.error("Please connect your wallet first!");
+        if (!account) {
+            toast.error("MetaMask wallet required. Please connect your wallet to submit a customs decision.");
+            return;
+        }
+
+        if (trade.blockchainId === null || trade.blockchainId === undefined) {
+            toast.error(
+                "This trade has no blockchain ID. " +
+                "A valid on-chain trade record is required before customs can submit a decision."
+            );
             return;
         }
 
@@ -63,44 +73,24 @@ const CustomsDashboard: React.FC = () => {
         setActionLoading(`${trade.id}-${actionKey}`);
 
         try {
-            const nextStatus = cleared ? 'CUSTOMS_CLEARED' : 'DUTY_PENDING';
-            const logName = cleared ? 'CUSTOMS_CLEARED' : 'CUSTOMS_REJECTED'; // Using rejected temporarily to represent flagged
-
-            // Manual Mode
-            if (!account && user?.walletAddress) {
-                toast.info("Manual Mode: Simulating Customs Decision...");
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
-                await api.patch(`/trades/${trade.id}/state`, {
-                    status: nextStatus,
-                    eventName: logName
-                });
-                toast.success(`Shipment ${cleared ? 'Cleared' : 'Flagged for Duty'}!`);
-                fetchTrades();
-                return;
-            }
-
-            // Normal Flow
+            // ── Blockchain-first: verifyAsCustoms on-chain → EventListenerService updates DB ──
+            toast.info(`Submitting ${cleared ? 'clearance' : 'duty flag'} to blockchain...`);
             const contractDoc = walletService.getDocumentVerification();
-            if (trade.blockchainId === null || trade.blockchainId === undefined) {
-                throw new Error("This trade has no blockchain ID.");
-            }
-
-            toast.info("Sending Customs decision to blockchain...");
-            const tx = await contractDoc.verifyAsCustoms(trade.blockchainId, cleared);
+            const tx = await contractDoc.verifyAsCustoms(trade.blockchainId, cleared, "");
+            toast.info("Transaction submitted. Awaiting blockchain confirmation...");
             await tx.wait();
 
+            // Record txHash for audit trail — EventListenerService handles DB status
             await api.patch(`/trades/${trade.id}/state`, {
-                status: nextStatus,
                 txHash: tx.hash,
-                eventName: logName
+                eventName: cleared ? 'CUSTOMS_CLEARED' : 'DUTY_PENDING'
             });
 
-            toast.success(`Shipment officially ${cleared ? 'Cleared' : 'Flagged'} on-chain!`);
-            fetchTrades();
+            toast.success(`Shipment officially ${cleared ? 'cleared' : 'flagged for duty'} on-chain! Status updates automatically.`);
+            setTimeout(fetchTrades, 3000);
         } catch (error: any) {
             console.error("Customs action failed:", error);
-            toast.error(`Error: ${error.reason || error.message}`);
+            toast.error(`Transaction failed: ${error.reason || error.message}`);
         } finally {
             setActionLoading(null);
         }
@@ -110,8 +100,18 @@ const CustomsDashboard: React.FC = () => {
         <div className="space-y-10">
             <div>
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">Customs & Inspection</h1>
-                <p className="text-slate-500 font-medium mt-1">Audit import documents (BoL) and clear shipments for entry.</p>
+                <p className="text-slate-500 font-medium mt-1">Audit import documents and submit clearance decisions on-chain.</p>
             </div>
+
+            {/* Wallet Warning Banner */}
+            {!account && (
+                <div className="flex items-center gap-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                    <AlertTriangle className="text-amber-600 flex-shrink-0" size={20} />
+                    <p className="text-sm font-bold text-amber-800">
+                        MetaMask not connected. You must connect your wallet to submit customs decisions.
+                    </p>
+                </div>
+            )}
 
             <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
                 {loading ? (
@@ -131,7 +131,12 @@ const CustomsDashboard: React.FC = () => {
                                 <tr key={trade.id}>
                                     <td className="px-8 py-6">
                                         <p className="font-black text-slate-900">{trade.productName}</p>
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-indigo-600">ID: #{trade.blockchainId || trade.id.slice(0, 8)}</p>
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                            {trade.blockchainId !== null && trade.blockchainId !== undefined ? `BC #${trade.blockchainId}` : `ID: ${trade.id.slice(0, 8)}`}
+                                        </p>
+                                        {(trade.blockchainId === null || trade.blockchainId === undefined) && (
+                                            <p className="text-[10px] text-amber-600 font-bold mt-1">⚠ Not on-chain</p>
+                                        )}
                                     </td>
                                     <td className="px-8 py-6 text-center">
                                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'GOODS_SHIPPED' ? 'bg-indigo-50 text-indigo-600' : trade.status === 'DUTY_PENDING' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
@@ -153,7 +158,7 @@ const CustomsDashboard: React.FC = () => {
                                                 <button
                                                     onClick={() => handleCustomsDecision(trade, true)}
                                                     disabled={!!actionLoading}
-                                                    className="btn-primary text-xs py-2 px-4 shadow-none bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1"
+                                                    className="btn-primary text-xs py-2 px-4 shadow-none bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1 disabled:opacity-50"
                                                 >
                                                     {actionLoading === `${trade.id}-CLEAR` ? (
                                                         <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
@@ -163,7 +168,7 @@ const CustomsDashboard: React.FC = () => {
                                                 <button
                                                     onClick={() => handleCustomsDecision(trade, false)}
                                                     disabled={!!actionLoading}
-                                                    className="btn-primary text-xs py-2 px-4 shadow-none bg-amber-600 hover:bg-amber-700 flex items-center gap-1"
+                                                    className="btn-primary text-xs py-2 px-4 shadow-none bg-amber-600 hover:bg-amber-700 flex items-center gap-1 disabled:opacity-50"
                                                 >
                                                     {actionLoading === `${trade.id}-FLAG` ? (
                                                         <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>

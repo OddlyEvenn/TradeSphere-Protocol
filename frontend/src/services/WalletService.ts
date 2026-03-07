@@ -8,10 +8,10 @@ import PaymentSettlementABI from "../abis/PaymentSettlement.json";
 
 // Contract Addresses (Should match backend .env)
 const ADDRESSES = {
-    TradeRegistry: "0x9A1ED75e2405452e05b76cA8aABE391a5CBbA037",
-    LetterOfCredit: "0x161BD8c72ad5c4f02375D8ad3098c2919719ebD4",
-    DocumentVerification: "0x69a2BF2624F36c2fBda4899E8404Ad43c92D0D58",
-    PaymentSettlement: "0x7440f3265a9F87524272640E9722D4A05fF9bf92",
+    TradeRegistry: "0x23C2909C6543321FC6665FbC24E9F0DC9cA16013",
+    LetterOfCredit: "0x51d097b95030AA65f7d21404D5252A1A49a9b438",
+    DocumentVerification: "0x7AC3132C165F9BeAfb5E07b7654b0b4E2C81F04e",
+    PaymentSettlement: "0xF5D778003490A4E8EC0896Acb5f95AcB2182702D",
 };
 
 const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111
@@ -37,17 +37,23 @@ export class WalletService {
         }
 
         try {
-            this.provider = new ethers.BrowserProvider((window as any).ethereum);
-
-            // Request accounts
+            // Request accounts first
             const accounts = await (window as any).ethereum.request({ method: "eth_requestAccounts" });
-            this.signer = await this.provider.getSigner();
 
-            // Check Network
-            const network = await this.provider.getNetwork();
+            // Create a temporary provider to check the current network
+            let tempProvider = new ethers.BrowserProvider((window as any).ethereum);
+            const network = await tempProvider.getNetwork();
+
+            // Switch to Sepolia if not already on it
             if (network.chainId !== 11155111n) {
                 await this.switchToSepolia();
+                // IMPORTANT: After network switch, re-create the provider so ethers.js
+                // doesn't cache the old chainId and throw NETWORK_ERROR
             }
+
+            // Create the final provider and signer on the correct network
+            this.provider = new ethers.BrowserProvider((window as any).ethereum);
+            this.signer = await this.provider.getSigner();
 
             return accounts[0];
         } catch (error) {

@@ -104,7 +104,7 @@ const ImporterBankDashboard: React.FC = () => {
                                                 <AlertCircle size={24} />
                                             </div>
                                             <div>
-                                                <h3 className="font-black text-slate-900">LoC Application #{trade.id.slice(0, 8)}</h3>
+                                                <h3 className="font-black text-slate-900">LoC Application #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}</h3>
                                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Amount: ${trade.amount.toLocaleString()}</p>
                                             </div>
                                         </div>

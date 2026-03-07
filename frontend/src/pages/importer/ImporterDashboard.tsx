@@ -101,7 +101,7 @@ const ImporterDashboard: React.FC = () => {
                                                 <Package size={28} />
                                             </div>
                                             <div>
-                                                <h3 className="font-black text-slate-900 text-lg">Trade #{trade.blockchainId || trade.id.slice(0, 8)}</h3>
+                                                <h3 className="font-black text-slate-900 text-lg">Trade #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}</h3>
                                                 <p className="text-sm font-bold text-slate-400">Created {new Date(trade.createdAt).toLocaleDateString()}</p>
                                             </div>
                                         </div>

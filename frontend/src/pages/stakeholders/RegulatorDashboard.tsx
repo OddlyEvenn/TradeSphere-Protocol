@@ -141,7 +141,7 @@ const RegulatorDashboard: React.FC = () => {
                                         <td className="px-8 py-5">
                                             <p className="font-black text-slate-900 text-sm flex items-center gap-2">
                                                 {expandedTradeId === trade.id ? <ChevronUp size={14} className="text-indigo-600" /> : <ChevronDown size={14} className="text-slate-400" />}
-                                                #{trade.blockchainId || trade.id.slice(0, 8)}
+                                                #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}
                                             </p>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-5">{trade.productName || '—'}</p>
                                         </td>

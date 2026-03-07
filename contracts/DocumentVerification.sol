@@ -71,8 +71,8 @@ contract DocumentVerification {
     ) external onlyShippingCompany(_tradeId) {
         TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
         require(
-            trade.status == TradeRegistry.TradeStatus.FUNDS_LOCKED,
-            "Trade must be in FUNDS_LOCKED status"
+            trade.status == TradeRegistry.TradeStatus.SHIPPING_ASSIGNED,
+            "Trade must be in SHIPPING_ASSIGNED status"
         );
         require(bytes(_ipfsHash).length > 0, "IPFS hash required");
         require(!verifications[_tradeId].bolIssued, "BoL already issued");

@@ -5,10 +5,9 @@ import { walletService } from '../../services/WalletService';
 import {
     ClipboardCheck,
     ShieldCheck,
-    CheckCircle,
-    XCircle,
     UploadCloud,
-    FileText
+    FileText,
+    AlertTriangle
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -48,30 +47,40 @@ const BankRequests: React.FC = () => {
         }
     };
 
-    // Returns true if the on-chain trade exists (importer is not the zero address)
-    const checkOnChainValid = async (blockchainId: number): Promise<boolean> => {
-        try {
-            const registry = walletService.getTradeRegistry();
-            const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-            const onChainTrade = await registry.getTrade(blockchainId);
-            return onChainTrade.importer.toLowerCase() !== ZERO_ADDRESS;
-        } catch {
+    /**
+     * ARCHITECTURE: All bank actions MUST go through smart contracts.
+     * The EventListenerService on the backend listens to blockchain events
+     * and updates the database automatically. No DB-only updates allowed.
+     */
+    const requireWallet = (): boolean => {
+        if (!account) {
+            toast.error("MetaMask wallet required. Please connect your wallet to perform this action.");
             return false;
         }
+        return true;
+    };
+
+    const requireBlockchainId = (trade: Trade): boolean => {
+        if (trade.blockchainId === null || trade.blockchainId === undefined) {
+            toast.error(
+                "This trade has not been registered on-chain yet. " +
+                "The importer must first create the trade on the blockchain before bank actions can be performed."
+            );
+            return false;
+        }
+        return true;
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !uploadTarget) return;
 
-        if (!account && !user?.walletAddress) {
-            toast.error("Please connect your wallet first!");
-            return;
-        }
+        if (!requireWallet()) return;
+        if (!requireBlockchainId(uploadTarget)) return;
 
         setActionLoading(`${uploadTarget.id}-ISSUE_LOC`);
         try {
-            toast.info("Uploading document to IPFS...");
+            toast.info("Uploading Letter of Credit to IPFS...");
             const formData = new FormData();
             formData.append('file', file);
 
@@ -79,59 +88,29 @@ const BankRequests: React.FC = () => {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
             const ipfsHash = uploadRes.data.ipfsHash;
-            toast.success("Document uploaded securely to IPFS!");
+            toast.success("Document secured on IPFS!");
 
-            // Manual Mode Override
-            if (!account && user?.walletAddress) {
-                toast.info("Manual Wallet Mode: Simulating LoC Issuance...");
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                await api.patch(`/trades/${uploadTarget.id}/state`, {
-                    status: 'LOC_UPLOADED',
-                    ipfsHash: ipfsHash,
-                    eventName: 'LOC_UPLOADED'
-                });
-                toast.success("Simulated LoC Issued!");
-                fetchTrades();
-                return;
-            }
-
-            if (uploadTarget.blockchainId === null || uploadTarget.blockchainId === undefined) {
-                throw new Error("This trade has no blockchain ID.");
-            }
-
-            // Check if on-chain trade is valid before sending blockchain tx
-            const onChainValid = await checkOnChainValid(uploadTarget.blockchainId);
-            if (!onChainValid) {
-                console.warn(`On-chain trade ${uploadTarget.blockchainId} is invalid — DB-only update.`);
-                toast.info("No valid on-chain record — updating database only.");
-                await api.patch(`/trades/${uploadTarget.id}/state`, {
-                    status: 'LOC_UPLOADED',
-                    ipfsHash: ipfsHash,
-                    eventName: 'LOC_UPLOADED'
-                });
-                toast.success("LoC document recorded!");
-                fetchTrades();
-                return;
-            }
-
-            toast.info("Sending transaction to blockchain...");
+            // ── Blockchain-first: submit on-chain tx → EventListenerService updates DB ──
+            toast.info("Submitting Letter of Credit to blockchain...");
             const contractLoC = walletService.getLetterOfCredit();
-            // expiry = 30 days from now in unix seconds
-            const expiry = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+            const expiry = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 days
             const tx = await contractLoC.uploadLocDocument(uploadTarget.blockchainId, expiry, ipfsHash);
+            toast.info("Transaction submitted. Awaiting blockchain confirmation...");
             await tx.wait();
 
+            // Record the txHash for audit trail — and manually sync status for speed
             await api.patch(`/trades/${uploadTarget.id}/state`, {
-                status: 'LOC_UPLOADED',
-                ipfsHash: ipfsHash,
                 txHash: tx.hash,
-                eventName: 'LOC_UPLOADED'
+                ipfsHash,
+                eventName: 'LOC_UPLOADED',
+                status: 'LOC_UPLOADED'
             });
 
-            toast.success("Letter of Credit officially active on-chain!");
-            fetchTrades();
+            toast.success("Letter of Credit published on-chain! Status updated.");
+            // Poll after a short delay to let EventListenerService propagate
+            setTimeout(fetchTrades, 2000);
         } catch (error: any) {
-            console.error("Upload/Issue failed:", error);
+            console.error("LoC upload failed:", error);
             toast.error(`Error: ${error.reason || error.message}`);
         } finally {
             setActionLoading(null);
@@ -141,78 +120,71 @@ const BankRequests: React.FC = () => {
     };
 
     const handleAction = async (trade: Trade, action: string) => {
-        if (!account && !user?.walletAddress) {
-            toast.error("Please connect your wallet or set a manual override in Settings!");
-            return;
-        }
+        if (!requireWallet()) return;
+        if (!requireBlockchainId(trade)) return;
 
         setActionLoading(`${trade.id}-${action}`);
         try {
-            // Manual Mode Check
-            if (!account && user?.walletAddress) {
-                toast.info(`Manual Wallet Mode: Simulating ${action}...`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
+            let tx: any;
 
-                let nextStatus = '';
-                if (action === 'APPROVE_LOC') nextStatus = 'LOC_APPROVED';
-                if (action === 'LOCK_FUNDS') nextStatus = 'FUNDS_LOCKED';
-                if (action === 'AUTHORIZE_PAYMENT') nextStatus = 'PAYMENT_AUTHORIZED';
-                if (action === 'CONFIRM_SETTLEMENT') nextStatus = 'COMPLETED';
-
-                await api.patch(`/trades/${trade.id}/state`, { status: nextStatus, eventName: nextStatus });
-                toast.success("Transaction simulated successfully!");
-                fetchTrades();
-                return;
-            }
-
-            if (trade.blockchainId === null || trade.blockchainId === undefined) {
-                throw new Error("Trade missing blockchain ID.");
-            }
-
-            // Check if on-chain trade is valid before sending any blockchain transaction
-            const onChainValid = await checkOnChainValid(trade.blockchainId);
-            if (!onChainValid) {
-                console.warn(`On-chain trade ${trade.blockchainId} is invalid — DB-only update.`);
-                toast.info("No valid on-chain record — updating database only.");
-
-                let nextStatus = '';
-                if (action === 'APPROVE_LOC') nextStatus = 'LOC_APPROVED';
-                if (action === 'LOCK_FUNDS') nextStatus = 'FUNDS_LOCKED';
-                if (action === 'AUTHORIZE_PAYMENT') nextStatus = 'PAYMENT_AUTHORIZED';
-                if (action === 'CONFIRM_SETTLEMENT') nextStatus = 'COMPLETED';
-
-                if (nextStatus) {
-                    await api.patch(`/trades/${trade.id}/state`, { status: nextStatus, eventName: nextStatus });
-                    toast.success("Status updated successfully!");
-                    fetchTrades();
-                }
-                return;
-            }
-
-            let tx;
             if (action === 'APPROVE_LOC') {
+                // Exporter bank approves LoC on-chain
+                toast.info("Approving Letter of Credit on blockchain...");
                 const contract = walletService.getLetterOfCredit();
                 tx = await contract.approveLoC(trade.blockchainId);
+
             } else if (action === 'LOCK_FUNDS') {
-                const contract = walletService.getLetterOfCredit();
-                tx = await contract.lockFunds(trade.blockchainId, { value: trade.amount });
+                // Importer bank locks funds in escrow
+                toast.info("Locking funds in escrow on blockchain...");
+                const contractLoC = walletService.getLetterOfCredit();
+                tx = await contractLoC.lockFunds(trade.blockchainId);
+
             } else if (action === 'AUTHORIZE_PAYMENT') {
+                // Importer bank authorizes payment release
+                toast.info("Authorizing payment on blockchain...");
                 const contract = walletService.getPaymentSettlement();
                 tx = await contract.authorizePayment(trade.blockchainId);
+
             } else if (action === 'CONFIRM_SETTLEMENT') {
+                // Exporter bank confirms final settlement
+                toast.info("Confirming settlement on blockchain...");
                 const contract = walletService.getPaymentSettlement();
                 tx = await contract.confirmSettlement(trade.blockchainId);
             }
 
             if (tx) {
-                toast.info("Transaction sent. Waiting for confirmation...");
+                toast.info("Transaction submitted. Awaiting blockchain confirmation...");
                 await tx.wait();
-                toast.success("Transaction confirmed successfully!");
+
+                // Map action to status for immediate UI sync
+                const statusMap: Record<string, string> = {
+                    'APPROVE_LOC': 'LOC_APPROVED',
+                    'LOCK_FUNDS': 'FUNDS_LOCKED',
+                    'AUTHORIZE_PAYMENT': 'PAYMENT_AUTHORIZED',
+                    'CONFIRM_SETTLEMENT': 'SETTLEMENT_CONFIRMED'
+                };
+
+                // Record txHash and manually advance status in DB (fast-sync)
+                await api.patch(`/trades/${trade.id}/state`, {
+                    txHash: tx.hash,
+                    eventName: action,
+                    status: statusMap[action]
+                });
+
+                toast.success("Transaction confirmed! Trade status updated.");
                 setTimeout(fetchTrades, 2000);
             }
         } catch (error: any) {
             console.error(`Action ${action} failed:`, error);
-            toast.error(`Error: ${error.reason || error.message}`);
+
+            // Handle common revert reasons gracefully (detect if already processed)
+            const errorMsg = error.reason || error.message || "";
+            if (errorMsg.includes("already approved") || errorMsg.includes("already locked") || errorMsg.includes("Invalid status")) {
+                toast.success("Action already recorded on-chain. Refreshing...");
+                fetchTrades();
+            } else {
+                toast.error(`Transaction failed: ${error.reason || error.message}`);
+            }
         } finally {
             setActionLoading(null);
         }
@@ -227,7 +199,7 @@ const BankRequests: React.FC = () => {
     const getActionConfig = (trade: Trade) => {
         if (user.role === 'IMPORTER_BANK') {
             if (trade.status === 'LOC_INITIATED') return { label: 'Upload & Issue LoC', key: 'ISSUE_LOC', needsFile: true };
-            if (trade.status === 'LOC_APPROVED') return { label: 'Lock Funds', key: 'LOCK_FUNDS' };
+            if (trade.status === 'LOC_APPROVED') return { label: 'Lock Funds in Escrow', key: 'LOCK_FUNDS' };
             if (trade.status === 'CUSTOMS_CLEARED') return { label: 'Authorize Payment', key: 'AUTHORIZE_PAYMENT' };
         }
         if (user.role === 'EXPORTER_BANK') {
@@ -253,9 +225,19 @@ const BankRequests: React.FC = () => {
             <div>
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">Bank Operations Desk</h1>
                 <p className="text-slate-500 font-medium mt-1">
-                    Manage Letter of Credit issuance, review, funding, and final settlement authorizations.
+                    All actions are submitted on-chain. Status updates automatically after blockchain confirmation.
                 </p>
             </div>
+
+            {/* Wallet Warning Banner */}
+            {!account && (
+                <div className="flex items-center gap-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                    <AlertTriangle className="text-amber-600 flex-shrink-0" size={20} />
+                    <p className="text-sm font-bold text-amber-800">
+                        MetaMask wallet not connected. You must connect your wallet to perform any bank actions.
+                    </p>
+                </div>
+            )}
 
             {loading ? (
                 <div className="flex justify-center py-20">
@@ -276,6 +258,7 @@ const BankRequests: React.FC = () => {
                             {trades.filter(t => targetStatuses.includes(t.status)).map((trade) => {
                                 const config = getActionConfig(trade);
                                 const isActionLoading = actionLoading === `${trade.id}-${config.key}`;
+                                const missingBlockchainId = trade.blockchainId === null || trade.blockchainId === undefined;
 
                                 return (
                                     <tr key={trade.id} className="hover:bg-slate-50/50 transition-colors">
@@ -285,8 +268,17 @@ const BankRequests: React.FC = () => {
                                                     ID
                                                 </div>
                                                 <div>
-                                                    <p className="font-black text-slate-900">#{trade.blockchainId || trade.id.slice(0, 8)}</p>
-                                                    <p className="text-xs font-bold text-slate-400 tracking-tight">{trade.productName || 'Trade Request'} — {trade.importer?.name || 'N/A'}</p>
+                                                    <p className="font-black text-slate-900">
+                                                        #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}
+                                                    </p>
+                                                    <p className="text-xs font-bold text-slate-400 tracking-tight">
+                                                        {trade.productName || 'Trade Request'} — {trade.importer?.name || 'N/A'}
+                                                    </p>
+                                                    {missingBlockchainId && (
+                                                        <p className="text-[10px] font-bold text-amber-600 mt-1">
+                                                            ⚠ Awaiting on-chain registration
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
@@ -295,7 +287,7 @@ const BankRequests: React.FC = () => {
                                         </td>
                                         <td className="px-8 py-6">
                                             <span className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                                {trade.status.replace('_', ' ')}
+                                                {trade.status.replace(/_/g, ' ')}
                                             </span>
                                         </td>
                                         <td className="px-8 py-6 text-right">
@@ -306,8 +298,9 @@ const BankRequests: React.FC = () => {
                                                             setUploadTarget(trade);
                                                             fileInputRef.current?.click();
                                                         }}
-                                                        disabled={!!actionLoading}
-                                                        className="btn-primary py-2 px-4 flex items-center gap-2"
+                                                        disabled={!!actionLoading || missingBlockchainId}
+                                                        className="btn-primary py-2 px-4 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        title={missingBlockchainId ? "Trade must be registered on-chain first" : undefined}
                                                     >
                                                         {isActionLoading ? (
                                                             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
@@ -331,8 +324,9 @@ const BankRequests: React.FC = () => {
                                                         )}
                                                         <button
                                                             onClick={() => handleAction(trade, config.key)}
-                                                            disabled={!!actionLoading}
-                                                            className="btn-primary py-2 px-4 shadow-none flex items-center gap-2"
+                                                            disabled={!!actionLoading || missingBlockchainId}
+                                                            className="btn-primary py-2 px-4 shadow-none flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            title={missingBlockchainId ? "Trade must be registered on-chain first" : undefined}
                                                         >
                                                             {isActionLoading ? (
                                                                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>

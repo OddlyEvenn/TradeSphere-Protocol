@@ -54,8 +54,17 @@ const ShipmentDetails: React.FC = () => {
         }
     };
 
+    /**
+     * ARCHITECTURE: Bank nomination calls TradeRegistry.assignAdvisingBank() on-chain.
+     * No DB-only fallback. MetaMask required.
+     */
     const handleNominateBank = async () => {
         if (!selectedBankId) return toast.error("Please select a bank first.");
+        if (!account) {
+            toast.error("MetaMask wallet required to nominate a bank on the blockchain.");
+            return;
+        }
+
         setProcessing(true);
         try {
             const selectedBank = banks.find(b => b.id === selectedBankId);
@@ -65,40 +74,39 @@ const ShipmentDetails: React.FC = () => {
                 return;
             }
 
-            // If no MetaMask account connected — DB-only update
-            if (!account) {
-                // No wallet connected — just update the database
-            } else if (trade.blockchainId !== null && trade.blockchainId !== undefined) {
-                const registry = walletService.getTradeRegistry();
-                const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-                const onChainTrade = await registry.getTrade(trade.blockchainId);
-                const onChainExporter = onChainTrade.exporter.toLowerCase();
-
-                if (onChainExporter === ZERO_ADDRESS) {
-                    // No valid on-chain trade — skip blockchain, update DB only
-                    console.warn(`On-chain trade ${trade.blockchainId} has zero-address exporter. DB-only update.`);
-                } else {
-                    const currentWallet = account.toLowerCase();
-                    if (onChainExporter !== currentWallet) {
-                        toast.error(
-                            `Wallet mismatch! On-chain exporter is ${onChainExporter.slice(0, 6)}…${onChainExporter.slice(-4)}, ` +
-                            `but you are connected as ${currentWallet.slice(0, 6)}…${currentWallet.slice(-4)}. ` +
-                            `Please switch to the correct MetaMask account.`
-                        );
-                        setProcessing(false);
-                        return;
-                    }
-
-                    toast.info("Registering Exporter Bank on the blockchain...");
-                    const tx = await registry.assignAdvisingBank(trade.blockchainId, selectedBank.walletAddress);
-                    await tx.wait();
-                }
+            if (trade.blockchainId === null || trade.blockchainId === undefined) {
+                toast.error("This trade is not yet registered on the blockchain. The importer must complete on-chain registration first.");
+                setProcessing(false);
+                return;
             }
 
-            await api.patch(`/trades/${id}`, {
-                exporterBankId: selectedBankId
-            });
+            const registry = walletService.getTradeRegistry();
+            const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+            const onChainTrade = await registry.getTrade(trade.blockchainId);
+
+            if (onChainTrade.exporter.toLowerCase() === ZERO_ADDRESS) {
+                toast.error("On-chain trade record is invalid (zero-address exporter). Cannot nominate bank.");
+                setProcessing(false);
+                return;
+            }
+
+            const currentWallet = account.toLowerCase();
+            if (onChainTrade.exporter.toLowerCase() !== currentWallet) {
+                toast.error(
+                    `Wallet mismatch! On-chain exporter is ${onChainTrade.exporter.slice(0, 6)}…${onChainTrade.exporter.slice(-4)}, ` +
+                    `but you are connected as ${currentWallet.slice(0, 6)}…${currentWallet.slice(-4)}. ` +
+                    `Please switch to the correct MetaMask account.`
+                );
+                setProcessing(false);
+                return;
+            }
+
+            toast.info("Registering Exporter Bank on the blockchain...");
+            const tx = await registry.assignAdvisingBank(trade.blockchainId, selectedBank.walletAddress);
+            await tx.wait();
+
+            // Persist bank assignment to DB
+            await api.patch(`/trades/${id}`, { exporterBankId: selectedBankId });
             toast.success("Exporter Bank Nominated! They will now review the Letter of Credit.");
             fetchData();
         } catch (err) {
@@ -109,37 +117,13 @@ const ShipmentDetails: React.FC = () => {
         }
     };
 
-    const handleNominateCarrier = async () => {
-        if (!selectedCarrierId) return toast.error("Please select a shipping carrier first.");
-        setProcessing(true);
-        try {
-            await api.patch(`/trades/${id}`, {
-                shippingId: selectedCarrierId,
-                status: 'SHIPPING_ASSIGNED'
-            });
-            toast.success("Shipping Carrier Nominated! You can now proceed to ship the goods.");
-            fetchData();
-        } catch (err) {
-            console.error('Failed to nominate carrier', err);
-            toast.error("Failed to nominate carrier.");
-        } finally {
-            setProcessing(false);
-        }
-    };
+    // Carrier nomination is now handled by the Importer on-chain in TradeDetails.tsx
+    // as per TradeRegistry.sol (onlyImporter modifier).
 
-    const handleMarkAsShipped = async () => {
-        setProcessing(true);
-        try {
-            await api.patch(`/trades/${id}`, { status: 'GOODS_SHIPPED' });
-            toast.success("Goods marked as SHIPPED! Documents are now ready for verification.");
-            fetchData();
-        } catch (err) {
-            console.error('Failed to ship goods', err);
-            toast.error("Failed to update shipping status.");
-        } finally {
-            setProcessing(false);
-        }
-    };
+    // handleMarkAsShipped is intentionally removed.
+    // GOODS_SHIPPED status is set ONLY by the EventListenerService
+    // when the shipping company issues a Bill of Lading via the DocumentVerification
+    // smart contract (issueBillOfLading() → BillOfLadingIssued event → EventListenerService → DB).
 
     if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-4 border-t-indigo-600"></div></div>;
 
@@ -215,35 +199,6 @@ const ShipmentDetails: React.FC = () => {
                         <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center gap-3 text-indigo-700">
                             <CheckCircle2 size={20} className="flex-shrink-0" />
                             <p className="text-xs font-bold uppercase tracking-tight">Advising Bank Nominated — Awaiting LoC Approval</p>
-                        </div>
-                    )}
-
-                    {/* Shipping Nomination — show when funds are locked (bank approved + locked escrow) */}
-                    {['FUNDS_LOCKED', 'LOC_APPROVED'].includes(trade.status) && !trade.shippingId && (
-                        <div className="card-premium border-indigo-100 bg-indigo-50/10">
-                            <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
-                                <Truck className="text-indigo-600" size={24} />
-                                Nominate Shipping Carrier
-                            </h2>
-                            <p className="text-slate-500 text-sm mb-6">Funds are secured. Select the logistics provider responsible for transporting your goods.</p>
-                            <div className="flex gap-4">
-                                <select
-                                    className="input-premium flex-1"
-                                    value={selectedCarrierId}
-                                    onChange={(e) => setSelectedCarrierId(e.target.value)}
-                                >
-                                    <option value="">Choose a carrier...</option>
-
-                                    {carriers.map(carrier => <option key={carrier.id} value={carrier.id}>{carrier.name}</option>)}
-                                </select>
-                                <button
-                                    onClick={handleNominateCarrier}
-                                    disabled={processing}
-                                    className="btn-primary px-8"
-                                >
-                                    {processing ? '...' : 'Nominate Carrier'}
-                                </button>
-                            </div>
                         </div>
                     )}
 

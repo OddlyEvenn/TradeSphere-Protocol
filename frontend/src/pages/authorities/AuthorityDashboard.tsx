@@ -181,7 +181,7 @@ const AuthorityDashboard: React.FC = () => {
                                         TRD
                                     </div>
                                     <div>
-                                        <h3 className="font-black text-slate-900 truncate max-w-[150px]">Trade #{trade.blockchainId || trade.id.slice(0, 8)}</h3>
+                                        <h3 className="font-black text-slate-900 truncate max-w-[150px]">Trade #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}</h3>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status: {trade.status}</p>
                                     </div>
                                 </div>

@@ -192,7 +192,7 @@ const Dashboard: React.FC = () => {
 
                             <h3 className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1">Blockchain Hash</h3>
                             <p className="text-slate-900 font-mono text-xs mb-4 truncate italic">
-                                {trade.blockchainId ? `ID: ${trade.blockchainId}` : 'Awaiting confirmation...'}
+                                {(trade.blockchainId !== null && trade.blockchainId !== undefined) ? `ID: ${trade.blockchainId}` : 'Awaiting confirmation...'}
                             </p>
 
                             <div className="flex items-end justify-between mb-8">

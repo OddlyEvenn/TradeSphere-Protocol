@@ -59,7 +59,7 @@ const HistoryPage: React.FC = () => {
                                 <div className="flex items-center gap-4 text-xs font-bold text-slate-400 bg-slate-50 p-3 rounded-xl border border-slate-100">
                                     <p>Amount: <span className="text-slate-900">${trade.amount.toLocaleString()}</span></p>
                                     <div className="w-1 h-1 rounded-full bg-slate-200"></div>
-                                    <p>Tx Hash: <span className="font-mono text-indigo-500 cursor-pointer hover:underline">{trade.blockchainId || 'Off-chain'}</span> <ExternalLink size={10} className="inline ml-0.5 mb-0.5" /></p>
+                                    <p>Tx Hash: <span className="font-mono text-indigo-500 cursor-pointer hover:underline">{(trade.blockchainId !== null && trade.blockchainId !== undefined) ? trade.blockchainId : 'Off-chain'}</span> <ExternalLink size={10} className="inline ml-0.5 mb-0.5" /></p>
                                 </div>
                             </div>
                         </div>
