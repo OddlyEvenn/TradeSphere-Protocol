@@ -9,6 +9,8 @@ import marketplaceRoutes from './routes/marketplaceRoutes';
 import userRoutes from './routes/userRoutes';
 import documentRoutes from './routes/documentRoutes';
 import { EventListenerService } from './services/EventListenerService';
+import { redisService } from './services/RedisService';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
@@ -37,12 +39,19 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, async () => {
-    console.log(`Backend server running on port ${PORT}`);
+    logger.info(`Backend server running on port ${PORT}`);
+
+    // Initialize Redis Caching
+    try {
+        await redisService.connect();
+    } catch (error) {
+        logger.error("Failed to connect to Redis during startup:", error);
+    }
 
     // Start Blockchain Event Listeners
     try {
         await EventListenerService.startListeners();
     } catch (error) {
-        console.error("Failed to start Blockchain Listeners:", error);
+        logger.error("Failed to start Blockchain Listeners:", error);
     }
 });
