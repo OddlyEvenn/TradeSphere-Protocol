@@ -1,9 +1,10 @@
 import { blockchainService } from "./BlockchainService";
 import { prisma } from "./PrismaService";
+import { logger } from "../utils/logger";
 
 export class EventListenerService {
     public static async startListeners() {
-        console.log("📡 [EventListenerService] Starting Phase 2 Blockchain Listeners...");
+        logger.info("📡 [EventListenerService] Starting Phase 2 Blockchain Listeners...");
 
         // Helper to safely get DB tradeId from blockchainId
         const getTradeId = async (blockchainId: number) => {
@@ -15,12 +16,16 @@ export class EventListenerService {
         blockchainService.tradeRegistry.on(
             "TradeCreated",
             async (tradeId: any, importerAddr: any, exporterAddr: any, amount: any, event: any) => {
-                console.log(`[TradeCreated] On-chain ID: ${tradeId}, Importer: ${importerAddr}, Exporter: ${exporterAddr}`);
+                const txHash = event.log.transactionHash;
+                logger.transaction({
+                    event: "TradeCreated",
+                    txHash,
+                    blockchainId: Number(tradeId),
+                    actor: `Importer: ${importerAddr}`
+                });
+
                 try {
                     const importer = await (prisma.user as any).findUnique({ where: { walletAddress: importerAddr.toLowerCase() } });
-
-                    // Link the blockchain ID to the database record using importer and amount
-                    // (Assuming the trade was created via API first and now syncing on-chain ID)
                     const parsedAmount = parseFloat(blockchainService.formatEther(amount));
 
                     const trades = await (prisma.trade as any).findMany({
@@ -45,13 +50,13 @@ export class EventListenerService {
                                 actorId: importer?.id || null,
                                 actorRole: 'IMPORTER',
                                 event: 'ON_CHAIN_TRADE_CREATED',
-                                txHash: event.log.transactionHash
+                                txHash: txHash
                             }
                         });
-                        console.log(`✅ Synced Trade ${tradeId} to Database (UUID: ${tradeToSync.id}).`);
+                        logger.success(`Synced Trade ${tradeId} to Database (UUID: ${tradeToSync.id}).`);
                     }
                 } catch (error) {
-                    console.error(`❌ Error syncing TradeCreated:`, error);
+                    logger.error(`Error syncing TradeCreated for ${tradeId}:`, error);
                 }
             }
         );
@@ -60,8 +65,7 @@ export class EventListenerService {
         blockchainService.tradeRegistry.on(
             "TradeStatusUpdated",
             async (tradeId: any, oldStatus: any, newStatus: any, event: any) => {
-                console.log(`[TradeStatusUpdated] On-chain ID: ${tradeId}, Status: ${oldStatus} -> ${newStatus}`);
-
+                const txHash = event.log.transactionHash;
                 const statusMap: Record<number, string> = {
                     0: "OFFER_ACCEPTED", 1: "TRADE_INITIATED", 2: "LOC_INITIATED",
                     3: "LOC_UPLOADED", 4: "LOC_APPROVED", 5: "FUNDS_LOCKED",
@@ -71,17 +75,28 @@ export class EventListenerService {
                 };
 
                 const statusString = statusMap[Number(newStatus)] || "UNKNOWN";
+
+                logger.transaction({
+                    event: "TradeStatusUpdated",
+                    txHash,
+                    blockchainId: Number(tradeId),
+                    status: `${oldStatus} -> ${statusString}`
+                });
+
                 const dbTradeId = await getTradeId(Number(tradeId));
-                if (!dbTradeId) return;
+                if (!dbTradeId) {
+                    logger.warn(`No DB matching for Blockchain Trade ID: ${tradeId}`);
+                    return;
+                }
 
                 try {
                     await (prisma.trade as any).update({
                         where: { id: dbTradeId },
                         data: { status: statusString },
                     });
-                    console.log(`✅ Updated Trade ${tradeId} status to ${statusString}.`);
+                    logger.success(`Updated Trade ${tradeId} status to ${statusString} in DB.`);
                 } catch (error) {
-                    console.error(`❌ Error syncing TradeStatusUpdated:`, error);
+                    logger.error(`Error syncing TradeStatusUpdated:`, error);
                 }
             }
         );
@@ -90,22 +105,34 @@ export class EventListenerService {
         blockchainService.letterOfCredit.on(
             "LoCDocumentUploaded",
             async (tradeId: any, ipfsHash: any, uploadedBy: any, event: any) => {
-                console.log(`[LoCDocumentUploaded] On-chain ID: ${tradeId}, IPFS: ${ipfsHash}`);
+                const txHash = event.log.transactionHash;
+                logger.transaction({
+                    event: "LoCDocumentUploaded",
+                    txHash,
+                    blockchainId: Number(tradeId),
+                    actor: `Bank: ${uploadedBy}`
+                });
+
                 const dbTradeId = await getTradeId(Number(tradeId));
                 if (!dbTradeId) return;
 
                 const bank = await (prisma.user as any).findUnique({ where: { walletAddress: uploadedBy.toLowerCase() } });
 
-                await (prisma.tradeEvent as any).create({
-                    data: {
-                        tradeId: dbTradeId,
-                        actorId: bank?.id || null,
-                        actorRole: 'IMPORTER_BANK',
-                        event: 'LOC_UPLOADED',
-                        ipfsHash: ipfsHash,
-                        txHash: event.log.transactionHash
-                    }
-                });
+                try {
+                    await (prisma.tradeEvent as any).create({
+                        data: {
+                            tradeId: dbTradeId,
+                            actorId: bank?.id || null,
+                            actorRole: 'IMPORTER_BANK',
+                            event: 'LOC_UPLOADED',
+                            ipfsHash: ipfsHash as any,
+                            txHash: txHash as any
+                        }
+                    });
+                    logger.success(`Logged LoC Upload for Trade ${tradeId}. IPFS: ${ipfsHash}`);
+                } catch (error) {
+                    logger.error(`Error logging LoCDocumentUploaded:`, error);
+                }
             }
         );
 
@@ -113,22 +140,34 @@ export class EventListenerService {
         blockchainService.documentVerification.on(
             "BillOfLadingIssued",
             async (tradeId: any, ipfsHash: any, issuedBy: any, event: any) => {
-                console.log(`[BillOfLadingIssued] On-chain ID: ${tradeId}, IPFS: ${ipfsHash}`);
+                const txHash = event.log.transactionHash;
+                logger.transaction({
+                    event: "BillOfLadingIssued",
+                    txHash,
+                    blockchainId: Number(tradeId),
+                    actor: `Shipping: ${issuedBy}`
+                });
+
                 const dbTradeId = await getTradeId(Number(tradeId));
                 if (!dbTradeId) return;
 
                 const shipper = await (prisma.user as any).findUnique({ where: { walletAddress: issuedBy.toLowerCase() } });
 
-                await (prisma.tradeEvent as any).create({
-                    data: {
-                        tradeId: dbTradeId,
-                        actorId: shipper?.id || null,
-                        actorRole: 'SHIPPING',
-                        event: 'GOODS_SHIPPED',
-                        ipfsHash: ipfsHash,
-                        txHash: event.log.transactionHash
-                    }
-                });
+                try {
+                    await (prisma.tradeEvent as any).create({
+                        data: {
+                            tradeId: dbTradeId,
+                            actorId: shipper?.id || null,
+                            actorRole: 'SHIPPING',
+                            event: 'GOODS_SHIPPED',
+                            ipfsHash: ipfsHash as any,
+                            txHash: txHash as any
+                        }
+                    });
+                    logger.success(`Logged BoL Issuance for Trade ${tradeId}. IPFS: ${ipfsHash}`);
+                } catch (error) {
+                    logger.error(`Error logging BillOfLadingIssued:`, error);
+                }
             }
         );
 
@@ -136,37 +175,79 @@ export class EventListenerService {
         blockchainService.documentVerification.on(
             "CustomsDecision",
             async (tradeId: any, cleared: any, decidedBy: any, event: any) => {
-                console.log(`[CustomsDecision] On-chain ID: ${tradeId}, Cleared: ${cleared}`);
+                const txHash = event.log.transactionHash;
+                logger.transaction({
+                    event: "CustomsDecision",
+                    txHash,
+                    blockchainId: Number(tradeId),
+                    status: cleared ? "CLEARED" : "DUTY_PENDING",
+                    actor: `Customs: ${decidedBy}`
+                });
+
                 const dbTradeId = await getTradeId(Number(tradeId));
                 if (!dbTradeId) return;
 
                 const customs = await (prisma.user as any).findUnique({ where: { walletAddress: decidedBy.toLowerCase() } });
 
-                await (prisma.tradeEvent as any).create({
-                    data: {
-                        tradeId: dbTradeId,
-                        actorId: customs?.id || null,
-                        actorRole: 'CUSTOMS',
-                        event: cleared ? 'CUSTOMS_CLEARED' : 'DUTY_PENDING',
-                        txHash: event.log.transactionHash
-                    }
-                });
+                try {
+                    await (prisma.tradeEvent as any).create({
+                        data: {
+                            tradeId: dbTradeId,
+                            actorId: customs?.id || null,
+                            actorRole: 'CUSTOMS',
+                            event: cleared ? 'CUSTOMS_CLEARED' : 'DUTY_PENDING',
+                            txHash: txHash
+                        }
+                    });
+                    logger.success(`Logged Customs Decision for Trade ${tradeId}.`);
+                } catch (error) {
+                    logger.error(`Error logging CustomsDecision:`, error);
+                }
             }
         );
 
         // 6. PaymentSettlement Events
         blockchainService.paymentSettlement.on("PaymentAuthorized", async (tradeId: any, amount: any, authorizedBy: any, event: any) => {
+            const txHash = event.log.transactionHash;
+            logger.transaction({
+                event: "PaymentAuthorized",
+                txHash,
+                blockchainId: Number(tradeId),
+                actor: `Authorizer: ${authorizedBy}`
+            });
+
             const dbTradeId = await getTradeId(Number(tradeId));
             if (!dbTradeId) return;
-            await (prisma.tradeEvent as any).create({ data: { tradeId: dbTradeId, event: 'PAYMENT_AUTHORIZED', txHash: event.log.transactionHash } });
+
+            try {
+                await (prisma.tradeEvent as any).create({ data: { tradeId: dbTradeId, event: 'PAYMENT_AUTHORIZED', txHash: txHash as any } });
+                logger.success(`Logged Payment Authorization for Trade ${tradeId}.`);
+            } catch (error) {
+                logger.error(`Error logging PaymentAuthorized:`, error);
+            }
         });
 
         blockchainService.paymentSettlement.on("SettlementConfirmed", async (tradeId: any, confirmedBy: any, event: any) => {
+            const txHash = event.log.transactionHash;
+            logger.transaction({
+                event: "SettlementConfirmed",
+                txHash,
+                blockchainId: Number(tradeId),
+                actor: `Confirmer: ${confirmedBy}`
+            });
+
             const dbTradeId = await getTradeId(Number(tradeId));
             if (!dbTradeId) return;
-            await (prisma.tradeEvent as any).create({ data: { tradeId: dbTradeId, event: 'SETTLEMENT_CONFIRMED', txHash: event.log.transactionHash } });
+
+            try {
+                await (prisma.tradeEvent as any).create({ data: { tradeId: dbTradeId, event: 'SETTLEMENT_CONFIRMED', txHash: txHash as any } });
+                logger.success(`Logged Settlement Confirmation for Trade ${tradeId}.`);
+            } catch (error) {
+                logger.error(`Error logging SettlementConfirmed:`, error);
+            }
         });
 
-        console.log("📡 Listeners are active and watching Hardhat Node...");
+        logger.info("📡 Listeners are active and watching Hardhat Node...");
     }
 }
+

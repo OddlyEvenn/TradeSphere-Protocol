@@ -29,9 +29,19 @@ const CustomsDashboard: React.FC = () => {
         }
     };
 
-    const handleViewDocument = async (tradeId: string) => {
+    const handleViewDocument = async (trade: any) => {
         try {
-            const res = await api.get(`/documents/${tradeId}/GOODS_SHIPPED`);
+            // Check if we already have the IPFS hash in the trade object
+            if (trade.billOfLading?.ipfsHash) {
+                const url = trade.billOfLading.ipfsHash.startsWith('http')
+                    ? trade.billOfLading.ipfsHash
+                    : `https://gateway.pinata.cloud/ipfs/${trade.billOfLading.ipfsHash}`;
+                window.open(url, '_blank');
+                return;
+            }
+
+            // Fallback to API if not in the object
+            const res = await api.get(`/documents/${trade.id}/BOL`);
             if (res.data.url) {
                 window.open(res.data.url, '_blank');
             } else {
@@ -131,7 +141,7 @@ const CustomsDashboard: React.FC = () => {
                                     </td>
                                     <td className="px-8 py-6 text-center">
                                         <button
-                                            onClick={() => handleViewDocument(trade.id)}
+                                            onClick={() => handleViewDocument(trade)}
                                             className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-indigo-100"
                                         >
                                             <FileText size={14} /> View BoL

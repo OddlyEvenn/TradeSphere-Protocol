@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../services/PrismaService';
+import { logger } from '../utils/logger';
 
 export const createTrade = async (req: Request, res: Response) => {
     try {
@@ -71,6 +72,7 @@ export const getMyTrades = async (req: Request, res: Response) => {
             exporterBank: { select: { id: true, name: true, email: true, walletAddress: true } },
             shipping: { select: { id: true, name: true, email: true, walletAddress: true } },
             letterOfCredit: true,
+            billOfLading: true,
             _count: { select: { offers: true } }
         };
 
@@ -253,41 +255,102 @@ export const deleteTrade = async (req: Request, res: Response) => {
 export const updateTradeState = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { status, txHash, ipfsHash, eventName, taxAmount } = req.body;
+        const status = req.body.status as string | undefined;
+        const txHash = req.body.txHash as string | undefined;
+        const ipfsHash = req.body.ipfsHash as string | undefined;
+        const eventName = req.body.eventName as string | undefined;
+        const taxAmount = req.body.taxAmount;
+
         const userId = (req as any).user.userId;
         const role = (req as any).user.role;
+
+        logger.info(`Updating trade state for ${id}. New status: ${status || 'N/A'}`);
+
+        if (txHash) {
+            logger.transaction({
+                event: (eventName as any) || "FrontendTransaction",
+                txHash,
+                dbId: id as string,
+                actor: `${role} (${userId})`,
+                status: status as any
+            });
+        }
 
         const trade = await (prisma.trade as any).findUnique({ where: { id } });
         if (!trade) return res.status(404).json({ message: 'Trade not found' });
 
         // Build the update data — only include optional fields if provided
         const updateData: any = {};
-        if (status) updateData.status = status;
+        if (status) updateData.status = status as any;
         // taxAmount from frontend maps to dutyAmount in the DB schema
         if (taxAmount !== undefined && taxAmount !== null) updateData.dutyAmount = parseFloat(taxAmount);
-        if (ipfsHash) updateData.ipfsHash = ipfsHash;
 
         const updatedTrade = await (prisma.trade as any).update({
             where: { id },
-            data: updateData
+            data: updateData as any
         });
+
+        // Handle specialized document records if ipfsHash is provided
+        if (ipfsHash) {
+            try {
+                if (status === 'LOC_UPLOADED') {
+                    await (prisma.letterOfCredit as any).upsert({
+                        where: { tradeId: id },
+                        update: { ipfsHash, documentTxHash: txHash as any, status: 'UPLOADED', uploadedAt: new Date() },
+                        create: {
+                            tradeId: id,
+                            importerBankId: trade.importerBankId || userId,
+                            amount: trade.amount,
+                            expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Default 30 days
+                            ipfsHash,
+                            documentTxHash: txHash as any,
+                            status: 'UPLOADED',
+                            uploadedAt: new Date()
+                        }
+                    });
+                    logger.info(`Updated LetterOfCredit for trade ${id} with IPFS hash ${ipfsHash}`);
+                } else if (status === 'GOODS_SHIPPED') {
+                    await (prisma.billOfLading as any).upsert({
+                        where: { tradeId: id },
+                        update: { ipfsHash, documentTxHash: txHash as any, issuedAt: new Date() },
+                        create: {
+                            tradeId: id,
+                            shippingCompanyId: trade.shippingId || userId,
+                            bolNumber: `BOL-${(id as string).substring(0, 8)}`,
+                            portOfLoading: 'Origin',
+                            portOfDischarge: trade.destination || 'Destination',
+                            ipfsHash,
+                            documentTxHash: txHash as any,
+                            issuedAt: new Date()
+                        }
+                    });
+                    logger.info(`Updated BillOfLading for trade ${id} with IPFS hash ${ipfsHash}`);
+                }
+            } catch (err) {
+                logger.error(`Error updating related record for ${status}:`, err);
+                // We don't fail the whole request because the TradeEvent and Trade status are already updated
+            }
+        }
+
 
         await (prisma.tradeEvent as any).create({
             data: {
                 tradeId: id,
                 actorId: userId,
                 actorRole: role,
-                event: eventName || status || 'TRADE_UPDATED',
+                event: (eventName as any) || (status as any) || 'TRADE_UPDATED',
                 fromStatus: trade.status,
-                toStatus: status || trade.status,
-                txHash: txHash || null,
-                ipfsHash: ipfsHash || null
-            }
+                toStatus: (status as any) || trade.status,
+                txHash: (txHash as any) || null,
+                ipfsHash: (ipfsHash as any) || null
+            } as any
         });
 
+
+        logger.success(`Trade ${id} updated in DB. status: ${trade.status} -> ${status || trade.status}`);
         res.json({ message: `Trade updated successfully`, trade: updatedTrade });
     } catch (error: any) {
-        console.error("Update trade state error:", error);
+        logger.error("Update trade state error:", error);
         res.status(500).json({ message: error.message });
     }
 };

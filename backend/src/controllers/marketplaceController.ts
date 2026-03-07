@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../services/PrismaService';
+import { logger } from '../utils/logger';
 
 export const createListing = async (req: Request, res: Response) => {
     try {
@@ -93,9 +94,11 @@ export const submitOffer = async (req: Request, res: Response) => {
                 actorRole: 'EXPORTER',
                 event: 'OFFER_SUBMITTED',
                 toStatus: 'OPEN_FOR_OFFERS',
-                metadata: { offerId: offer.id, amount: offer.amount }
+                metadata: { offerId: offer.id, amount: offer.amount } as any
             }
         });
+
+        logger.info(`New offer submitted by exporter ${exporterId} for trade ${tradeId}. Amount: ${amount}`);
 
         res.status(201).json(offer);
     } catch (error: any) {
@@ -178,10 +181,12 @@ export const finalizeOffer = async (req: Request, res: Response) => {
                     event: 'OFFER_ACCEPTED',
                     fromStatus: 'OPEN_FOR_OFFERS',
                     toStatus: 'OFFER_ACCEPTED',
-                    metadata: { offerId: offer.id, exporterId: offer.exporterId, amount: offer.amount }
+                    metadata: { offerId: offer.id, exporterId: offer.exporterId, amount: offer.amount } as any
                 }
             })
         ]);
+
+        logger.success(`Offer ${offerId} accepted for trade ${offer.tradeId}. Trade moves to OFFER_ACCEPTED.`);
 
         res.json({ message: "Offer accepted successfully. Trade moves to OFFER_ACCEPTED." });
     } catch (error: any) {
@@ -224,7 +229,7 @@ export const declineOffer = async (req: Request, res: Response) => {
                 actorId: importerId,
                 actorRole: 'IMPORTER',
                 event: 'OFFER_DECLINED',
-                metadata: { offerId: offer.id, exporterId: offer.exporterId }
+                metadata: { offerId: offer.id, exporterId: offer.exporterId } as any
             }
         });
 
