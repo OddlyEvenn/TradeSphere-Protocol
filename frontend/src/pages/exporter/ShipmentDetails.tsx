@@ -148,20 +148,29 @@ const ShipmentDetails: React.FC = () => {
                         </h2>
                         <div className="space-y-6">
                             {[
-                                { label: 'LoC Issued', done: ['LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'LoC Issued', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                 { label: 'Bank Nominated', done: !!trade.exporterBankId },
-                                { label: 'LoC Approved by Bank', done: ['LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Carrier Assigned', done: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'LoC Approved by Bank', done: ['LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Carrier Assigned', done: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Customs Cleared', done: ['CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Duty Paid', done: ['DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Payment Authorized', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Settlement Confirmed', done: ['SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Completed', done: trade.status === 'COMPLETED' },
                             ].map((s, i) => (
-                                <div key={i} className="flex gap-4">
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${s.done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                <div key={i} className="flex gap-4 relative">
+                                    {i !== 10 && (
+                                        <div className={`absolute left-[11px] top-6 w-0.5 h-6 ${s.done ? 'bg-emerald-500' : 'bg-slate-100'}`}></div>
+                                    )}
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10 ${s.done ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
                                         {s.done ? <CheckCircle2 size={14} /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
                                     </div>
                                     <p className={`text-sm font-bold ${s.done ? 'text-slate-900' : 'text-slate-400'}`}>{s.label}</p>
                                 </div>
                             ))}
+
                         </div>
                     </div>
                 </div>

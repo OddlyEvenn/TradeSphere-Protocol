@@ -445,6 +445,39 @@ const TradeDetails: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Full Trade Lifecycle Stepper */}
+                    {trade.status !== 'OPEN_FOR_OFFERS' && (
+                        <div className="card-premium">
+                            <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
+                                <Clock className="text-indigo-600" />
+                                Trade Progress
+                            </h2>
+                            <div className="space-y-4">
+                                {[
+                                    { label: 'Offer Accepted', done: ['OFFER_ACCEPTED', 'TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Trade Initiated', done: ['TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'LoC Issued', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Customs Cleared', done: ['CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Payment Authorized', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Settlement Confirmed', done: ['SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Completed', done: trade.status === 'COMPLETED' }
+                                ].map((s, i) => (
+                                    <div key={i} className="flex gap-4 relative">
+                                        {i !== 8 && (
+                                            <div className={`absolute left-3 top-6 w-0.5 h-6 ${s.done ? 'bg-emerald-500' : 'bg-slate-100'}`}></div>
+                                        )}
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10 ${s.done ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
+                                            {s.done ? <CheckCircle2 size={14} /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
+                                        </div>
+                                        <p className={`text-sm font-bold ${s.done ? 'text-slate-900' : 'text-slate-400'}`}>{s.label}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Trade Completed */}
                     {trade.status === 'COMPLETED' && (
                         <div className="card-premium border-emerald-200 bg-emerald-50">
@@ -459,6 +492,7 @@ const TradeDetails: React.FC = () => {
                             </div>
                         </div>
                     )}
+
                 </div>
 
                 {/* Right: Offers Received */}

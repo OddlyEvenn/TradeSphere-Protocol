@@ -18,12 +18,16 @@ interface TradeTimelineProps {
 }
 
 const getEventIcon = (eventName: string) => {
-    if (eventName.includes('CREATED') || eventName.includes('INITIATED')) return <Clock size={16} className="text-blue-500" />;
-    if (eventName.includes('UPLOADED') || eventName.includes('ISSUED')) return <FileText size={16} className="text-amber-500" />;
-    if (eventName.includes('APPROVED') || eventName.includes('CLEARED') || eventName.includes('AUTHORIZED')) return <ShieldCheck size={16} className="text-emerald-500" />;
-    if (eventName.includes('COMPLETED') || eventName.includes('CONFIRMED')) return <CheckCircle2 size={16} className="text-indigo-500" />;
+    const name = eventName.toUpperCase();
+    if (name.includes('CREATED') || name.includes('INITIATED')) return <Clock size={16} className="text-blue-500" />;
+    if (name.includes('UPLOADED') || name.includes('ISSUED')) return <FileText size={16} className="text-amber-500" />;
+    if (name.includes('APPROVED') || name.includes('CLEARED') || name.includes('AUTHORIZED')) return <ShieldCheck size={16} className="text-emerald-500" />;
+    if (name.includes('COMPLETED') || name.includes('CONFIRMED') || name.includes('SETTLEMENT')) return <CheckCircle2 size={16} className="text-indigo-500" />;
+    if (name.includes('PAID')) return <DollarSign size={16} className="text-emerald-500" />;
+    if (name.includes('DISPUTED')) return <XCircle size={16} className="text-rose-500" />;
     return <Clock size={16} className="text-slate-400" />;
 };
+
 
 const formatEventName = (eventName: string) => {
     return eventName.replace(/_/g, ' ').replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
