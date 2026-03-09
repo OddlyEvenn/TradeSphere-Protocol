@@ -87,15 +87,22 @@ export class EventListenerService {
                             return;
                         }
 
-                        // Guard: Check if ANY trade already has this blockchainId to prevent P2002
-                        const existing = await (prisma.trade as any).findUnique({
+                        // ─── STALE ID CLEANUP ──────────────────────────────────────────
+                        // If ANY other trade already has this blockchainId, it's stale 
+                        // (likely from a previous contract deployment). We must un-map it 
+                        // to prevent P2002 Unique Constraint violation.
+                        const staleTrade = await (prisma.trade as any).findUnique({
                             where: { blockchainId: Number(tradeId) }
                         });
 
-                        if (existing) {
-                            logger.warn(`⚠️  Blockchain ID #${tradeId} is already assigned to trade ${existing.id}. Refusing to overwrite.`);
-                            return;
+                        if (staleTrade && staleTrade.id !== tradeToSync.id) {
+                            logger.warn(`⚠️  Blockchain ID #${tradeId} was assigned to STALE trade ${staleTrade.id}. Un-mapping to favor new trade ${tradeToSync.id}.`);
+                            await (prisma.trade as any).update({
+                                where: { id: staleTrade.id },
+                                data: { blockchainId: null }
+                            });
                         }
+                        // ──────────────────────────────────────────────────────────────
 
                         await (prisma.trade as any).update({
                             where: { id: tradeToSync.id },

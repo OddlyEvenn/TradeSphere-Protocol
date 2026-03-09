@@ -204,6 +204,25 @@ export const updateTrade = async (req: Request, res: Response) => {
         const { id } = req.params;
         const updates = req.body;
 
+        // ─── STALE ID CLEANUP (FOR MANUAL PUSH) ───────────────────────────
+        // If frontend manually pushes a blockchainId, we must ensure it's not 
+        // already taken by a stale record.
+        if (updates.blockchainId !== undefined && updates.blockchainId !== null) {
+            const bcId = Number(updates.blockchainId);
+            const staleTrade = await (prisma.trade as any).findUnique({
+                where: { blockchainId: bcId }
+            });
+
+            if (staleTrade && staleTrade.id !== id) {
+                logger.warn(`⚠️  Manual push: Blockchain ID #${bcId} was assigned to STALE trade ${staleTrade.id}. Un-mapping.`);
+                await (prisma.trade as any).update({
+                    where: { id: staleTrade.id },
+                    data: { blockchainId: null }
+                });
+            }
+        }
+        // ──────────────────────────────────────────────────────────────
+
         const trade = await (prisma.trade as any).update({
             where: { id },
             data: updates,
