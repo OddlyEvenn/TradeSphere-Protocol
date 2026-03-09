@@ -8,10 +8,10 @@ import PaymentSettlementABI from "../abis/PaymentSettlement.json";
 
 // Contract Addresses (Should match backend .env)
 const ADDRESSES = {
-    TradeRegistry: "0x23C2909C6543321FC6665FbC24E9F0DC9cA16013",
-    LetterOfCredit: "0x51d097b95030AA65f7d21404D5252A1A49a9b438",
-    DocumentVerification: "0x7AC3132C165F9BeAfb5E07b7654b0b4E2C81F04e",
-    PaymentSettlement: "0xF5D778003490A4E8EC0896Acb5f95AcB2182702D",
+    TradeRegistry: "0xf76d952C4181c692CA250450De2921a1c36D51DB",
+    LetterOfCredit: "0xF717Dfe4069232336B9A52de2324e6afbB1837a7",
+    DocumentVerification: "0xC31B3940D04A6D90d3Bd94EA1E4f1d866E92B2CA",
+    PaymentSettlement: "0xb295F9fA5881D5870985061beA83FC2D3d203e00",
 };
 
 const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111
