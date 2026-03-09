@@ -3,6 +3,7 @@ import pinataSDK from '@pinata/sdk';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import os from 'os';
 
 dotenv.config();
 
@@ -35,7 +36,7 @@ class IpfsService {
 
         try {
             // Pinata SDK typically takes a readable stream. Let's write the buffer to a temp file and read it.
-            const tempFilePath = path.join('/tmp', `${Date.now()}_${filename}`);
+            const tempFilePath = path.join(os.tmpdir(), `${Date.now()}_${filename}`);
             fs.writeFileSync(tempFilePath, buffer);
             const readableStreamForFile = fs.createReadStream(tempFilePath);
 
