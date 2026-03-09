@@ -12,14 +12,20 @@ import {
     ShieldCheck,
     Globe,
     Gavel,
-    BadgePercent
+    BadgePercent,
+    ChevronLeft,
+    Menu,
+    LogOut
 } from 'lucide-react';
 
 interface SidebarProps {
     role: string;
+    isCollapsed: boolean;
+    onToggle: () => void;
+    isMobile?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ role }) => {
+const Sidebar: React.FC<SidebarProps> = ({ role, isCollapsed, onToggle, isMobile }) => {
     const getNavItems = () => {
         const common = [
             { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -89,36 +95,69 @@ const Sidebar: React.FC<SidebarProps> = ({ role }) => {
     const navItems = getNavItems();
 
     return (
-        <div className="w-64 bg-white border-r border-slate-100 flex flex-col h-screen sticky top-0">
-            <div className="p-8">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
+        <div className={`h-screen flex flex-col bg-white border-r border-slate-100 transition-all duration-500 ease-in-out relative ${isMobile ? 'w-full shadow-2xl' : isCollapsed ? 'w-24' : 'w-72'}`}>
+
+            {/* Collapse Toggle Button (Desktop Only) */}
+            {!isMobile && (
+                <button
+                    onClick={onToggle}
+                    className="absolute -right-4 top-10 w-8 h-8 bg-white border border-slate-100 rounded-full flex items-center justify-center shadow-lg text-slate-400 hover:text-blue-600 transition-all z-50 group hover:scale-110"
+                >
+                    <ChevronLeft className={`transition-transform duration-500 ${isCollapsed ? 'rotate-180' : 'rotate-0'}`} size={16} />
+                </button>
+            )}
+
+            <div className={`p-6 transition-all duration-500 ${isCollapsed ? 'px-4 flex justify-center' : 'p-8'}`}>
+                <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="flex-shrink-0 w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-100 ring-4 ring-blue-50">
                         <ShieldCheck className="text-white" size={24} />
                     </div>
-                    <span className="text-xl font-black tracking-tight text-slate-900">TradeSphere</span>
+                    {!isCollapsed && (
+                        <div className="flex flex-col animate-in">
+                            <span className="text-xl font-black tracking-tight text-slate-900 leading-none">TradeSphere</span>
+                            <span className="text-[10px] font-black tracking-[0.2em] text-blue-500 uppercase mt-1">Protocol</span>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            <nav className="flex-1 px-4 space-y-2">
+
+            <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto no-scrollbar">
                 {navItems.map((item) => (
                     <NavLink
                         key={item.name}
                         to={item.path}
                         end={item.path === '/dashboard'}
                         className={({ isActive }) =>
-                            isActive ? 'nav-link-active' : 'nav-link'
+                            `${isActive ? 'nav-link-active' : 'nav-link'} ${isCollapsed ? 'justify-center px-0' : ''}`
                         }
+                        title={isCollapsed ? item.name : undefined}
                     >
-                        <item.icon size={20} />
-                        <span>{item.name}</span>
+                        <item.icon size={22} className="flex-shrink-0" />
+                        {!isCollapsed && <span className="animate-in whitespace-nowrap">{item.name}</span>}
                     </NavLink>
                 ))}
             </nav>
 
-            <div className="p-4 border-t border-slate-100">
-                <div className="bg-slate-50 rounded-2xl p-4">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Signed in as</p>
-                    <p className="text-sm font-bold text-slate-900 truncate">{role.replace('_', ' ')}</p>
+            <div className="p-6">
+                <div className={`bg-slate-50 rounded-[1.5rem] transition-all duration-500 ${isCollapsed ? 'p-2' : 'p-5'}`}>
+                    <div className="flex items-center gap-4 overflow-hidden">
+                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center flex-shrink-0">
+                            <Landmark size={20} className="text-slate-400" />
+                        </div>
+                        {!isCollapsed && (
+                            <div className="flex flex-col animate-in min-w-0">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Role</p>
+                                <p className="text-sm font-black text-slate-900 truncate uppercase">{role.replace('_', ' ')}</p>
+                            </div>
+                        )}
+                    </div>
+                    {!isCollapsed && (
+                        <button className="w-full mt-4 flex items-center justify-center gap-2 text-xs font-black text-slate-400 hover:text-rose-500 transition-colors uppercase tracking-widest pt-4 border-t border-slate-200/50">
+                            <LogOut size={14} />
+                            Log Out
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -126,3 +165,4 @@ const Sidebar: React.FC<SidebarProps> = ({ role }) => {
 };
 
 export default Sidebar;
+

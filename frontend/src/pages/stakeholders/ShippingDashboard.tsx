@@ -118,16 +118,16 @@ const ShippingDashboard: React.FC = () => {
             )}
 
             {loading ? (
-                <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-4 border-t-indigo-600"></div></div>
+                <div className="flex justify-center py-20"><div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div></div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {trades.map(trade => {
                         const canAct = ['SHIPPING_ASSIGNED', 'FUNDS_LOCKED'].includes(trade.status);
                         const missingBlockchainId = trade.blockchainId === null || trade.blockchainId === undefined;
                         return (
-                            <div key={trade.id} className="card-premium">
+                            <div key={trade.id} className="card-premium glass">
                                 <div className="flex justify-between items-start mb-6">
-                                    <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                                         <Truck size={24} />
                                     </div>
                                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'FUNDS_LOCKED' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
@@ -139,7 +139,7 @@ const ShippingDashboard: React.FC = () => {
                                     <MapPin size={14} />
                                     <span className="text-xs font-bold uppercase tracking-widest">To: {trade.destination}</span>
                                 </div>
-                                <p className="text-[10px] font-bold text-indigo-600 mb-2">
+                                <p className="text-[10px] font-bold text-blue-600 mb-2">
                                     {trade.blockchainId !== null && trade.blockchainId !== undefined ? `Tracking: BC #${trade.blockchainId}` : `ID: ${trade.id.slice(0, 8)}`}
                                 </p>
                                 {missingBlockchainId && (

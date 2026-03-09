@@ -45,60 +45,66 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
     return <>{children}</>;
 };
 
+import { LoadingProvider } from './contexts/LoadingContext';
+
 function App() {
     return (
-        <ToastProvider>
-            <Router>
-                <div className="min-h-screen w-full bg-slate-50 text-slate-900 font-sans">
-                    <Routes>
-                        <Route path="/" element={<Home />} />
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/register" element={<Register />} />
+        <LoadingProvider>
+            <ToastProvider>
+                <Router>
 
-                        {/* Dashboard Routes */}
-                        <Route path="/dashboard" element={
-                            <ProtectedRoute>
-                                <DashboardLayout />
-                            </ProtectedRoute>
-                        }>
-                            <Route index element={<DashboardHome />} />
+                    <div className="min-h-screen w-full bg-slate-50 text-slate-900 font-sans">
+                        <Routes>
+                            <Route path="/" element={<Home />} />
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/register" element={<Register />} />
 
-                            {/* Importer Routes */}
-                            <Route path="marketplace" element={<CreateTradeRequest />} />
-                            <Route path="trades" element={<ImporterTrades />} />
-                            <Route path="trades/:id" element={<TradeDetails />} />
-                            <Route path="trades/:tradeId/offers" element={<OfferComparison />} />
+                            {/* Dashboard Routes */}
+                            <Route path="/dashboard" element={
+                                <ProtectedRoute>
+                                    <DashboardLayout />
+                                </ProtectedRoute>
+                            }>
+                                <Route index element={<DashboardHome />} />
 
-                            {/* Exporter Routes */}
-                            <Route path="discovery" element={<MarketplaceDiscovery />} />
-                            <Route path="discovery/submit-offer/:tradeId" element={<SubmitOffer />} />
-                            <Route path="shipments" element={<ExporterDashboard />} />
-                            <Route path="shipments/:id" element={<ShipmentDetails />} />
+                                {/* Importer Routes */}
+                                <Route path="marketplace" element={<CreateTradeRequest />} />
+                                <Route path="trades" element={<ImporterTrades />} />
+                                <Route path="trades/:id" element={<TradeDetails />} />
+                                <Route path="trades/:tradeId/offers" element={<OfferComparison />} />
 
-                            {/* Bank Routes */}
-                            <Route path="requests" element={<BankRequests />} />
-                            <Route path="approvals" element={<BankRequests />} />
+                                {/* Exporter Routes */}
+                                <Route path="discovery" element={<MarketplaceDiscovery />} />
+                                <Route path="discovery/submit-offer/:tradeId" element={<SubmitOffer />} />
+                                <Route path="shipments" element={<ExporterDashboard />} />
+                                <Route path="shipments/:id" element={<ShipmentDetails />} />
 
-                            {/* Authority Routes */}
-                            <Route path="inspections" element={<CustomsDashboard />} />
-                            <Route path="fleet" element={<ShippingDashboard />} />
-                            <Route path="policies" element={<Placeholder title="Insurance Policies" />} />
-                            <Route path="compliance" element={<TaxDashboard />} />
-                            <Route path="audits" element={<RegulatorDashboard />} />
+                                {/* Bank Routes */}
+                                <Route path="requests" element={<BankRequests />} />
+                                <Route path="approvals" element={<BankRequests />} />
 
-                            {/* Common Routes */}
-                            <Route path="documents" element={<DocumentsPage />} />
-                            <Route path="history" element={<HistoryPage />} />
-                            <Route path="settings" element={<SettingsPage />} />
-                        </Route>
+                                {/* Authority Routes */}
+                                <Route path="inspections" element={<CustomsDashboard />} />
+                                <Route path="fleet" element={<ShippingDashboard />} />
+                                <Route path="policies" element={<Placeholder title="Insurance Policies" />} />
+                                <Route path="compliance" element={<TaxDashboard />} />
+                                <Route path="audits" element={<RegulatorDashboard />} />
 
-                        {/* Fallback */}
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                </div>
-            </Router>
-        </ToastProvider>
+                                {/* Common Routes */}
+                                <Route path="documents" element={<DocumentsPage />} />
+                                <Route path="history" element={<HistoryPage />} />
+                                <Route path="settings" element={<SettingsPage />} />
+                            </Route>
+
+                            {/* Fallback */}
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                    </div>
+                </Router>
+            </ToastProvider>
+        </LoadingProvider>
     );
 }
+
 
 export default App;

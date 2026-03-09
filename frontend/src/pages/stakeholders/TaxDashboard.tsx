@@ -120,8 +120,8 @@ const TaxDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="card-premium space-y-4">
-                    <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                <div className="card-premium space-y-4 glass">
+                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                         <TrendingUp size={24} />
                     </div>
                     <div>
@@ -149,15 +149,9 @@ const TaxDashboard: React.FC = () => {
                 </div>
             </div>
 
-            <div className="card-premium !p-0 overflow-hidden">
-                <div className="p-8 border-b border-slate-50 flex justify-between items-center">
-                    <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                        <FileText className="text-indigo-600" />
-                        Customs Revenue Queue
-                    </h2>
-                </div>
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm glass">
                 {loading ? (
-                    <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-4 border-t-indigo-600"></div></div>
+                    <div className="flex justify-center py-20"><div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div></div>
                 ) : (
                     <table className="w-full text-left">
                         <thead className="bg-slate-50">
@@ -165,6 +159,7 @@ const TaxDashboard: React.FC = () => {
                                 <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Product & ID</th>
                                 <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Base Value</th>
                                 <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Document</th>
                                 <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Duty Assessment (USD)</th>
                             </tr>
                         </thead>
@@ -177,9 +172,18 @@ const TaxDashboard: React.FC = () => {
                                     </td>
                                     <td className="px-8 py-6 font-bold text-slate-600">${trade.amount?.toLocaleString()}</td>
                                     <td className="px-8 py-6 text-center">
-                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'DUTY_PENDING' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                            {trade.status === 'DUTY_PENDING' ? (trade.dutyAmount ? 'WAITING FOR BANK' : 'NEEDS ASSESSMENT') : trade.status.replace(/_/g, ' ')}
+                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'GOODS_SHIPPED' ? 'bg-blue-50 text-blue-600' : trade.status === 'DUTY_PENDING' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                            <ShieldCheck size={12} />
+                                            {trade.status.replace(/_/g, ' ')}
                                         </span>
+                                    </td>
+                                    <td className="px-8 py-6 text-center">
+                                        <button
+                                            onClick={() => { /* handleViewDocument(trade) */ }}
+                                            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-blue-100"
+                                        >
+                                            <FileText size={14} /> View BoL
+                                        </button>
                                     </td>
                                     <td className="px-8 py-6 text-right">
                                         {trade.status === 'DUTY_PAID' ? (
@@ -213,7 +217,7 @@ const TaxDashboard: React.FC = () => {
                                                         placeholder="0.00"
                                                         value={taxInputs[trade.id] || ''}
                                                         onChange={(e) => handleTaxInputChange(trade.id, e.target.value)}
-                                                        className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                                                     />
                                                 </div>
                                                 <button

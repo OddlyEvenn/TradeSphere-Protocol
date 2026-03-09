@@ -113,9 +113,9 @@ const CustomsDashboard: React.FC = () => {
                 </div>
             )}
 
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm">
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm glass">
                 {loading ? (
-                    <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-4 border-t-indigo-600"></div></div>
+                    <div className="flex justify-center py-20"><div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div></div>
                 ) : (
                     <table className="w-full text-left">
                         <thead className="bg-slate-50">
@@ -139,7 +139,7 @@ const CustomsDashboard: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="px-8 py-6 text-center">
-                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'GOODS_SHIPPED' ? 'bg-indigo-50 text-indigo-600' : trade.status === 'DUTY_PENDING' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'GOODS_SHIPPED' ? 'bg-blue-50 text-blue-600' : trade.status === 'DUTY_PENDING' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
                                             <ShieldCheck size={12} />
                                             {trade.status.replace(/_/g, ' ')}
                                         </span>
@@ -147,7 +147,7 @@ const CustomsDashboard: React.FC = () => {
                                     <td className="px-8 py-6 text-center">
                                         <button
                                             onClick={() => handleViewDocument(trade)}
-                                            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-indigo-600 transition-colors bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-indigo-100"
+                                            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-blue-100"
                                         >
                                             <FileText size={14} /> View BoL
                                         </button>

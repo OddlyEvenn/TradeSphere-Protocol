@@ -83,7 +83,7 @@ const ImporterBankDashboard: React.FC = () => {
     const dutyPendingTrades = trades.filter(t => t.status === 'DUTY_PENDING' && t.dutyAmount);
 
     const stats = [
-        { label: 'Pending LoCs', value: trades.filter(t => t.status === 'LOC_INITIATED').length.toString(), icon: ClipboardCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { label: 'Pending LoCs', value: trades.filter(t => t.status === 'LOC_INITIATED').length.toString(), icon: ClipboardCheck, color: 'text-blue-600', bg: 'bg-blue-50' },
         { label: 'Locked Funds', value: `$${trades.filter(t => t.status === 'LOC_ISSUED' || t.status === 'LOC_UPLOADED' || t.status === 'FUNDS_LOCKED').reduce((acc, t) => acc + t.amount, 0).toLocaleString()}`, icon: Lock, color: 'text-amber-600', bg: 'bg-amber-50' },
         { label: 'Duty Pending', value: dutyPendingTrades.length.toString(), icon: BadgePercent, color: 'text-rose-600', bg: 'bg-rose-50' },
         { label: 'Settlements', value: trades.filter(t => t.status === 'PAYMENT_AUTHORIZED').length.toString(), icon: Clock, color: 'text-emerald-600', bg: 'bg-emerald-50' },
@@ -109,7 +109,7 @@ const ImporterBankDashboard: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {stats.map((stat) => (
-                    <div key={stat.label} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5">
+                    <div key={stat.label} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5 glass">
                         <div className={`w-14 h-14 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center`}>
                             <stat.icon size={28} />
                         </div>
@@ -130,7 +130,7 @@ const ImporterBankDashboard: React.FC = () => {
                     </h2>
                     <div className="space-y-4">
                         {dutyPendingTrades.map((trade) => (
-                            <div key={trade.id} className="card-premium border-rose-100 bg-rose-50/10 group hover:border-rose-200">
+                            <div key={trade.id} className="card-premium border-rose-100 bg-rose-50/10 group hover:border-rose-200 glass">
                                 <div className="flex flex-col md:flex-row justify-between gap-6">
                                     <div className="flex gap-5 items-center flex-1">
                                         <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
@@ -173,22 +173,22 @@ const ImporterBankDashboard: React.FC = () => {
                 <div className="space-y-6">
                     <div className="flex items-center justify-between">
                         <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">High Priority Approvals</h2>
-                        <button onClick={() => navigate('/dashboard/requests')} className="text-sm font-bold text-indigo-600 flex items-center gap-1 hover:underline">
+                        <button onClick={() => navigate('/dashboard/requests')} className="text-sm font-bold text-blue-600 flex items-center gap-1 hover:underline">
                             View Queue <ArrowRight size={14} />
                         </button>
                     </div>
 
                     {loading ? (
                         <div className="flex justify-center py-20">
-                            <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-indigo-600"></div>
+                            <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
                         </div>
                     ) : (
                         <div className="space-y-4">
                             {trades.filter(t => t.status === 'LOC_INITIATED').slice(0, 3).map((trade) => (
-                                <div key={trade.id} className="card-premium group hover:border-indigo-100">
+                                <div key={trade.id} className="card-premium group hover:border-blue-100 glass">
                                     <div className="flex justify-between items-center">
                                         <div className="flex gap-5 items-center">
-                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                                            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                                                 <AlertCircle size={24} />
                                             </div>
                                             <div>
@@ -198,7 +198,7 @@ const ImporterBankDashboard: React.FC = () => {
                                         </div>
                                         <button
                                             onClick={() => navigate('/dashboard/requests')}
-                                            className="px-4 py-2 bg-indigo-600 text-white font-black text-xs rounded-xl hover:bg-slate-900 transition-all uppercase tracking-widest"
+                                            className="px-4 py-2 bg-blue-600 text-white font-black text-xs rounded-xl hover:bg-slate-900 transition-all uppercase tracking-widest"
                                         >
                                             Review
                                         </button>
@@ -216,7 +216,7 @@ const ImporterBankDashboard: React.FC = () => {
 
                 <div className="space-y-6">
                     <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Compliance Monitor</h2>
-                    <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white overflow-hidden relative shadow-2xl shadow-indigo-200/20">
+                    <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white overflow-hidden relative shadow-2xl shadow-blue-200/20">
                         <div className="relative z-10">
                             <h3 className="text-xl font-black mb-1 uppercase tracking-tighter">Liquid Capital Reserve</h3>
                             <p className="text-slate-400 text-sm mb-8 italic">"Total funds currently held in smart contract escrows for active trade letters of credit."</p>
