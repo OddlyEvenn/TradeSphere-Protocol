@@ -427,10 +427,15 @@ const TradeDetails: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="bg-white rounded-2xl p-4 mb-6 border border-emerald-100/50 space-y-3 font-bold text-center">
-                                        <p className="text-amber-600 uppercase text-xs">Waiting for Tax Authority to Record Receipt of ${trade.dutyAmount?.toLocaleString()}</p>
-                                        <p className="text-slate-400 text-[10px] font-medium mt-1 uppercase tracking-tighter">Please ensure payment is processed via authorized channels.</p>
+                                        <p className="text-amber-600 uppercase text-xs">Action Required: Instruct your Importer Bank to pay ${trade.dutyAmount?.toLocaleString()} and confirm on-chain</p>
+                                        <p className="text-slate-400 text-[10px] font-medium mt-1 uppercase tracking-tighter">Your bank will confirm the duty payment on the blockchain after processing.</p>
                                     </div>
                                 </>
+                            ) : trade.status === 'DUTY_PAID' ? (
+                                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">
+                                    <CheckCircle2 size={20} className="flex-shrink-0" />
+                                    <p className="text-xs font-bold uppercase tracking-tight">Duty Paid — Bank Confirmed. Awaiting Tax Authority to release goods.</p>
+                                </div>
                             ) : (
                                 <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">
                                     <Clock size={20} className="flex-shrink-0" />

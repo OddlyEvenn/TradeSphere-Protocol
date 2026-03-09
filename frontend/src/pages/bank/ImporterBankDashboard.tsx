@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { walletService } from '../../services/WalletService';
+import { useToast } from '../../contexts/ToastContext';
 import {
     Landmark,
     ClipboardCheck,
@@ -10,7 +12,9 @@ import {
     ArrowRight,
     TrendingUp,
     ShieldCheck,
-    AlertCircle
+    AlertCircle,
+    BadgePercent,
+    DollarSign
 } from 'lucide-react';
 
 interface Trade {
@@ -18,6 +22,8 @@ interface Trade {
     blockchainId: number | null;
     status: string;
     amount: number;
+    dutyAmount: number | null;
+    productName: string;
     createdAt: string;
 }
 
@@ -25,7 +31,9 @@ const ImporterBankDashboard: React.FC = () => {
     const { user, account } = useOutletContext<{ user: any, account: string | null }>();
     const [trades, setTrades] = useState<Trade[]>([]);
     const [loading, setLoading] = useState(true);
+    const [confirmingId, setConfirmingId] = useState<string | null>(null);
     const navigate = useNavigate();
+    const toast = useToast();
 
     useEffect(() => {
         fetchTrades();
@@ -42,11 +50,43 @@ const ImporterBankDashboard: React.FC = () => {
         }
     };
 
+    /**
+     * Importer Bank confirms the duty payment on-chain.
+     * Calls DocumentVerification.confirmDutyPayment(blockchainId).
+     */
+    const handleConfirmDutyPayment = async (tradeId: string, blockchainId: number | null) => {
+        if (!account) return toast.error("Connect wallet to confirm duty payment.");
+        if (blockchainId === null || blockchainId === undefined) return toast.error("Trade has no blockchain ID.");
+
+        setConfirmingId(tradeId);
+        try {
+            toast.info("Confirming duty payment on-chain...");
+            const docContract = walletService.getDocumentVerification();
+            const tx = await docContract.confirmDutyPayment(blockchainId);
+            toast.info("Transaction sent. Waiting for confirmation...");
+            await tx.wait();
+
+            await api.patch(`/trades/${tradeId}/state`, {
+                txHash: tx.hash,
+                eventName: 'DUTY_PAYMENT_CONFIRMED'
+            });
+            toast.success("Duty payment confirmed on blockchain! Status → DUTY_PAID");
+            fetchTrades();
+        } catch (err: any) {
+            console.error(err);
+            toast.error("Failed to confirm duty payment: " + (err.reason || err.message));
+        } finally {
+            setConfirmingId(null);
+        }
+    };
+
+    const dutyPendingTrades = trades.filter(t => t.status === 'DUTY_PENDING' && t.dutyAmount);
+
     const stats = [
         { label: 'Pending LoCs', value: trades.filter(t => t.status === 'LOC_INITIATED').length.toString(), icon: ClipboardCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
         { label: 'Locked Funds', value: `$${trades.filter(t => t.status === 'LOC_ISSUED' || t.status === 'LOC_UPLOADED' || t.status === 'FUNDS_LOCKED').reduce((acc, t) => acc + t.amount, 0).toLocaleString()}`, icon: Lock, color: 'text-amber-600', bg: 'bg-amber-50' },
-        { label: 'Verified Docs', value: trades.filter(t => t.status === 'DOCS_VERIFIED').length.toString(), icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        { label: 'Settlements', value: trades.filter(t => t.status === 'PAYMENT_AUTHORIZED').length.toString(), icon: Clock, color: 'text-rose-600', bg: 'bg-rose-50' },
+        { label: 'Duty Pending', value: dutyPendingTrades.length.toString(), icon: BadgePercent, color: 'text-rose-600', bg: 'bg-rose-50' },
+        { label: 'Settlements', value: trades.filter(t => t.status === 'PAYMENT_AUTHORIZED').length.toString(), icon: Clock, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     ];
 
     return (
@@ -54,7 +94,7 @@ const ImporterBankDashboard: React.FC = () => {
             <div className="flex justify-between items-end">
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight">Bank Control Center</h1>
-                    <p className="text-slate-500 font-medium mt-1">Review credit applications, issue Letters of Credit, and authorize settlements.</p>
+                    <p className="text-slate-500 font-medium mt-1">Review credit applications, issue Letters of Credit, confirm duty payments, and authorize settlements.</p>
                 </div>
                 <div className="flex gap-3">
                     <button
@@ -80,6 +120,54 @@ const ImporterBankDashboard: React.FC = () => {
                     </div>
                 ))}
             </div>
+
+            {/* ── Duty Payment Queue (NEW) ────────────────────────────────── */}
+            {dutyPendingTrades.length > 0 && (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                        <DollarSign className="text-rose-600" size={22} />
+                        Duty Payment Confirmation Queue
+                    </h2>
+                    <div className="space-y-4">
+                        {dutyPendingTrades.map((trade) => (
+                            <div key={trade.id} className="card-premium border-rose-100 bg-rose-50/10 group hover:border-rose-200">
+                                <div className="flex flex-col md:flex-row justify-between gap-6">
+                                    <div className="flex gap-5 items-center flex-1">
+                                        <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center">
+                                            <BadgePercent size={28} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="font-black text-slate-900">
+                                                {trade.productName} — Trade #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}
+                                            </h3>
+                                            <div className="flex gap-6 mt-1">
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                                    Trade Value: <span className="text-slate-600">${trade.amount.toLocaleString()}</span>
+                                                </p>
+                                                <p className="text-xs font-bold text-rose-500 uppercase tracking-widest">
+                                                    Assessed Duty: <span className="text-rose-700 text-sm font-black">${trade.dutyAmount?.toLocaleString()}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded-full">
+                                            Awaiting Bank Confirmation
+                                        </span>
+                                        <button
+                                            onClick={() => handleConfirmDutyPayment(trade.id, trade.blockchainId)}
+                                            disabled={confirmingId === trade.id}
+                                            className="btn-primary py-3 px-6 shadow-none text-xs bg-rose-600 hover:bg-rose-700 whitespace-nowrap"
+                                        >
+                                            {confirmingId === trade.id ? 'Processing...' : 'Confirm Duty Paid'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 <div className="space-y-6">

@@ -25,7 +25,8 @@ import { logger } from "../utils/logger";
  * DocumentVerification:
  *   BillOfLadingIssued(uint256 tradeId, string ipfsHash, address issuedBy)
  *   CustomsDecision(uint256 tradeId, bool cleared, address decidedBy)
- *   DutyPaymentRecorded(uint256 tradeId, address recordedBy)
+ *   DutyPaymentConfirmed(uint256 tradeId, address confirmedBy)
+ *   TaxReceiptRecorded(uint256 tradeId, address recordedBy)
  *   GoodsReleasedFromDuty(uint256 tradeId, address releasedBy)
  *
  * PaymentSettlement:
@@ -423,34 +424,68 @@ export class EventListenerService {
         );
 
         // ─────────────────────────────────────────────────────────────────────
-        // 8. DutyPaymentRecorded(uint256 tradeId, address recordedBy)
+        // 8. DutyPaymentConfirmed(uint256 tradeId, address confirmedBy)
+        //    Importer Bank confirms the duty fee has been paid off-chain.
         // ─────────────────────────────────────────────────────────────────────
         blockchainService.documentVerification.on(
-            "DutyPaymentRecorded",
-            async (tradeId: any, recordedBy: any, event: any) => {
+            "DutyPaymentConfirmed",
+            async (tradeId: any, confirmedBy: any, event: any) => {
                 const txHash = event.log.transactionHash;
-                logger.transaction({ event: "DutyPaymentRecorded", txHash, blockchainId: Number(tradeId) });
+                logger.transaction({ event: "DutyPaymentConfirmed", txHash, blockchainId: Number(tradeId) });
 
                 const dbTradeId = await getTradeId(Number(tradeId));
                 if (!dbTradeId) return;
 
-                const actor = await (prisma.user as any).findFirst({ where: { walletAddress: recordedBy.toLowerCase() } });
+                const actor = await (prisma.user as any).findFirst({ where: { walletAddress: confirmedBy.toLowerCase() } });
                 try {
                     await (prisma.trade as any).update({ where: { id: dbTradeId }, data: { status: "DUTY_PAID" } });
                     await (prisma.tradeEvent as any).create({
                         data: {
                             tradeId: dbTradeId,
                             actorId: actor?.id || null,
-                            actorRole: "IMPORTER",
-                            event: "DUTY_PAID",
+                            actorRole: "IMPORTER_BANK",
+                            event: "DUTY_PAYMENT_CONFIRMED",
                             fromStatus: "DUTY_PENDING",
                             toStatus: "DUTY_PAID",
                             txHash
                         }
                     });
-                    logger.success(`✅ Trade #${tradeId} → DUTY_PAID`);
+                    logger.success(`✅ Trade #${tradeId} → DUTY_PAID (confirmed by Importer Bank)`);
                 } catch (error) {
-                    logger.error(`Error processing DutyPaymentRecorded for #${tradeId}:`, error);
+                    logger.error(`Error processing DutyPaymentConfirmed for #${tradeId}:`, error);
+                }
+            }
+        );
+
+        // ─────────────────────────────────────────────────────────────────────
+        // 8b. TaxReceiptRecorded(uint256 tradeId, address recordedBy)
+        //     Tax Authority records the receipt after Importer Bank confirmed.
+        // ─────────────────────────────────────────────────────────────────────
+        blockchainService.documentVerification.on(
+            "TaxReceiptRecorded",
+            async (tradeId: any, recordedBy: any, event: any) => {
+                const txHash = event.log.transactionHash;
+                logger.transaction({ event: "TaxReceiptRecorded", txHash, blockchainId: Number(tradeId) });
+
+                const dbTradeId = await getTradeId(Number(tradeId));
+                if (!dbTradeId) return;
+
+                const actor = await (prisma.user as any).findFirst({ where: { walletAddress: recordedBy.toLowerCase() } });
+                try {
+                    await (prisma.tradeEvent as any).create({
+                        data: {
+                            tradeId: dbTradeId,
+                            actorId: actor?.id || null,
+                            actorRole: "TAX_AUTHORITY",
+                            event: "TAX_RECEIPT_RECORDED",
+                            fromStatus: "DUTY_PAID",
+                            toStatus: "DUTY_PAID",
+                            txHash
+                        }
+                    });
+                    logger.success(`✅ Trade #${tradeId} → Tax receipt recorded by Tax Authority`);
+                } catch (error) {
+                    logger.error(`Error processing TaxReceiptRecorded for #${tradeId}:`, error);
                 }
             }
         );
