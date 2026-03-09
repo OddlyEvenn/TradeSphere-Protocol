@@ -20,8 +20,10 @@ interface Trade {
     productName?: string;
     importer?: { name: string };
     exporter?: { name: string };
+    exporterBankId?: string | null;
     letterOfCredit?: { ipfsHash?: string; documentTxHash?: string };
 }
+
 
 const BankRequests: React.FC = () => {
     const { user, account } = useOutletContext<{ user: any, account: string | null }>();
@@ -259,6 +261,8 @@ const BankRequests: React.FC = () => {
                                 const config = getActionConfig(trade);
                                 const isActionLoading = actionLoading === `${trade.id}-${config.key}`;
                                 const missingBlockchainId = trade.blockchainId === null || trade.blockchainId === undefined;
+                                const missingExporterBank = config.key === 'ISSUE_LOC' && !trade.exporterBankId;
+                                const isDisabled = !!actionLoading || missingBlockchainId || missingExporterBank;
 
                                 return (
                                     <tr key={trade.id} className="hover:bg-slate-50/50 transition-colors">
@@ -277,6 +281,11 @@ const BankRequests: React.FC = () => {
                                                     {missingBlockchainId && (
                                                         <p className="text-[10px] font-bold text-amber-600 mt-1">
                                                             ⚠ Awaiting on-chain registration
+                                                        </p>
+                                                    )}
+                                                    {missingExporterBank && !missingBlockchainId && (
+                                                        <p className="text-[10px] font-bold text-rose-600 mt-1">
+                                                            ⚠ Awaiting Exporter Bank Nomination
                                                         </p>
                                                     )}
                                                 </div>
@@ -298,9 +307,15 @@ const BankRequests: React.FC = () => {
                                                             setUploadTarget(trade);
                                                             fileInputRef.current?.click();
                                                         }}
-                                                        disabled={!!actionLoading || missingBlockchainId}
+                                                        disabled={isDisabled}
                                                         className="btn-primary py-2 px-4 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        title={missingBlockchainId ? "Trade must be registered on-chain first" : undefined}
+                                                        title={
+                                                            missingBlockchainId
+                                                                ? "Trade must be registered on-chain first"
+                                                                : missingExporterBank
+                                                                    ? "Exporter must nominate an advising bank first"
+                                                                    : undefined
+                                                        }
                                                     >
                                                         {isActionLoading ? (
                                                             <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
@@ -324,7 +339,7 @@ const BankRequests: React.FC = () => {
                                                         )}
                                                         <button
                                                             onClick={() => handleAction(trade, config.key)}
-                                                            disabled={!!actionLoading || missingBlockchainId}
+                                                            disabled={isDisabled}
                                                             className="btn-primary py-2 px-4 shadow-none flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                                             title={missingBlockchainId ? "Trade must be registered on-chain first" : undefined}
                                                         >
@@ -352,6 +367,7 @@ const BankRequests: React.FC = () => {
                                 </tr>
                             )}
                         </tbody>
+
                     </table>
                 </div>
             )}

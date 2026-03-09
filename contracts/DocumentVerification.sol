@@ -15,11 +15,17 @@ import "./TradeRegistry.sol";
  *     - If cleared: verifyAsCustoms(tradeId, true) → CUSTOMS_CLEARED
  *     - If not:     verifyAsCustoms(tradeId, false) → DUTY_PENDING
  *
- *  3. [If DUTY_PENDING] Tax authority records duty payment:
- *     recordDutyPayment(tradeId) → DUTY_PAID
+ *  3. [If DUTY_PENDING] Tax authority assesses duty amount (off-chain DB update).
+ *     System notifies Importer. Importer instructs their bank off-chain to pay.
  *
- *  4. [After DUTY_PAID] Tax authority releases goods:
- *     releaseFromDuty(tradeId) → CUSTOMS_CLEARED
+ *  4. Importer Bank confirms payment on-chain:
+ *     confirmDutyPayment(tradeId) → DUTY_PAID + dutyFeeAuthorized
+ *
+ *  5. Tax authority records the receipt (only after Importer Bank confirmed):
+ *     recordTaxReceipt(tradeId) → receiptRecorded = true
+ *
+ *  6. Tax authority releases goods:
+ *     releaseFromDuty(tradeId) → CUSTOMS_CLEARED (requires receiptRecorded)
  *
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -34,6 +40,8 @@ contract DocumentVerification {
         bool   customsCleared;
         bool   dutyRequired;
         bool   dutyPaid;
+        bool   dutyFeeAuthorized;  // NEW: Importer Bank has authorized the duty fee
+        bool   receiptRecorded;    // NEW: Tax Authority has recorded the receipt
     }
 
     // ── Storage ────────────────────────────────────────────────────────────
@@ -42,7 +50,8 @@ contract DocumentVerification {
     // ── Events ─────────────────────────────────────────────────────────────
     event BillOfLadingIssued(uint256 indexed tradeId, string ipfsHash, address issuedBy);
     event CustomsDecision(uint256 indexed tradeId, bool cleared, address decidedBy);
-    event DutyPaymentRecorded(uint256 indexed tradeId, address recordedBy);
+    event DutyPaymentConfirmed(uint256 indexed tradeId, address confirmedBy);
+    event TaxReceiptRecorded(uint256 indexed tradeId, address recordedBy);
     event GoodsReleasedFromDuty(uint256 indexed tradeId, address releasedBy);
 
     // ── Constructor ────────────────────────────────────────────────────────
@@ -54,6 +63,12 @@ contract DocumentVerification {
     modifier onlyShippingCompany(uint256 _tradeId) {
         TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
         require(msg.sender == trade.shippingCompany, "Only assigned shipping company");
+        _;
+    }
+
+    modifier onlyIssuingBank(uint256 _tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        require(msg.sender == trade.issuingBank, "Only issuing bank (importer bank)");
         _;
     }
 
@@ -118,10 +133,12 @@ contract DocumentVerification {
     }
 
     /**
-     * @notice Tax authority records that the importer has paid the required duty.
+     * @notice Importer Bank confirms that the duty fee has been paid off-chain.
+     *         Marks the duty as "Duty Paid" and "Duty Fee Authorized" on-chain.
      *         Transitions status to DUTY_PAID.
+     *         Only the Importer's Bank (issuingBank) can call this.
      */
-    function recordDutyPayment(uint256 _tradeId) external {
+    function confirmDutyPayment(uint256 _tradeId) external onlyIssuingBank(_tradeId) {
         TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
         require(trade.status == TradeRegistry.TradeStatus.DUTY_PENDING, "No pending duty");
 
@@ -130,13 +147,35 @@ contract DocumentVerification {
         require(!state.dutyPaid, "Duty already recorded as paid");
 
         state.dutyPaid = true;
+        state.dutyFeeAuthorized = true;
+
         tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.DUTY_PAID);
-        emit DutyPaymentRecorded(_tradeId, msg.sender);
+        emit DutyPaymentConfirmed(_tradeId, msg.sender);
     }
 
     /**
-     * @notice Tax authority releases goods from customs after duty payment.
+     * @notice Tax authority records the official tax receipt after the Importer Bank
+     *         has confirmed the duty payment on-chain.
+     *         VALIDATION: Receipt cannot be recorded unless dutyPaid == true
+     *         (i.e., the Importer Bank has already confirmed payment).
+     */
+    function recordTaxReceipt(uint256 _tradeId) external {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        require(trade.status == TradeRegistry.TradeStatus.DUTY_PAID, "Duty not paid yet");
+
+        VerificationState storage state = verifications[_tradeId];
+        require(state.dutyPaid, "Importer Bank has not confirmed duty payment");
+        require(state.dutyFeeAuthorized, "Duty fee not authorized by Importer Bank");
+        require(!state.receiptRecorded, "Receipt already recorded");
+
+        state.receiptRecorded = true;
+        emit TaxReceiptRecorded(_tradeId, msg.sender);
+    }
+
+    /**
+     * @notice Tax authority releases goods from customs after recording the receipt.
      *         Transitions status to CUSTOMS_CLEARED so payment flow can proceed.
+     *         VALIDATION: Requires receiptRecorded == true.
      */
     function releaseFromDuty(uint256 _tradeId) external {
         TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
@@ -144,6 +183,7 @@ contract DocumentVerification {
 
         VerificationState storage state = verifications[_tradeId];
         require(state.dutyPaid, "Duty not recorded as paid");
+        require(state.receiptRecorded, "Tax receipt must be recorded before releasing goods");
 
         state.customsCleared = true;
         tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.CUSTOMS_CLEARED);

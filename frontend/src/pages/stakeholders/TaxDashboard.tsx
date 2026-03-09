@@ -56,53 +56,46 @@ const TaxDashboard: React.FC = () => {
         }
     };
 
-    const handleRecordPayment = async (tradeId: string, blockchainId: number | null) => {
-        if (!account) return toast.error("Connect wallet to record payment.");
+    /**
+     * Tax Authority records receipt and releases goods in one step.
+     * Calls recordTaxReceipt() then releaseFromDuty() sequentially.
+     * VALIDATION: recordTaxReceipt requires dutyPaid == true (Importer Bank confirmed).
+     */
+    const handleRecordReceiptAndRelease = async (tradeId: string, blockchainId: number | null) => {
+        if (!account) return toast.error("Connect wallet to record receipt.");
         if (blockchainId === null || blockchainId === undefined) return toast.error("No blockchain ID.");
 
         setAssessingId(tradeId);
         try {
-            toast.info("Recording duty payment on-chain...");
             const docContract = walletService.getDocumentVerification();
-            const tx = await docContract.recordDutyPayment(blockchainId);
-            toast.info("Transaction sent. Waiting for confirmation...");
-            await tx.wait();
+
+            // Step 1: Record tax receipt on-chain
+            toast.info("Recording tax receipt on-chain...");
+            const tx1 = await docContract.recordTaxReceipt(blockchainId);
+            toast.info("Receipt transaction sent. Waiting for confirmation...");
+            await tx1.wait();
 
             await api.patch(`/trades/${tradeId}/state`, {
-                txHash: tx.hash,
-                eventName: 'DUTY_PAID'
+                txHash: tx1.hash,
+                eventName: 'TAX_RECEIPT_RECORDED'
             });
-            toast.success("Payment officially recorded on blockchain!");
-            fetchTrades();
-        } catch (err: any) {
-            console.error(err);
-            toast.error("Failed to record payment: " + (err.reason || err.message));
-        } finally {
-            setAssessingId(null);
-        }
-    };
+            toast.success("Tax receipt recorded on-chain!");
 
-    const handleReleaseGoods = async (tradeId: string, blockchainId: number | null) => {
-        if (!account) return toast.error("Connect wallet to release goods.");
-        if (blockchainId === null || blockchainId === undefined) return toast.error("No blockchain ID.");
-
-        setAssessingId(tradeId);
-        try {
-            toast.info("Submitting release from duty to blockchain...");
-            const docContract = walletService.getDocumentVerification();
-            const tx = await docContract.releaseFromDuty(blockchainId);
-            toast.info("Transaction sent. Waiting for confirmation...");
-            await tx.wait();
+            // Step 2: Release goods from duty
+            toast.info("Releasing goods from duty on blockchain...");
+            const tx2 = await docContract.releaseFromDuty(blockchainId);
+            toast.info("Release transaction sent. Waiting for confirmation...");
+            await tx2.wait();
 
             await api.patch(`/trades/${tradeId}/state`, {
-                txHash: tx.hash,
+                txHash: tx2.hash,
                 eventName: 'CUSTOMS_CLEARED'
             });
-            toast.success("Goods officially released on-chain!");
+            toast.success("Goods officially released on-chain! Trade → CUSTOMS_CLEARED");
             fetchTrades();
         } catch (err: any) {
             console.error(err);
-            toast.error("Failed to release goods: " + (err.reason || err.message));
+            toast.error("Failed: " + (err.reason || err.message));
         } finally {
             setAssessingId(null);
         }
@@ -185,21 +178,21 @@ const TaxDashboard: React.FC = () => {
                                     <td className="px-8 py-6 font-bold text-slate-600">${trade.amount?.toLocaleString()}</td>
                                     <td className="px-8 py-6 text-center">
                                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'DUTY_PENDING' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                                            {trade.status === 'DUTY_PENDING' ? (trade.dutyAmount ? 'WAITING FOR PAYMENT' : 'NEEDS ASSESSMENT') : trade.status.replace(/_/g, ' ')}
+                                            {trade.status === 'DUTY_PENDING' ? (trade.dutyAmount ? 'WAITING FOR BANK' : 'NEEDS ASSESSMENT') : trade.status.replace(/_/g, ' ')}
                                         </span>
                                     </td>
                                     <td className="px-8 py-6 text-right">
                                         {trade.status === 'DUTY_PAID' ? (
                                             <div className="flex items-center justify-end gap-3">
                                                 <div className="text-emerald-600 font-bold flex items-center gap-1 text-xs">
-                                                    <CheckCircle size={14} /> Paid
+                                                    <CheckCircle size={14} /> Bank Confirmed
                                                 </div>
                                                 <button
-                                                    onClick={() => handleReleaseGoods(trade.id, trade.blockchainId)}
+                                                    onClick={() => handleRecordReceiptAndRelease(trade.id, trade.blockchainId)}
                                                     disabled={assessingId === trade.id}
                                                     className="btn-primary py-2 px-4 shadow-none text-xs bg-emerald-600 hover:bg-emerald-700"
                                                 >
-                                                    {assessingId === trade.id ? 'Processing...' : 'Release Goods'}
+                                                    {assessingId === trade.id ? 'Processing...' : 'Record Receipt & Release Goods'}
                                                 </button>
                                             </div>
                                         ) : trade.status === 'DUTY_PENDING' && trade.dutyAmount ? (
@@ -207,13 +200,9 @@ const TaxDashboard: React.FC = () => {
                                                 <div className="text-slate-900 font-black text-sm">
                                                     ${trade.dutyAmount.toLocaleString()}
                                                 </div>
-                                                <button
-                                                    onClick={() => handleRecordPayment(trade.id, trade.blockchainId)}
-                                                    disabled={assessingId === trade.id}
-                                                    className="btn-primary py-2 px-4 shadow-none text-xs bg-amber-600 hover:bg-amber-700"
-                                                >
-                                                    {assessingId === trade.id ? '...' : 'Record Receipt'}
-                                                </button>
+                                                <span className="px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded-full whitespace-nowrap">
+                                                    Waiting for Bank Confirmation
+                                                </span>
                                             </div>
                                         ) : trade.status === 'DUTY_PENDING' && !trade.dutyAmount ? (
                                             <div className="flex items-center justify-end gap-3">
