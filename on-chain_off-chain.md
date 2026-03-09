@@ -1,4 +1,4 @@
-# Complete Phase 2 On-Chain vs Off-Chain Architecture
+# Complete On-Chain vs Off-Chain Architecture
 
 This table shows the **ideal state** for your Trade Finance system according to your Solidity contracts (`TradeRegistry`, `LetterOfCredit`, `DocumentVerification`, and `PaymentSettlement`).
 
