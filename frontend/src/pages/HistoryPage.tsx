@@ -40,7 +40,7 @@ const HistoryPage: React.FC = () => {
                 ) : (
                     trades.map((trade) => (
                         <div key={trade.id} className="relative">
-                            <div className="absolute -left-[45px] top-1 w-10 h-10 bg-white border-2 border-indigo-100 rounded-full flex items-center justify-center text-indigo-600 shadow-sm">
+                            <div className="absolute -left-[45px] top-1 w-10 h-10 bg-white border-2 border-indigo-100 rounded-full flex flex-shrink-0 items-center justify-center text-indigo-600 shadow-sm">
                                 <Activity size={18} />
                             </div>
                             <div className="card-premium mb-0 relative group">

@@ -7,7 +7,10 @@ import {
     ShieldCheck,
     UploadCloud,
     FileText,
-    AlertTriangle
+    AlertTriangle,
+    Landmark,
+    ArrowUpRight,
+    Search
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -49,11 +52,6 @@ const BankRequests: React.FC = () => {
         }
     };
 
-    /**
-     * ARCHITECTURE: All bank actions MUST go through smart contracts.
-     * The EventListenerService on the backend listens to blockchain events
-     * and updates the database automatically. No DB-only updates allowed.
-     */
     const requireWallet = (): boolean => {
         if (!account) {
             toast.error("MetaMask wallet required. Please connect your wallet to perform this action.");
@@ -92,7 +90,6 @@ const BankRequests: React.FC = () => {
             const ipfsHash = uploadRes.data.ipfsHash;
             toast.success("Document secured on IPFS!");
 
-            // ── Blockchain-first: submit on-chain tx → EventListenerService updates DB ──
             toast.info("Submitting Letter of Credit to blockchain...");
             const contractLoC = walletService.getLetterOfCredit();
             const expiry = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60; // 30 days
@@ -100,7 +97,6 @@ const BankRequests: React.FC = () => {
             toast.info("Transaction submitted. Awaiting blockchain confirmation...");
             await tx.wait();
 
-            // Record the txHash for audit trail — and manually sync status for speed
             await api.patch(`/trades/${uploadTarget.id}/state`, {
                 txHash: tx.hash,
                 ipfsHash,
@@ -109,7 +105,6 @@ const BankRequests: React.FC = () => {
             });
 
             toast.success("Letter of Credit published on-chain! Status updated.");
-            // Poll after a short delay to let EventListenerService propagate
             setTimeout(fetchTrades, 2000);
         } catch (error: any) {
             console.error("LoC upload failed:", error);
@@ -130,25 +125,18 @@ const BankRequests: React.FC = () => {
             let tx: any;
 
             if (action === 'APPROVE_LOC') {
-                // Exporter bank approves LoC on-chain
                 toast.info("Approving Letter of Credit on blockchain...");
                 const contract = walletService.getLetterOfCredit();
                 tx = await contract.approveLoC(trade.blockchainId);
-
             } else if (action === 'LOCK_FUNDS') {
-                // Importer bank locks funds in escrow
                 toast.info("Locking funds in escrow on blockchain...");
                 const contractLoC = walletService.getLetterOfCredit();
                 tx = await contractLoC.lockFunds(trade.blockchainId);
-
             } else if (action === 'AUTHORIZE_PAYMENT') {
-                // Importer bank authorizes payment release
                 toast.info("Authorizing payment on blockchain...");
                 const contract = walletService.getPaymentSettlement();
                 tx = await contract.authorizePayment(trade.blockchainId);
-
             } else if (action === 'CONFIRM_SETTLEMENT') {
-                // Exporter bank confirms final settlement
                 toast.info("Confirming settlement on blockchain...");
                 const contract = walletService.getPaymentSettlement();
                 tx = await contract.confirmSettlement(trade.blockchainId);
@@ -158,7 +146,6 @@ const BankRequests: React.FC = () => {
                 toast.info("Transaction submitted. Awaiting blockchain confirmation...");
                 await tx.wait();
 
-                // Map action to status for immediate UI sync
                 const statusMap: Record<string, string> = {
                     'APPROVE_LOC': 'LOC_APPROVED',
                     'LOCK_FUNDS': 'FUNDS_LOCKED',
@@ -166,7 +153,6 @@ const BankRequests: React.FC = () => {
                     'CONFIRM_SETTLEMENT': 'SETTLEMENT_CONFIRMED'
                 };
 
-                // Record txHash and manually advance status in DB (fast-sync)
                 await api.patch(`/trades/${trade.id}/state`, {
                     txHash: tx.hash,
                     eventName: action,
@@ -178,8 +164,6 @@ const BankRequests: React.FC = () => {
             }
         } catch (error: any) {
             console.error(`Action ${action} failed:`, error);
-
-            // Handle common revert reasons gracefully (detect if already processed)
             const errorMsg = error.reason || error.message || "";
             if (errorMsg.includes("already approved") || errorMsg.includes("already locked") || errorMsg.includes("Invalid status")) {
                 toast.success("Action already recorded on-chain. Refreshing...");
@@ -200,22 +184,22 @@ const BankRequests: React.FC = () => {
 
     const getActionConfig = (trade: Trade) => {
         if (user.role === 'IMPORTER_BANK') {
-            if (trade.status === 'LOC_INITIATED') return { label: 'Upload & Issue LoC', key: 'ISSUE_LOC', needsFile: true };
-            if (trade.status === 'LOC_APPROVED') return { label: 'Lock Funds in Escrow', key: 'LOCK_FUNDS' };
-            if (trade.status === 'CUSTOMS_CLEARED') return { label: 'Authorize Payment', key: 'AUTHORIZE_PAYMENT' };
+            if (trade.status === 'LOC_INITIATED') return { label: 'Issue LoC', key: 'ISSUE_LOC', icon: UploadCloud, needsFile: true };
+            if (trade.status === 'LOC_APPROVED') return { label: 'Lock Funds', key: 'LOCK_FUNDS', icon: ShieldCheck };
+            if (trade.status === 'CUSTOMS_CLEARED') return { label: 'Authorize', key: 'AUTHORIZE_PAYMENT', icon: ClipboardCheck };
         }
         if (user.role === 'EXPORTER_BANK') {
-            if (trade.status === 'LOC_UPLOADED') return { label: 'Review & Approve LoC', key: 'APPROVE_LOC' };
-            if (trade.status === 'PAYMENT_AUTHORIZED') return { label: 'Confirm Settlement', key: 'CONFIRM_SETTLEMENT' };
+            if (trade.status === 'LOC_UPLOADED') return { label: 'Approve LoC', key: 'APPROVE_LOC', icon: ShieldCheck };
+            if (trade.status === 'PAYMENT_AUTHORIZED') return { label: 'Confirm Settlement', key: 'CONFIRM_SETTLEMENT', icon: ClipboardCheck };
         }
-        return { label: 'Processing', key: 'PROCESSING' };
+        return { label: 'Process', key: 'PROCESSING', icon: Search };
     };
 
     const targetStatuses = getTargetStatuses();
+    const filteredTrades = trades.filter(t => targetStatuses.includes(t.status));
 
     return (
-        <div className="space-y-10">
-            {/* Hidden file input for IPFS uploads */}
+        <div className="space-y-12 animate-in lg:p-4">
             <input
                 type="file"
                 ref={fileInputRef}
@@ -224,91 +208,120 @@ const BankRequests: React.FC = () => {
                 accept=".pdf,.doc,.docx,.png,.jpg"
             />
 
-            <div>
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Bank Operations Desk</h1>
-                <p className="text-slate-500 font-medium mt-1">
-                    All actions are submitted on-chain. Status updates automatically after blockchain confirmation.
-                </p>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight lg:text-5xl">Bank Operations</h1>
+                    <p className="text-slate-500 font-medium mt-2 text-lg">
+                        Manage trade assets and secure on-chain settlements.
+                    </p>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="hidden sm:flex flex-col items-end">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 text-right">Queue Size</p>
+                        <p className="text-xl font-black text-blue-600">{filteredTrades.length} Tasks Pending</p>
+                    </div>
+                    <div className="w-16 h-16 bg-white/60 backdrop-blur-md rounded-[1.5rem] border border-white/60 shadow-sm flex items-center justify-center">
+                        <Landmark size={30} className="text-blue-600" />
+                    </div>
+                </div>
             </div>
 
-            {/* Wallet Warning Banner */}
             {!account && (
-                <div className="flex items-center gap-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
-                    <AlertTriangle className="text-amber-600 flex-shrink-0" size={20} />
-                    <p className="text-sm font-bold text-amber-800">
-                        MetaMask wallet not connected. You must connect your wallet to perform any bank actions.
-                    </p>
+                <div className="flex items-center gap-5 p-7 bg-rose-50 border border-rose-100 rounded-[2.5rem] shadow-sm animate-pulse">
+                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-sm">
+                        <AlertTriangle size={28} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-black text-rose-900 uppercase tracking-tight">Security Alert: Wallet Connection Missing</p>
+                        <p className="text-xs font-bold text-rose-700/70 mt-0.5 max-w-lg">Protocol authentication requires a cryptographic signature. Please connect MetaMask to authorize these settlements.</p>
+                    </div>
                 </div>
             )}
 
             {loading ? (
-                <div className="flex justify-center py-20">
-                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-indigo-600"></div>
+                <div className="flex flex-col items-center justify-center py-32 bg-white/50 backdrop-blur-md rounded-[3rem] border border-white/60 shadow-sm glass">
+                    <div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-6"></div>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Refreshing Ledger...</p>
                 </div>
             ) : (
-                <div className="bg-white border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm">
-                    <table className="w-full text-left">
-                        <thead className="bg-slate-50 border-b border-slate-100">
-                            <tr>
-                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Trade info</th>
-                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount</th>
-                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                            {trades.filter(t => targetStatuses.includes(t.status)).map((trade) => {
-                                const config = getActionConfig(trade);
-                                const isActionLoading = actionLoading === `${trade.id}-${config.key}`;
-                                const missingBlockchainId = trade.blockchainId === null || trade.blockchainId === undefined;
-                                const missingExporterBank = config.key === 'ISSUE_LOC' && !trade.exporterBankId;
-                                const isDisabled = !!actionLoading || missingBlockchainId || missingExporterBank;
+                <div className="bg-white/60 backdrop-blur-md border border-white/60 rounded-[3rem] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.02)] glass">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left min-w-[1000px]">
+                            <thead className="bg-white/40 border-b border-white/60">
+                                <tr>
+                                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Trade Instrument</th>
+                                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Asset Value</th>
+                                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Protocol Status</th>
+                                    <th className="px-10 py-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Authorization</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/60">
+                                {filteredTrades.map((trade) => {
+                                    const config = getActionConfig(trade);
+                                    const isActionLoading = actionLoading === `${trade.id}-${config.key}`;
+                                    const missingBlockchainId = trade.blockchainId === null || trade.blockchainId === undefined;
+                                    const missingExporterBank = config.key === 'ISSUE_LOC' && !trade.exporterBankId;
+                                    const isDisabled = !!actionLoading || missingBlockchainId || missingExporterBank;
 
-                                return (
-                                    <tr key={trade.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
-                                                    ID
-                                                </div>
-                                                <div>
-                                                    <p className="font-black text-slate-900">
-                                                        #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}
-                                                    </p>
-                                                    <p className="text-xs font-bold text-slate-400 tracking-tight">
-                                                        {trade.productName || 'Trade Request'} — {trade.importer?.name || 'N/A'}
-                                                    </p>
-                                                    {missingBlockchainId && (
-                                                        <p className="text-[10px] font-bold text-amber-600 mt-1">
-                                                            ⚠ Awaiting on-chain registration
+                                    return (
+                                        <tr key={trade.id} className="hover:bg-blue-50/20 transition-colors group">
+                                            <td className="px-10 py-10">
+                                                <div className="flex items-center gap-6">
+                                                    <div className="w-16 h-16 bg-slate-50 rounded-[1.25rem] flex items-center justify-center group-hover:bg-blue-600 transition-all duration-500">
+                                                        <FileText size={28} className="text-slate-400 group-hover:text-white" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-black text-slate-900 text-xl leading-tight tracking-tight">
+                                                                #{trade.blockchainId ?? trade.id.slice(0, 8)}
+                                                            </p>
+                                                            <ArrowUpRight size={14} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                                                        </div>
+                                                        <p className="text-[13px] font-bold text-slate-400 mt-1 uppercase tracking-tight">
+                                                            {trade.importer?.name || 'N/A Account'}
                                                         </p>
-                                                    )}
-                                                    {missingExporterBank && !missingBlockchainId && (
-                                                        <p className="text-[10px] font-bold text-rose-600 mt-1">
-                                                            ⚠ Awaiting Exporter Bank Nomination
-                                                        </p>
-                                                    )}
+                                                        {missingBlockchainId && (
+                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 mt-2 bg-amber-50 text-[10px] font-black text-amber-700 uppercase tracking-widest rounded-full border border-amber-100">
+                                                                <AlertTriangle size={10} /> Pending Registration
+                                                            </span>
+                                                        )}
+                                                        {missingExporterBank && !missingBlockchainId && (
+                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 mt-2 bg-rose-50 text-[10px] font-black text-rose-700 uppercase tracking-widest rounded-full border border-rose-100">
+                                                                <AlertTriangle size={10} /> Advising Bank Required
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            <p className="font-black text-slate-900">${trade.amount.toLocaleString()}</p>
-                                        </td>
-                                        <td className="px-8 py-6">
-                                            <span className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                                {trade.status.replace(/_/g, ' ')}
-                                            </span>
-                                        </td>
-                                        <td className="px-8 py-6 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                {config.needsFile ? (
+                                            </td>
+                                            <td className="px-10 py-10">
+                                                <p className="font-black text-slate-900 text-2xl tracking-tight">${trade.amount.toLocaleString()}</p>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">SDR Asset Class</p>
+                                            </td>
+                                            <td className="px-10 py-10">
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <span className="px-5 py-2 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-[0.1em] border border-blue-100/50 shadow-sm">
+                                                        {trade.status.replace(/_/g, ' ')}
+                                                    </span>
+                                                    <p className="text-[10px] font-black text-slate-400 ml-1 mt-1 uppercase tracking-wider opacity-60">Verified On-Chain</p>
+                                                </div>
+                                            </td>
+                                            <td className="px-10 py-10 text-right">
+                                                <div className="flex items-center justify-end gap-3">
+                                                    {config.key === 'APPROVE_LOC' && trade.letterOfCredit?.ipfsHash && (
+                                                        <a
+                                                            href={trade.letterOfCredit.ipfsHash.startsWith('http') ? trade.letterOfCredit.ipfsHash : `https://gateway.pinata.cloud/ipfs/${trade.letterOfCredit.ipfsHash}`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="btn-secondary h-14 w-14 !p-0 flex items-center justify-center hover:bg-white hover:border-blue-200 hover:text-blue-600 transition-all shadow-sm"
+                                                            title="View IPFS Document"
+                                                        >
+                                                            <ArrowUpRight size={22} />
+                                                        </a>
+                                                    )}
                                                     <button
-                                                        onClick={() => {
-                                                            setUploadTarget(trade);
-                                                            fileInputRef.current?.click();
-                                                        }}
+                                                        onClick={() => config.needsFile ? (setUploadTarget(trade), fileInputRef.current?.click()) : handleAction(trade, config.key)}
                                                         disabled={isDisabled}
-                                                        className="btn-primary py-2 px-4 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        className={`btn-primary h-14 min-w-[180px] !px-8 ${isDisabled ? 'grayscale opacity-50 cursor-not-allowed' : 'shadow-xl shadow-blue-100'}`}
                                                         title={
                                                             missingBlockchainId
                                                                 ? "Trade must be registered on-chain first"
@@ -318,61 +331,39 @@ const BankRequests: React.FC = () => {
                                                         }
                                                     >
                                                         {isActionLoading ? (
-                                                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                                            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                                         ) : (
-                                                            <UploadCloud size={16} />
+                                                            <div className="flex items-center gap-3">
+                                                                <config.icon size={20} />
+                                                                <span className="whitespace-nowrap uppercase tracking-[0.15em] text-[11px] font-black">{config.label}</span>
+                                                            </div>
                                                         )}
-                                                        {config.label}
                                                     </button>
-                                                ) : (
-                                                    <div className="flex gap-2 justify-end">
-                                                        {config.key === 'APPROVE_LOC' && trade.letterOfCredit?.ipfsHash && (
-                                                            <a
-                                                                href={trade.letterOfCredit.ipfsHash.startsWith('http') ? trade.letterOfCredit.ipfsHash : `https://gateway.pinata.cloud/ipfs/${trade.letterOfCredit.ipfsHash}`}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="btn-secondary py-2 px-4 flex items-center gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors rounded-xl font-bold"
-                                                            >
-                                                                <FileText size={16} />
-                                                                View LoC
-                                                            </a>
-                                                        )}
-                                                        <button
-                                                            onClick={() => handleAction(trade, config.key)}
-                                                            disabled={isDisabled}
-                                                            className="btn-primary py-2 px-4 shadow-none flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            title={missingBlockchainId ? "Trade must be registered on-chain first" : undefined}
-                                                        >
-                                                            {isActionLoading ? (
-                                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                                                            ) : (
-                                                                <ShieldCheck size={16} />
-                                                            )}
-                                                            {config.label}
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {filteredTrades.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="px-8 py-40 text-center bg-blue-50/10">
+                                            <div className="w-24 h-24 bg-white/60 backdrop-blur-md border border-white/60 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-sm glass">
+                                                <ClipboardCheck className="text-slate-300" size={48} />
                                             </div>
+                                            <h3 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">Queue Empty</h3>
+                                            <p className="text-slate-500 font-medium max-w-sm mx-auto">All cryptographic authorizations are complete. New settlement requests will appear as they materialize on-chain.</p>
                                         </td>
                                     </tr>
-                                );
-                            })}
-                            {trades.filter(t => targetStatuses.includes(t.status)).length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="px-8 py-20 text-center">
-                                        <ClipboardCheck className="mx-auto text-slate-200 mb-4" size={48} />
-                                        <h3 className="text-xl font-bold text-slate-900 mb-1">Queue Empty</h3>
-                                        <p className="text-slate-400 font-medium">No pending trade actions require your attention.</p>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-
-                    </table>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
+
         </div>
     );
 };
 
 export default BankRequests;
+

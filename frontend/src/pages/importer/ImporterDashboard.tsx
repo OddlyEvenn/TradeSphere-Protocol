@@ -9,7 +9,9 @@ import {
     Plus,
     ArrowRight,
     ClipboardList,
-    AlertCircle
+    AlertCircle,
+    TrendingUp,
+    Briefcase
 } from 'lucide-react';
 
 interface Trade {
@@ -21,7 +23,7 @@ interface Trade {
 }
 
 const ImporterDashboard: React.FC = () => {
-    const { user, account } = useOutletContext<{ user: any, account: string | null }>();
+    const { user } = useOutletContext<{ user: any }>();
     const [trades, setTrades] = useState<Trade[]>([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
@@ -42,22 +44,24 @@ const ImporterDashboard: React.FC = () => {
     };
 
     const stats = [
-        { label: 'Active Trades', value: trades.filter(t => t.status !== 'COMPLETED').length.toString(), icon: Package, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { label: 'Active Trades', value: trades.filter(t => t.status !== 'COMPLETED').length.toString(), icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
         { label: 'Pending LoCs', value: trades.filter(t => t.status === 'LOC_REQUESTED').length.toString(), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
         { label: 'Payments Pending', value: trades.filter(t => t.status === 'DOCS_VERIFIED').length.toString(), icon: AlertCircle, color: 'text-rose-600', bg: 'bg-rose-50' },
         { label: 'Completed', value: trades.filter(t => t.status === 'COMPLETED').length.toString(), icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     ];
 
     return (
-        <div className="space-y-10">
-            <div className="flex justify-between items-end">
+        <div className="space-y-12 animate-in lg:p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Importer Dashboard</h1>
-                    <p className="text-slate-500 font-medium mt-1">Manage your active trade lifecycle and Letter of Credit requests.</p>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight lg:text-5xl">
+                        Welcome back, <span className="text-blue-600">{user?.name?.split(' ')[0]}</span>
+                    </h1>
+                    <p className="text-slate-500 font-medium mt-2 text-lg">Your trade finance operations are running smoothly.</p>
                 </div>
                 <button
                     onClick={() => navigate('/dashboard/marketplace')}
-                    className="btn-primary"
+                    className="btn-primary lg:px-8 lg:py-4 shadow-2xl shadow-blue-100/50"
                 >
                     <Plus size={20} />
                     New Trade Request
@@ -65,53 +69,65 @@ const ImporterDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {stats.map((stat) => (
-                    <div key={stat.label} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5">
-                        <div className={`w-14 h-14 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center`}>
-                            <stat.icon size={28} />
+                {stats.map((stat, idx) => (
+                    <div key={stat.label} className="bg-white/80 backdrop-blur-md p-7 rounded-[2rem] border border-white/60 shadow-[0_10px_40px_rgba(0,0,0,0.02)] flex items-center gap-6 hover:translate-y-[-4px] transition-all duration-300">
+                        <div className={`w-16 h-16 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center flex-shrink-0 ring-8 ring-transparent group-hover:ring-blue-50 transition-all`}>
+                            <stat.icon size={30} />
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{stat.label}</p>
-                            <p className="text-2xl font-black text-slate-900 leading-none">{stat.value}</p>
+                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{stat.label}</p>
+                            <p className="text-3xl font-black text-slate-900">{stat.value}</p>
                         </div>
                     </div>
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Active Trades</h2>
-                        <button onClick={() => navigate('/dashboard/trades')} className="text-sm font-bold text-indigo-600 flex items-center gap-1 hover:underline">
-                            View All <ArrowRight size={14} />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                <div className="lg:col-span-8 space-y-8">
+                    <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-3">
+                            <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+                            <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Recent Trades</h2>
+                        </div>
+                        <button onClick={() => navigate('/dashboard/trades')} className="text-xs font-black text-blue-600 flex items-center gap-2 hover:gap-3 transition-all uppercase tracking-widest">
+                            View All Trades <ArrowRight size={14} />
                         </button>
                     </div>
 
                     {loading ? (
-                        <div className="flex justify-center py-20">
-                            <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-indigo-600"></div>
+                        <div className="flex flex-col items-center justify-center py-24 bg-white/50 backdrop-blur-md rounded-[2.5rem] border border-white/60">
+                            <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Synchronizing Ledger...</p>
                         </div>
                     ) : trades.length > 0 ? (
-                        <div className="space-y-4">
-                            {trades.slice(0, 3).map((trade) => (
-                                <div key={trade.id} className="card-premium group cursor-pointer hover:border-indigo-100" onClick={() => navigate(`/dashboard/trades/${trade.id}`)}>
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex gap-5">
-                                            <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                                                <Package size={28} />
+                        <div className="grid gap-6">
+                            {trades.slice(0, 4).map((trade) => (
+                                <div
+                                    key={trade.id}
+                                    className="card-premium group cursor-pointer"
+                                    onClick={() => navigate(`/dashboard/trades/${trade.id}`)}
+                                >
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-16 h-16 bg-slate-50 rounded-[1.25rem] flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-6 transition-all duration-500">
+                                                <Briefcase size={28} />
                                             </div>
                                             <div>
-                                                <h3 className="font-black text-slate-900 text-lg">Trade #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}</h3>
-                                                <p className="text-sm font-bold text-slate-400">Created {new Date(trade.createdAt).toLocaleDateString()}</p>
+                                                <h3 className="font-black text-slate-900 text-xl tracking-tight">Trade #{trade.blockchainId || trade.id.slice(0, 8)}</h3>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <Clock size={12} className="text-slate-400" />
+                                                    <p className="text-xs font-bold text-slate-400">Initiated {new Date(trade.createdAt).toLocaleDateString()}</p>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-2xl font-black text-slate-900">${trade.amount.toLocaleString()}</p>
-                                            <span className={`inline-block mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'CREATED' ? 'bg-amber-50 text-amber-600' :
-                                                trade.status === 'PAYMENT_AUTHORIZED' ? 'bg-emerald-50 text-emerald-600' :
-                                                    'bg-indigo-50 text-indigo-700'
+                                        <div className="flex items-center justify-between w-full md:w-auto md:flex-col md:items-end gap-2">
+                                            <p className="text-2xl font-black text-blue-600">${trade.amount.toLocaleString()}</p>
+                                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] ${trade.status === 'CREATED' ? 'bg-amber-100 text-amber-700' :
+                                                trade.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' :
+                                                    trade.status === 'PAYMENT_AUTHORIZED' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-blue-50 text-blue-700'
                                                 }`}>
-                                                {trade.status}
+                                                {trade.status.replace('_', ' ')}
                                             </span>
                                         </div>
                                     </div>
@@ -119,32 +135,82 @@ const ImporterDashboard: React.FC = () => {
                             ))}
                         </div>
                     ) : (
-                        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] p-16 text-center">
-                            <Package className="mx-auto text-slate-300 mb-4" size={48} />
-                            <h3 className="text-xl font-bold text-slate-900 mb-1">No Active Trades</h3>
-                            <p className="text-slate-500 font-medium">Start by publishing a trade request on the marketplace.</p>
+                        <div className="bg-white/60 backdrop-blur-md border border-white/60 rounded-[2.5rem] p-20 text-center shadow-sm">
+                            <div className="w-20 h-20 bg-slate-50 text-slate-200 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+                                <Package size={40} />
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-900 mb-2">Build Your Pipeline</h3>
+                            <p className="text-slate-500 font-medium max-w-sm mx-auto mb-8">You haven't initiated any trades yet. Explore the marketplace to find new opportunities.</p>
+                            <button
+                                onClick={() => navigate('/dashboard/marketplace')}
+                                className="btn-secondary mx-auto"
+                            >
+                                Go to Marketplace
+                            </button>
                         </div>
                     )}
                 </div>
 
-                <div className="space-y-6">
-                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Marketplace Activity</h2>
-                    <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm space-y-6 text-center">
-                        <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center mx-auto">
-                            <ClipboardList size={32} />
+                <div className="lg:col-span-4 space-y-8">
+                    <div className="flex items-center gap-3 px-2">
+                        <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
+                        <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Protocol Insights</h2>
+                    </div>
+
+                    <div className="card-premium space-y-8 relative overflow-hidden group">
+                        <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-50 rounded-full opacity-50 group-hover:scale-110 transition-transform duration-700"></div>
+
+                        <div className="relative">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-100/50">
+                                    <TrendingUp size={24} />
+                                </div>
+                                <h3 className="font-black text-slate-900 uppercase tracking-tight">Real-time Feed</h3>
+                            </div>
+
+                            <div className="space-y-6">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="flex gap-4 group/item">
+                                        <div className="relative">
+                                            <div className="w-10 h-10 bg-slate-50 text-blue-600 rounded-xl flex items-center justify-center font-black text-xs z-10 relative group-hover/item:bg-blue-600 group-hover/item:text-white transition-all">
+                                                0{i}
+                                            </div>
+                                            {i < 3 && <div className="absolute top-10 left-1/2 -translate-x-1/2 w-0.5 h-10 bg-slate-100"></div>}
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-black text-slate-900 leading-tight">Latest Protocol Update</p>
+                                            <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Securing transactions...</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-sm font-bold text-slate-900">Real-time Activity Feed</p>
-                            <p className="text-xs text-slate-400 mt-1">Notifications and offers for your trade requests will appear here in real-time.</p>
-                        </div>
-                        <button onClick={() => navigate('/dashboard/marketplace')} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all text-sm flex items-center justify-center gap-2">
-                            Marketplace <ArrowRight size={16} />
+
+                        <button
+                            onClick={() => navigate('/dashboard/marketplace')}
+                            className="btn-primary w-full shadow-xl shadow-blue-100/50"
+                        >
+                            Explore Marketplace
                         </button>
+                    </div>
+
+                    <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl shadow-slate-200">
+                        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
+                            <Shield size={120} />
+                        </div>
+                        <h3 className="text-xl font-black uppercase tracking-tight mb-2">TradeSphere Security</h3>
+                        <p className="text-slate-400 text-sm leading-relaxed mb-6">Your operations are secured by advanced smart contracts and document verification protocols.</p>
+                        <div className="flex items-center gap-2 text-blue-400 font-black text-[10px] uppercase tracking-[0.2em]">
+                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                            System Certified
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+
     );
 };
 
 export default ImporterDashboard;
+

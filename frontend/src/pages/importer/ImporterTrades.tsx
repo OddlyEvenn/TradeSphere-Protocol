@@ -145,7 +145,7 @@ const ImporterTrades: React.FC = () => {
                                                 <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] rounded-md uppercase tracking-wider">On-chain</span>
                                             )}
                                         </h3>
-                                        <p className="text-sm font-bold text-slate-500 mt-1">{trade.productName || 'Product Name Not Available'}</p>
+                                        <p className="text-sm font-bold text-slate-500 mt-1 truncate max-w-[200px] sm:max-w-xs">{trade.productName || 'Product Name Not Available'}</p>
                                         <p className="text-xs font-bold text-slate-400 mt-0.5">Created on {new Date(trade.createdAt).toLocaleDateString()}</p>
                                     </div>
                                 </div>

@@ -13,7 +13,10 @@ import {
     CheckCircle2,
     XCircle,
     MoreHorizontal,
-    Landmark
+    Landmark,
+    FileText,
+    Eye,
+    Shield
 } from 'lucide-react';
 import { walletService } from '../../services/WalletService';
 import { useToast } from '../../contexts/ToastContext';
@@ -83,6 +86,28 @@ const TradeDetails: React.FC = () => {
         }
     };
 
+    const waitForStatusUpdate = async (expectedStatus: string, maxAttempts = 15) => {
+        let attempts = 0;
+        while (attempts < maxAttempts) {
+            try {
+                const res = await api.get(`/trades/${id}`);
+                const currentStatus = res.data.status;
+                if (currentStatus === expectedStatus || currentStatus === 'COMPLETED') {
+                    setTrade(res.data);
+                    const eventsRes = await api.get(`/trades/${id}/events`);
+                    setEvents(eventsRes.data);
+                    return true;
+                }
+            } catch (err) {
+                console.error('Polling failed', err);
+            }
+            await new Promise(r => setTimeout(r, 2000));
+            attempts++;
+        }
+        await fetchTradeData();
+        return false;
+    };
+
     const handleAcceptOffer = async (offerId: string) => {
         if (!window.confirm("Are you sure you want to finalize this trade with this offer?")) return;
 
@@ -90,7 +115,7 @@ const TradeDetails: React.FC = () => {
         try {
             await api.post(`/marketplace/offers/${offerId}/accept`);
             toast.success("Trade Finalized! The workflow has transitioned to the official trade state.");
-            fetchTradeData(); // Refresh to show LoC request options
+            await waitForStatusUpdate('OFFER_ACCEPTED');
         } catch (err: any) {
             console.error('Finalization failed', err);
             toast.error("Failed to finalize trade: " + (err.response?.data?.message || err.message));
@@ -201,11 +226,10 @@ const TradeDetails: React.FC = () => {
                 importerBankId: selectedBankId
             });
 
-            // Step 4: Small delay then refresh
-            setTimeout(() => {
-                toast.success("Letter of Credit requested on-chain! Syncing UI...");
-                fetchTradeData();
-            }, 1000);
+            // Step 4: Wait for status update
+            toast.info("Waiting for status update...");
+            await waitForStatusUpdate('LOC_INITIATED');
+            toast.success("Letter of Credit requested on-chain! Syncing UI...");
         } catch (err: any) {
             console.error('LoC Request failed', err);
             toast.error("Failed to request LoC: " + (err?.reason || err?.message || "Unknown error"));
@@ -236,10 +260,9 @@ const TradeDetails: React.FC = () => {
             await tx.wait();
 
             // Persist to DB via EventListener auto-sync
-            setTimeout(() => {
-                toast.success("Shipping Carrier Nominated on-chain! Refreshing data...");
-                fetchTradeData();
-            }, 2000);
+            toast.info("Waiting for status update...");
+            await waitForStatusUpdate('SHIPPING_ASSIGNED');
+            toast.success("Shipping Carrier Nominated on-chain! Refreshing data...");
         } catch (err: any) {
             console.error('Carrier nomination failed', err);
             toast.error("Failed to nominate carrier: " + (err?.reason || err?.message || "Unknown error"));
@@ -248,14 +271,22 @@ const TradeDetails: React.FC = () => {
         }
     };
 
+    const handleViewDocument = (ipfsHash: string) => {
+        if (!ipfsHash) return;
+        const url = ipfsHash.startsWith('http')
+            ? ipfsHash
+            : `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+        window.open(url, '_blank');
+    };
+
     // Duty payment recording is now handled by the Tax Authority on-chain in TaxDashboard.tsx
     // according to Step 11/40 of Blockchain_Architecture_Phases.md.
 
-    if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-4 border-t-indigo-600"></div></div>;
+    if (loading) return <div className="flex justify-center py-20"><div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div></div>;
     if (!trade) return (
-        <div className="max-w-6xl mx-auto space-y-10">
+        <div className="max-w-6xl mx-auto space-y-10 lg:p-4">
             <div className="flex items-center gap-4">
-                <button onClick={() => navigate(-1)} className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 transition-all">
+                <button onClick={() => navigate(-1)} className="p-3 bg-white/60 backdrop-blur-md border border-white/60 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm">
                     <ArrowLeft size={20} />
                 </button>
                 <div>
@@ -267,14 +298,14 @@ const TradeDetails: React.FC = () => {
     );
 
     return (
-        <div className="max-w-6xl mx-auto space-y-10">
+        <div className="max-w-6xl mx-auto space-y-10 lg:p-4 animate-in">
             <div className="flex items-center gap-4">
-                <button onClick={() => navigate(-1)} className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-indigo-600 transition-all">
+                <button onClick={() => navigate(-1)} className="p-3 bg-white/60 backdrop-blur-md border border-white/60 rounded-2xl text-slate-400 hover:text-blue-600 transition-all shadow-sm">
                     <ArrowLeft size={20} />
                 </button>
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight">Trade Management</h1>
-                    <p className="text-slate-500 font-medium mt-1">Status: <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-black uppercase tracking-widest">{trade?.status}</span></p>
+                    <p className="text-slate-500 font-medium mt-1">Status: <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100/50">{trade?.status.replace(/_/g, ' ')}</span></p>
                 </div>
             </div>
 
@@ -283,13 +314,13 @@ const TradeDetails: React.FC = () => {
                 <div className="lg:col-span-1 space-y-8">
                     <div className="card-premium h-fit">
                         <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-                            <Package className="text-indigo-600" />
+                            <Package className="text-blue-600" />
                             Request Details
                         </h2>
                         <div className="space-y-6">
                             <div>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Product</p>
-                                <p className="text-lg font-black text-slate-900">{trade?.productName}</p>
+                                <p className="text-lg font-black text-slate-900">{trade?.productName || trade?.product}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -303,7 +334,7 @@ const TradeDetails: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Additional Conditions</p>
-                                <p className="text-sm font-medium text-slate-500 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                <p className="text-sm font-medium text-slate-500 bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50">
                                     {trade?.additionalConditions || "No specific conditions provided."}
                                 </p>
                             </div>
@@ -312,9 +343,9 @@ const TradeDetails: React.FC = () => {
 
                     {/* Phase 2: Financing & LoC / Phase 3: Settlement */}
                     {(trade.status === 'CREATED' || trade.status === 'TRADE_INITIATED' || trade.status === 'OFFER_ACCEPTED' || trade.status === 'LOC_INITIATED' || trade.status === 'LOC_UPLOADED') && (
-                        <div className="card-premium border-indigo-100 bg-indigo-50/20">
+                        <div className="card-premium border-blue-100 bg-blue-50/20">
                             <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-                                <Landmark className="text-indigo-600" />
+                                <Landmark className="text-blue-600" />
                                 Financing & LoC
                             </h2>
                             <div className="space-y-6">
@@ -337,7 +368,7 @@ const TradeDetails: React.FC = () => {
                                     <button
                                         onClick={handleRequestLoC}
                                         disabled={requestingLoC}
-                                        className="btn-primary w-full py-4 shadow-indigo-100"
+                                        className="btn-primary w-full py-4 shadow-blue-100/50"
                                     >
                                         {requestingLoC ? 'Processing...' : 'Request Letter of Credit'}
                                         <ShieldCheck size={18} />
@@ -347,14 +378,14 @@ const TradeDetails: React.FC = () => {
                                 {trade.status === 'LOC_INITIATED' && (
                                     <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-3 text-amber-700">
                                         <Clock size={20} className="flex-shrink-0" />
-                                        <p className="text-xs font-bold uppercase tracking-tight">LoC Application Pending Importer Bank Upload</p>
+                                        <p className="text-[10px] font-black uppercase tracking-tight">LoC Application Pending Importer Bank Upload</p>
                                     </div>
                                 )}
 
                                 {trade.status === 'LOC_ISSUED' && (
                                     <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">
                                         <CheckCircle2 size={20} className="flex-shrink-0" />
-                                        <p className="text-xs font-bold uppercase tracking-tight">Letter of Credit Issued & Secured</p>
+                                        <p className="text-[10px] font-black uppercase tracking-tight">Letter of Credit Issued & Secured</p>
                                     </div>
                                 )}
                             </div>
@@ -363,9 +394,9 @@ const TradeDetails: React.FC = () => {
 
                     {/* Step 6: Shipping Nomination (Importer Only) */}
                     {(trade.status === 'FUNDS_LOCKED' || trade.status === 'SHIPPING_ASSIGNED') && (
-                        <div className="card-premium border-indigo-100 bg-indigo-50/20">
+                        <div className="card-premium border-blue-100 bg-blue-50/20">
                             <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-                                <Package className="text-indigo-600" />
+                                <Package className="text-blue-600" />
                                 Logistics Setup
                             </h2>
                             <div className="space-y-6">
@@ -388,7 +419,7 @@ const TradeDetails: React.FC = () => {
                                     <button
                                         onClick={handleNominateCarrier}
                                         disabled={nominatingCarrier}
-                                        className="btn-primary w-full py-4 shadow-indigo-100"
+                                        className="btn-primary w-full py-4 shadow-blue-100/50"
                                     >
                                         {nominatingCarrier ? 'Processing...' : 'Assign Carrier on Blockchain'}
                                         <Package size={18} />
@@ -398,7 +429,7 @@ const TradeDetails: React.FC = () => {
                                 {trade.status === 'SHIPPING_ASSIGNED' && (
                                     <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">
                                         <CheckCircle2 size={20} className="flex-shrink-0" />
-                                        <p className="text-xs font-bold uppercase tracking-tight">Carrier Assigned On-Chain</p>
+                                        <p className="text-[10px] font-black uppercase tracking-tight">Carrier Assigned On-Chain</p>
                                     </div>
                                 )}
                             </div>
@@ -426,20 +457,19 @@ const TradeDetails: React.FC = () => {
                                             <span>${trade.dutyAmount?.toLocaleString()}</span>
                                         </div>
                                     </div>
-                                    <div className="bg-white rounded-2xl p-4 mb-6 border border-emerald-100/50 space-y-3 font-bold text-center">
-                                        <p className="text-amber-600 uppercase text-xs">Action Required: Instruct your Importer Bank to pay ${trade.dutyAmount?.toLocaleString()} and confirm on-chain</p>
-                                        <p className="text-slate-400 text-[10px] font-medium mt-1 uppercase tracking-tighter">Your bank will confirm the duty payment on the blockchain after processing.</p>
+                                    <div className="bg-white rounded-2xl p-4 mb-6 border border-emerald-100/50 space-y-3 font-black text-center">
+                                        <p className="text-amber-600 uppercase text-[10px] tracking-widest">Protocol Action: Instruct your Bank to pay ${trade.dutyAmount?.toLocaleString()}</p>
                                     </div>
                                 </>
                             ) : trade.status === 'DUTY_PAID' ? (
                                 <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">
                                     <CheckCircle2 size={20} className="flex-shrink-0" />
-                                    <p className="text-xs font-bold uppercase tracking-tight">Duty Paid — Bank Confirmed. Awaiting Tax Authority to release goods.</p>
+                                    <p className="text-[10px] font-black uppercase tracking-tight">Duty Paid — Bank Confirmed. Awaiting Tax Authority to release goods.</p>
                                 </div>
                             ) : (
                                 <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">
                                     <Clock size={20} className="flex-shrink-0" />
-                                    <p className="text-xs font-bold uppercase tracking-tight">Status: {trade.status.replace(/_/g, ' ')}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-tight">Status: {trade.status.replace(/_/g, ' ')}</p>
                                 </div>
                             )}
                         </div>
@@ -447,31 +477,35 @@ const TradeDetails: React.FC = () => {
 
                     {/* Full Trade Lifecycle Stepper */}
                     {trade.status !== 'OPEN_FOR_OFFERS' && (
-                        <div className="card-premium">
-                            <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
-                                <Clock className="text-indigo-600" />
-                                Trade Progress
+                        <div className="card-premium bg-white/60 backdrop-blur-md border border-white/60">
+                            <h2 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-2">
+                                <Clock className="text-blue-600" />
+                                Trade Lifecycle
                             </h2>
                             <div className="space-y-4">
                                 {[
-                                    { label: 'Offer Accepted', done: ['OFFER_ACCEPTED', 'TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Trade Initiated', done: ['TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'LoC Issued', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Offer Accepted', done: ['OFFER_ACCEPTED', 'TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Trade Initiated', done: ['TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'LoC Issued', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Customs Under Review', done: ['CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Duty Pending', done: ['DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Duty Paid', done: ['DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Customs Cleared', done: ['CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Receive Goods', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Payment Authorized', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Settlement Confirmed', done: ['SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Completed', done: trade.status === 'COMPLETED' }
-                                ].map((s, i) => (
+                                ].map((s, i, arr) => (
                                     <div key={i} className="flex gap-4 relative">
-                                        {i !== 8 && (
+                                        {i !== arr.length - 1 && (
                                             <div className={`absolute left-3 top-6 w-0.5 h-6 ${s.done ? 'bg-emerald-500' : 'bg-slate-100'}`}></div>
                                         )}
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10 ${s.done ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
+                                        <div className={`w-6 h-6 rounded-full flex flex-shrink-0 items-center justify-center z-10 ${s.done ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
                                             {s.done ? <CheckCircle2 size={14} /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
                                         </div>
-                                        <p className={`text-sm font-bold ${s.done ? 'text-slate-900' : 'text-slate-400'}`}>{s.label}</p>
+                                        <p className={`text-[11px] font-black uppercase tracking-wider ${s.done ? 'text-slate-900' : 'text-slate-400'}`}>{s.label}</p>
                                     </div>
                                 ))}
                             </div>
@@ -487,7 +521,7 @@ const TradeDetails: React.FC = () => {
                                 </div>
                                 <div>
                                     <h3 className="font-black text-emerald-800">Trade Completed</h3>
-                                    <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Payment has been released to the Exporter.</p>
+                                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Protocol settlement finalized.</p>
                                 </div>
                             </div>
                         </div>
@@ -495,9 +529,63 @@ const TradeDetails: React.FC = () => {
 
                 </div>
 
-                {/* Right: Offers Received */}
-                <div className="lg:col-span-2 space-y-6">
-                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider flex items-center justify-between">
+                <div className="lg:col-span-2 space-y-10">
+                    {/* Protocol Documents Section */}
+                    {['LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(trade.status) && (
+                        <div className="card-premium space-y-6">
+                            <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <Shield className="text-blue-600" />
+                                Digital Trade Vault
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {trade.letterOfCredit?.ipfsHash ? (
+                                    <div className="p-6 border-2 border-blue-100 bg-blue-50/20 rounded-3xl flex flex-col items-center justify-between text-center">
+                                        <div className="mb-4">
+                                            <ShieldCheck className="text-blue-600 mx-auto" size={32} />
+                                            <p className="text-xs font-black text-slate-900 uppercase tracking-widest mt-2">Letter of Credit</p>
+                                            <p className="text-[10px] text-blue-500 font-bold italic tracking-tighter">On-Chain Verified</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleViewDocument(trade.letterOfCredit.ipfsHash)}
+                                            className="btn-secondary w-full py-3 text-[10px] font-black uppercase tracking-widest"
+                                        >
+                                            <Eye size={14} /> View Document
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="p-6 border-2 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-center">
+                                        <Clock className="text-slate-200 mb-2" size={32} />
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Letter of Credit</p>
+                                        <p className="text-[10px] text-slate-300 mt-1 uppercase">Pending Issuance</p>
+                                    </div>
+                                )}
+
+                                {trade.billOfLading?.ipfsHash ? (
+                                    <div className="p-6 border-2 border-emerald-100 bg-emerald-50/20 rounded-3xl flex flex-col items-center justify-between text-center">
+                                        <div className="mb-4">
+                                            <FileText className="text-emerald-600 mx-auto" size={32} />
+                                            <p className="text-xs font-black text-slate-900 uppercase tracking-widest mt-2">Bill of Lading</p>
+                                            <p className="text-[10px] text-emerald-500 font-bold italic tracking-tighter">Secured on IPFS</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleViewDocument(trade.billOfLading.ipfsHash)}
+                                            className="btn-secondary w-full py-3 text-[10px] font-black uppercase tracking-widest !bg-emerald-50 !text-emerald-700 !border-emerald-100"
+                                        >
+                                            <Eye size={14} /> View Document
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="p-6 border-2 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-center">
+                                        <Clock className="text-slate-200 mb-2" size={32} />
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Bill of Lading</p>
+                                        <p className="text-[10px] text-slate-300 mt-1 uppercase">Awaiting Cargo</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider flex items-center justify-between mt-10">
                         Offers Received
                         <span className="text-xs bg-slate-900 text-white px-3 py-1 rounded-full">{offers.length}</span>
                     </h2>
@@ -505,34 +593,34 @@ const TradeDetails: React.FC = () => {
                     {offers.length > 0 ? (
                         <div className="space-y-4">
                             {offers.map((offer) => (
-                                <div key={offer.id} className="card-premium group border-slate-50 hover:border-indigo-100 transition-all">
+                                <div key={offer.id} className="card-premium group border-slate-50 hover:border-blue-100 transition-all">
                                     <div className="flex flex-col md:flex-row justify-between gap-6">
                                         <div className="flex-1 space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Exporter</p>
-                                                    <p className="font-black text-slate-900 text-lg">{offer.exporter?.name}</p>
+                                                    <p className="font-black text-slate-900 text-xl truncate">{offer.exporter?.name}</p>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quote</p>
-                                                    <p className="text-2xl font-black text-emerald-600">${offer.amount.toLocaleString()}</p>
+                                                    <p className="text-3xl font-black text-emerald-600">${offer.amount.toLocaleString()}</p>
                                                 </div>
                                             </div>
-                                            <p className="text-sm font-medium text-slate-600 bg-indigo-50/30 p-4 rounded-2xl italic">
-                                                "{offer.message || 'No message provided'}"
+                                            <p className="text-sm font-medium text-slate-600 bg-blue-50/20 p-5 rounded-2xl italic border border-blue-100/30">
+                                                "{offer.message || 'No additional terms provided'}"
                                             </p>
                                         </div>
-                                        <div className="flex md:flex-col justify-end gap-3 min-w-[140px]">
+                                        <div className="flex md:flex-col justify-end gap-3 min-w-[160px]">
                                             <button
                                                 onClick={() => handleAcceptOffer(offer.id)}
                                                 disabled={finalizing || trade.status !== 'OPEN_FOR_OFFERS'}
-                                                className="btn-primary py-3 w-full text-xs shadow-indigo-100 disabled:opacity-50"
+                                                className="btn-primary py-4 w-full text-[11px] font-black uppercase tracking-widest shadow-blue-100 disabled:opacity-50"
                                             >
                                                 <CheckCircle2 size={16} />
-                                                Accept
+                                                Accept Offer
                                             </button>
-                                            <button className="btn-secondary py-3 w-full text-xs">
-                                                Details
+                                            <button className="btn-secondary py-4 w-full text-[11px] font-black uppercase tracking-widest">
+                                                Review Profile
                                             </button>
                                         </div>
                                     </div>
@@ -540,21 +628,25 @@ const TradeDetails: React.FC = () => {
                             ))}
                         </div>
                     ) : (
-                        <div className="bg-white border-2 border-dashed border-slate-100 rounded-[2.5rem] py-20 text-center">
-                            <Clock className="mx-auto text-slate-200 mb-4" size={48} />
-                            <h3 className="text-xl font-bold text-slate-900 mb-1">Waiting for Offers</h3>
-                            <p className="text-slate-400 font-medium">Exporters will see your request on the discovery page.</p>
+                        <div className="bg-white/40 backdrop-blur-md border-2 border-dashed border-slate-100 rounded-[3rem] py-32 text-center">
+                            <Clock className="mx-auto text-slate-200 mb-6" size={64} />
+                            <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">Waiting for Market Bids</h3>
+                            <p className="text-slate-400 font-medium max-w-sm mx-auto">Verified global exporters will see your request on the discovery page. You will be notified of new bids.</p>
+                        </div>
+                    )}
+                    {/* Timeline Section */}
+                    {offers.length === 0 && trade.status === 'OPEN_FOR_OFFERS' && (
+                        <div className="mt-12 opacity-50 pointer-events-none grayscale transition-all duration-500 hover:grayscale-0 hover:opacity-100">
+                            <TradeTimeline events={[]} />
+                        </div>
+                    )}
+                    {trade.status !== 'OPEN_FOR_OFFERS' && (
+                        <div className="mt-12">
+                            <TradeTimeline events={events} />
                         </div>
                     )}
                 </div>
             </div>
-
-            {/* Timeline Section */}
-            {(trade.status !== 'OPEN_FOR_OFFERS' && offers.length >= 0) && (
-                <div className="mt-12">
-                    <TradeTimeline events={events} />
-                </div>
-            )}
         </div>
     );
 };

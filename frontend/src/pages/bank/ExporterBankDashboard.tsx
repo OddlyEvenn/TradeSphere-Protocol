@@ -42,7 +42,7 @@ const ExporterBankDashboard: React.FC = () => {
     };
 
     const stats = [
-        { label: 'Received LoCs', value: trades.filter(t => t.status === 'LOC_ISSUED').length.toString(), icon: FileCheck, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+        { label: 'Received LoCs', value: trades.filter(t => t.status === 'LOC_ISSUED').length.toString(), icon: FileCheck, color: 'text-blue-600', bg: 'bg-blue-50' },
         { label: 'Pending Verification', value: trades.filter(t => t.status === 'DOCS_SUBMITTED').length.toString(), icon: ClipboardList, color: 'text-amber-600', bg: 'bg-amber-50' },
         { label: 'Verified Trades', value: trades.filter(t => t.status === 'DOCS_VERIFIED').length.toString(), icon: ShieldCheck, color: 'text-emerald-600', bg: 'bg-emerald-50' },
         { label: 'Payment Alerts', value: trades.filter(t => t.status === 'PAYMENT_AUTHORIZED').length.toString(), icon: AlertCircle, color: 'text-rose-600', bg: 'bg-rose-50' },
@@ -66,7 +66,7 @@ const ExporterBankDashboard: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {stats.map((stat) => (
-                    <div key={stat.label} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5">
+                    <div key={stat.label} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5 glass">
                         <div className={`w-14 h-14 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center`}>
                             <stat.icon size={28} />
                         </div>
@@ -83,12 +83,12 @@ const ExporterBankDashboard: React.FC = () => {
                     <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Verification Queue</h2>
                     {loading ? (
                         <div className="flex justify-center py-20">
-                            <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-indigo-600"></div>
+                            <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
                         </div>
                     ) : (
                         <div className="space-y-4">
                             {trades.filter(t => t.status === 'DOCS_SUBMITTED').slice(0, 3).map((trade) => (
-                                <div key={trade.id} className="card-premium group hover:border-indigo-100">
+                                <div key={trade.id} className="card-premium group hover:border-blue-100 glass">
                                     <div className="flex justify-between items-center">
                                         <div className="flex gap-5 items-center">
                                             <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center font-black">
@@ -99,14 +99,17 @@ const ExporterBankDashboard: React.FC = () => {
                                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Awaiting Verification • ${trade.amount.toLocaleString()}</p>
                                             </div>
                                         </div>
-                                        <button className="px-4 py-2 bg-indigo-600 text-white font-black text-xs rounded-xl hover:bg-slate-900 transition-all uppercase tracking-widest">
+                                        <button
+                                            onClick={() => navigate('/dashboard/requests')}
+                                            className="px-4 py-2 bg-blue-600 text-white font-black text-xs rounded-xl hover:bg-slate-900 transition-all uppercase tracking-widest"
+                                        >
                                             Audit
                                         </button>
                                     </div>
                                 </div>
                             ))}
                             {trades.filter(t => t.status === 'DOCS_SUBMITTED').length === 0 && (
-                                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] p-12 text-center text-slate-400 font-medium">
+                                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] p-12 text-center text-slate-400 font-medium glass">
                                     No documents awaiting verification.
                                 </div>
                             )}
@@ -114,7 +117,7 @@ const ExporterBankDashboard: React.FC = () => {
                     )}
                 </div>
 
-                <div className="bg-slate-900 rounded-[2rem] p-8 space-y-6 text-white overflow-hidden relative">
+                <div className="bg-slate-900 rounded-[2rem] p-8 space-y-6 text-white overflow-hidden relative shadow-xl shadow-blue-900/20">
                     <div className="relative z-10">
                         <h2 className="text-lg font-black uppercase tracking-tight mb-2">Verification Insights</h2>
                         <p className="text-slate-400 text-sm font-medium italic opacity-80 leading-relaxed mb-6">"Every verified document triggers a cryptographically signed proof on the blockchain, ensuring immutable records for all global stakeholders."</p>
@@ -124,7 +127,7 @@ const ExporterBankDashboard: React.FC = () => {
                                 <span className="text-xs font-black text-emerald-400">INSTANT</span>
                             </div>
                             <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                <div className="w-full h-full bg-indigo-500"></div>
+                                <div className="w-full h-full bg-blue-500"></div>
                             </div>
                         </div>
                     </div>

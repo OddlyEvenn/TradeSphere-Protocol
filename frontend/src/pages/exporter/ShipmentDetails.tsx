@@ -9,7 +9,14 @@ import {
     CheckCircle2,
     Clock,
     ShieldCheck,
-    Upload
+    Upload,
+    Eye,
+    Shield,
+    ChevronRight,
+    Package,
+    AlertCircle,
+    Globe,
+    DollarSign
 } from 'lucide-react';
 import { walletService } from '../../services/WalletService';
 import { useToast } from '../../contexts/ToastContext';
@@ -120,10 +127,13 @@ const ShipmentDetails: React.FC = () => {
     // Carrier nomination is now handled by the Importer on-chain in TradeDetails.tsx
     // as per TradeRegistry.sol (onlyImporter modifier).
 
-    // handleMarkAsShipped is intentionally removed.
-    // GOODS_SHIPPED status is set ONLY by the EventListenerService
-    // when the shipping company issues a Bill of Lading via the DocumentVerification
-    // smart contract (issueBillOfLading() → BillOfLadingIssued event → EventListenerService → DB).
+    const handleViewDocument = (ipfsHash: string) => {
+        if (!ipfsHash) return;
+        const url = ipfsHash.startsWith('http')
+            ? ipfsHash
+            : `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+        window.open(url, '_blank');
+    };
 
     if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-4 border-t-indigo-600"></div></div>;
 
@@ -135,7 +145,7 @@ const ShipmentDetails: React.FC = () => {
                 </button>
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight">Shipment Management</h1>
-                    <p className="text-slate-500 font-medium mt-1">Status: <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-black uppercase tracking-widest">{trade?.status}</span></p>
+                    <p className="text-slate-500 font-medium mt-1">Status: <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-black uppercase tracking-widest">{trade?.status.replace(/_/g, ' ')}</span></p>
                 </div>
             </div>
 
@@ -148,29 +158,31 @@ const ShipmentDetails: React.FC = () => {
                         </h2>
                         <div className="space-y-6">
                             {[
-                                { label: 'LoC Issued', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Offer Accepted', done: ['OFFER_ACCEPTED', 'TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                 { label: 'Bank Nominated', done: !!trade.exporterBankId },
-                                { label: 'LoC Approved by Bank', done: ['LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Carrier Assigned', done: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Customs Cleared', done: ['CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'LoC Approved', done: ['LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Carrier Assigned', done: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Customs Under Review', done: ['CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Duty Pending', done: ['DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                 { label: 'Duty Paid', done: ['DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Customs Cleared', done: ['CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Receive Goods', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                 { label: 'Payment Authorized', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                 { label: 'Settlement Confirmed', done: ['SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                 { label: 'Completed', done: trade.status === 'COMPLETED' },
-                            ].map((s, i) => (
+                            ].map((s, i, arr) => (
                                 <div key={i} className="flex gap-4 relative">
-                                    {i !== 10 && (
+                                    {i !== arr.length - 1 && (
                                         <div className={`absolute left-[11px] top-6 w-0.5 h-6 ${s.done ? 'bg-emerald-500' : 'bg-slate-100'}`}></div>
                                     )}
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10 ${s.done ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
+                                    <div className={`w-6 h-6 rounded-full flex flex-shrink-0 items-center justify-center z-10 ${s.done ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
                                         {s.done ? <CheckCircle2 size={14} /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
                                     </div>
-                                    <p className={`text-sm font-bold ${s.done ? 'text-slate-900' : 'text-slate-400'}`}>{s.label}</p>
+                                    <p className={`text-xs font-black uppercase tracking-wider ${s.done ? 'text-slate-900' : 'text-slate-400'}`}>{s.label}</p>
                                 </div>
                             ))}
-
                         </div>
                     </div>
                 </div>
@@ -232,23 +244,46 @@ const ShipmentDetails: React.FC = () => {
                     )}
 
                     {/* Document View */}
-                    {['GOODS_SHIPPED', 'DOCS_VERIFIED', 'PAYMENT_AUTHORIZED'].includes(trade.status) && (
+                    {['GOODS_SHIPPED', 'DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(trade.status) && (
                         <div className="card-premium">
                             <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
                                 <FileText className="text-indigo-600" />
                                 Export Documents
                             </h2>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-6 border-2 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-center">
-                                    <Upload className="text-slate-300 mb-2" size={32} />
-                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Bill of Lading</p>
-                                    <p className="text-[10px] text-slate-300 mt-1">Pending Sync</p>
-                                </div>
-                                <div className="p-6 border-2 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-center">
-                                    <Upload className="text-slate-300 mb-2" size={32} />
-                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Commercial Invoice</p>
-                                    <p className="text-[10px] text-slate-300 mt-1">Pending Sync</p>
-                                </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {trade.billOfLading?.ipfsHash ? (
+                                    <button
+                                        onClick={() => handleViewDocument(trade.billOfLading.ipfsHash)}
+                                        className="p-6 border-2 border-indigo-100 bg-indigo-50/30 rounded-3xl flex flex-col items-center justify-center text-center hover:bg-indigo-50 transition-all group"
+                                    >
+                                        <FileText className="text-indigo-600 mb-2 group-hover:scale-110 transition-transform" size={32} />
+                                        <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Bill of Lading</p>
+                                        <p className="text-[10px] text-indigo-500 mt-1 font-bold">Issued on IPFS</p>
+                                    </button>
+                                ) : (
+                                    <div className="p-6 border-2 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-center">
+                                        <Upload className="text-slate-300 mb-2" size={32} />
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Bill of Lading</p>
+                                        <p className="text-[10px] text-slate-300 mt-1 uppercase font-bold tracking-tighter">Awaiting Carrier Upload</p>
+                                    </div>
+                                )}
+
+                                {trade.letterOfCredit?.ipfsHash ? (
+                                    <button
+                                        onClick={() => handleViewDocument(trade.letterOfCredit.ipfsHash)}
+                                        className="p-6 border-2 border-indigo-100 bg-indigo-50/30 rounded-3xl flex flex-col items-center justify-center text-center hover:bg-indigo-50 transition-all group"
+                                    >
+                                        <FileText className="text-indigo-600 mb-2 group-hover:scale-110 transition-transform" size={32} />
+                                        <p className="text-xs font-black text-slate-900 uppercase tracking-widest">Letter of Credit</p>
+                                        <p className="text-[10px] text-indigo-500 mt-1 font-bold">Secured on IPFS</p>
+                                    </button>
+                                ) : (
+                                    <div className="p-6 border-2 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-center">
+                                        <Upload className="text-slate-300 mb-2" size={32} />
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Letter of Credit</p>
+                                        <p className="text-[10px] text-slate-300 mt-1 uppercase font-bold tracking-tighter">Awaiting Bank Issue</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

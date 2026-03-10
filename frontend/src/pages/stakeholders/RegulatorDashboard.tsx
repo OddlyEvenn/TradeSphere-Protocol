@@ -6,8 +6,8 @@ import TradeTimeline from '../../components/TradeTimeline';
 
 const getStatusColor = (status: string) => {
     if (status === 'COMPLETED') return 'bg-emerald-50 text-emerald-700';
-    if (['DOCS_VERIFIED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED'].includes(status)) return 'bg-blue-50 text-blue-700';
-    if (['GOODS_SHIPPED', 'DOCS_SUBMITTED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED'].includes(status)) return 'bg-indigo-50 text-indigo-700';
+    if (['DOCS_VERIFIED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'DUTY_PAID'].includes(status)) return 'bg-emerald-50 text-emerald-700';
+    if (['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'DOCS_SUBMITTED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'TRADE_INITIATED', 'OFFER_ACCEPTED'].includes(status)) return 'bg-blue-50 text-blue-700';
     if (status === 'DUTY_PENDING') return 'bg-rose-50 text-rose-700';
     return 'bg-amber-50 text-amber-700';
 };
@@ -67,6 +67,17 @@ const RegulatorDashboard: React.FC = () => {
         }
     };
 
+    const handleViewDocument = (ipfsHash: string) => {
+        if (!ipfsHash) {
+            toast.info("IPFS document still syncing. Please wait for final on-chain confirmation.");
+            return;
+        }
+        const url = ipfsHash.startsWith('http')
+            ? ipfsHash
+            : `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+        window.open(url, '_blank');
+    };
+
     const completed = trades.filter(t => t.status === 'COMPLETED').length;
     const active = trades.filter(t => t.status !== 'COMPLETED').length;
     const onChainVerified = trades.filter(t => t.blockchainId !== null).length;
@@ -78,29 +89,29 @@ const RegulatorDashboard: React.FC = () => {
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight">Regulatory Oversight</h1>
                     <p className="text-slate-500 font-medium mt-1">Real-time audit trail of global trade finance operations.</p>
                 </div>
-                <div className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-black uppercase tracking-widest border border-indigo-100 flex items-center gap-2">
+                <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl text-xs font-black uppercase tracking-widest border border-blue-100 flex items-center gap-2">
                     <Shield size={14} /> Live Monitoring
                 </div>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="card-premium space-y-3">
-                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                <div className="card-premium space-y-3 glass">
+                    <div className="w-10 h-10 flex-shrink-0 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                         <Activity size={20} />
                     </div>
                     <p className="text-3xl font-black text-slate-900">{trades.length}</p>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Trades</p>
                 </div>
                 <div className="card-premium space-y-3">
-                    <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 flex-shrink-0 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
                         <CheckCircle2 size={20} />
                     </div>
                     <p className="text-3xl font-black text-slate-900">{onChainVerified}</p>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">On-Chain Verified</p>
                 </div>
                 <div className="card-premium space-y-3">
-                    <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 flex-shrink-0 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
                         <TrendingUp size={20} />
                     </div>
                     <p className="text-3xl font-black text-slate-900">{completed}</p>
@@ -109,26 +120,26 @@ const RegulatorDashboard: React.FC = () => {
             </div>
 
             {/* Audit Trail Table */}
-            <div className="card-premium overflow-hidden !p-0">
-                <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-white relative z-20">
+            <div className="card-premium overflow-hidden !p-0 glass">
+                <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-white/50 relative z-20">
                     <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                        <FileText className="text-indigo-600" />
+                        <FileText className="text-blue-600" />
                         Global Trade Ledger
                     </h2>
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{active} Active / {completed} Completed</span>
                 </div>
 
                 {loading ? (
-                    <div className="flex justify-center py-20 bg-white relative z-10"><div className="animate-spin rounded-full h-10 w-10 border-4 border-t-indigo-600"></div></div>
+                    <div className="flex justify-center py-20 bg-white/50 relative z-10"><div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div></div>
                 ) : (
                     <table className="w-full text-left relative z-10">
                         <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Trade / Product</th>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Importer → Exporter</th>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Value</th>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Chain Verified</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Trade / Product</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Importer → Exporter</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Value</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Status</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Chain Verified</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 relative bg-white">
@@ -136,18 +147,18 @@ const RegulatorDashboard: React.FC = () => {
                                 <React.Fragment key={trade.id}>
                                     <tr
                                         onClick={() => handleExpandRow(trade.id)}
-                                        className={`hover:bg-slate-50 transition-colors cursor-pointer ${expandedTradeId === trade.id ? 'bg-indigo-50/30' : ''}`}
+                                        className={`hover:bg-slate-50 transition-colors cursor-pointer ${expandedTradeId === trade.id ? 'bg-blue-50/50' : ''}`}
                                     >
                                         <td className="px-8 py-5">
                                             <p className="font-black text-slate-900 text-sm flex items-center gap-2">
-                                                {expandedTradeId === trade.id ? <ChevronUp size={14} className="text-indigo-600" /> : <ChevronDown size={14} className="text-slate-400" />}
+                                                {expandedTradeId === trade.id ? <ChevronUp size={14} className="text-blue-600" /> : <ChevronDown size={14} className="text-slate-400" />}
                                                 #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}
                                             </p>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-5">{trade.productName || '—'}</p>
                                         </td>
                                         <td className="px-8 py-5">
-                                            <p className="text-xs font-bold text-slate-900">{trade.importer?.name || '—'}</p>
-                                            <p className="text-[10px] font-bold text-slate-400">→ {trade.exporter?.name || 'No Exporter Yet'}</p>
+                                            <p className="text-xs font-bold text-slate-900 truncate max-w-[150px]">{trade.importer?.name || '—'}</p>
+                                            <p className="text-[10px] font-bold text-slate-400 truncate max-w-[150px]">→ {trade.exporter?.name || 'No Exporter Yet'}</p>
                                         </td>
                                         <td className="px-8 py-5 font-black text-slate-700">${trade.amount?.toLocaleString()}</td>
                                         <td className="px-8 py-5">
@@ -174,19 +185,63 @@ const RegulatorDashboard: React.FC = () => {
                                     {expandedTradeId === trade.id && (
                                         <tr className="bg-slate-50/50 border-b-2 border-slate-100">
                                             <td colSpan={5} className="p-0">
-                                                <div className="p-8 border-t border-indigo-100/50">
+                                                <div className="p-8 border-t border-blue-100/50">
                                                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6">Immutable Audit Trail</h3>
                                                     {eventsLoading ? (
-                                                        <div className="flex items-center gap-3 text-indigo-600 font-bold text-sm">
-                                                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-indigo-600 border-t-transparent"></div>
+                                                        <div className="flex items-center gap-3 text-blue-600 font-bold text-sm mb-8">
+                                                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                                                             Decrypting Ledger...
                                                         </div>
-                                                    ) : tradeEvents.length > 0 ? (
-                                                        <div className="ml-4">
-                                                            <TradeTimeline events={tradeEvents} />
-                                                        </div>
                                                     ) : (
-                                                        <p className="text-sm font-bold text-slate-400 italic">No verifiable events found for this trade yet.</p>
+                                                        <div className="space-y-10">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                                                <div className="p-6 bg-white/40 rounded-[2rem] border border-white/60">
+                                                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Trade Lifecycle Stage</h4>
+                                                                    <div className="space-y-3">
+                                                                        {[
+                                                                            { label: 'LoC Issued', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                                                            { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                                                            { label: 'Customs Clear', done: ['CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                                                            { label: 'Trade Settled', done: ['SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                                                        ].map((s, i, arr) => (
+                                                                            <div key={i} className="flex items-center gap-3">
+                                                                                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${s.done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}>
+                                                                                    {s.done ? <CheckCircle2 size={12} /> : <div className="w-1 h-1 rounded-full bg-current" />}
+                                                                                </div>
+                                                                                <p className={`text-[10px] font-black uppercase tracking-widest ${s.done ? 'text-slate-900' : 'text-slate-400'}`}>{s.label}</p>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="p-6 bg-white/40 rounded-[2rem] border border-white/60">
+                                                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Compliance Documents</h4>
+                                                                    <div className="flex gap-3 mt-4">
+                                                                        {trade.letterOfCredit?.ipfsHash && (
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleViewDocument(trade.letterOfCredit.ipfsHash); }}
+                                                                                className="btn-secondary py-1.5 px-4 text-[10px] font-black uppercase tracking-widest shadow-none"
+                                                                            >
+                                                                                <Shield size={12} /> View LoC
+                                                                            </button>
+                                                                        )}
+                                                                        {trade.billOfLading?.ipfsHash && (
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleViewDocument(trade.billOfLading.ipfsHash); }}
+                                                                                className="btn-secondary py-1.5 px-4 text-[10px] font-black uppercase tracking-widest !bg-emerald-50 !text-emerald-700 !border-emerald-100 shadow-none"
+                                                                            >
+                                                                                <FileText size={12} /> View BoL
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="text-[10px] font-medium text-slate-500 mt-4 leading-relaxed">System-generated verification of all smart contract events suggests zero policy violations.</p>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="ml-4">
+                                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Full Audit Trail (Blockchain Events)</h4>
+                                                                <TradeTimeline events={tradeEvents} />
+                                                            </div>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
@@ -207,7 +262,7 @@ const RegulatorDashboard: React.FC = () => {
             </div>
 
             {/* Footer Banner */}
-            <div className="bg-slate-900 rounded-[2.5rem] p-12 text-white relative overflow-hidden shadow-xl shadow-indigo-900/20">
+            <div className="bg-slate-900 rounded-[2.5rem] p-12 text-white relative overflow-hidden shadow-xl shadow-blue-900/20">
                 <div className="relative z-10">
                     <h2 className="text-2xl font-black mb-2 uppercase tracking-tighter">AML & Compliance Engine</h2>
                     <p className="text-slate-400 max-w-md mb-8">All trade flows are monitored for suspicious activity patterns. Double-spending and KYC violations are flagged automatically.</p>

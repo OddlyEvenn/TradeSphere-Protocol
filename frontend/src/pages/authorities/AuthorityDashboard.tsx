@@ -51,8 +51,8 @@ const AuthorityDashboard: React.FC = () => {
                     metricLabel: 'Awaiting Inspection',
                     metricValue: trades.length.toString(),
                     icon: Globe,
-                    color: 'text-indigo-600',
-                    bg: 'bg-indigo-50',
+                    color: 'text-blue-600',
+                    bg: 'bg-blue-50',
                     actionLabel: 'Inspect Shipment'
                 };
             case 'SHIPPING':
@@ -170,22 +170,22 @@ const AuthorityDashboard: React.FC = () => {
                 <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider">Queue Management</h2>
                 {loading ? (
                     <div className="flex justify-center py-20">
-                        <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-indigo-600"></div>
+                        <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-blue-600"></div>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {trades.slice(0, 4).map((trade) => (
-                            <div key={trade.id} className="card-premium group hover:border-indigo-100 flex items-center justify-between">
+                            <div key={trade.id} className="card-premium group hover:border-blue-100 flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center font-bold">
                                         TRD
                                     </div>
                                     <div>
                                         <h3 className="font-black text-slate-900 truncate max-w-[150px]">Trade #{trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : trade.id.slice(0, 8)}</h3>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status: {trade.status}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Status: {trade.status.replace(/_/g, ' ')}</p>
                                     </div>
                                 </div>
-                                <button className="p-3 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">
+                                <button className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all">
                                     <ArrowRight size={18} />
                                 </button>
                             </div>
@@ -194,6 +194,7 @@ const AuthorityDashboard: React.FC = () => {
                 )}
             </div>
         </div>
+
     );
 };
 

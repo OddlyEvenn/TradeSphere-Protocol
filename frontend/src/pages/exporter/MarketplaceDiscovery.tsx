@@ -12,7 +12,9 @@ import {
     ArrowRight,
     Filter,
     Award,
-    Calendar
+    Calendar,
+    Briefcase,
+    Zap
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -31,7 +33,7 @@ interface TradeRequest {
 }
 
 const MarketplaceDiscovery: React.FC = () => {
-    const { user, account } = useOutletContext<{ user: any, account: string | null }>();
+    const { user } = useOutletContext<{ user: any }>();
     const [requests, setRequests] = useState<TradeRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -61,115 +63,131 @@ const MarketplaceDiscovery: React.FC = () => {
     });
 
     return (
-        <div className="space-y-10">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div className="space-y-12 animate-in lg:p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight text-white/0 bg-clip-text bg-gradient-to-r from-indigo-600 to-accent">Trade Discovery</h1>
-                    <p className="text-slate-500 font-medium mt-1">Exclusive marketplace for exporters to discover and bid on global trade requests.</p>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight lg:text-5xl">Trade Discovery</h1>
+                    <p className="text-slate-500 font-medium mt-2 text-lg max-w-2xl">
+                        Identify and bid on high-value trade requests from verified global importers.
+                    </p>
                 </div>
-                <div className="flex gap-3 w-full md:w-auto">
-                    <div className="relative flex-1 md:w-64">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+
+                <div className="flex items-center gap-4 w-full lg:w-auto">
+                    <div className="relative flex-1 lg:w-80 group">
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
                         <input
                             type="text"
-                            placeholder="Filter by product or destination..."
+                            placeholder="Filter product or destination..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-white border border-slate-100 rounded-2xl py-3 pl-12 pr-4 text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-100 transition-all"
+                            className="input-premium pl-14"
                         />
                     </div>
                 </div>
             </div>
 
             {loading ? (
-                <div className="flex justify-center py-20">
-                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-indigo-600"></div>
+                <div className="flex flex-col items-center justify-center py-32 bg-white/60 backdrop-blur-md rounded-[3rem] border border-white/60 shadow-sm">
+                    <div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-6"></div>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Scanning Global Ledger...</p>
                 </div>
             ) : filteredRequests.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {filteredRequests.map((req) => (
-                        <div key={req.id} className="card-premium flex flex-col group hover:scale-[1.02] transition-transform">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                                    <Globe size={28} />
+                        <div key={req.id} className="card-premium group flex flex-col h-full hover:translate-y-[-8px]">
+                            <div className="flex justify-between items-start mb-8">
+                                <div className="p-4 flex-shrink-0 bg-blue-50 text-blue-600 rounded-[1.25rem] group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-6 transition-all duration-500">
+                                    <Globe size={32} />
                                 </div>
-                                <div className="flex flex-col items-end gap-2">
-                                    <span className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                        Verified Importer
+                                <div className="flex flex-col items-end gap-2 text-right">
+                                    <span className="px-4 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-[0.1em] border border-emerald-100/50">
+                                        Verified Asset
                                     </span>
                                     {(req._count?.offers || 0) > 0 && (
-                                        <span className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                            {req._count?.offers} {req._count?.offers === 1 ? 'Offer' : 'Offers'}
+                                        <span className="px-4 py-1.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-[0.1em] border border-blue-100/50">
+                                            {req._count?.offers} {req._count?.offers === 1 ? 'Bid' : 'Bids'}
                                         </span>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="flex-1 space-y-4">
+                            <div className="flex-1 space-y-6">
                                 <div>
-                                    <h3 className="text-xl font-black text-slate-900 leading-tight">{req.productName || (req as any).product}</h3>
-                                    <div className="flex items-center gap-2 text-slate-400 mt-1">
-                                        <MapPin size={14} />
-                                        <span className="text-xs font-bold uppercase tracking-wider">{req.destination}</span>
+                                    <h3 className="text-2xl font-black text-slate-900 truncate leading-tight tracking-tight group-hover:text-blue-600 transition-colors">
+                                        {req.productName || (req as any).product}
+                                    </h3>
+                                    <div className="flex items-center gap-2 text-slate-400 mt-2 font-black text-[11px] uppercase tracking-wider">
+                                        <MapPin size={14} className="text-blue-600" />
+                                        <span>{req.destination}</span>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50">
+                                <div className="grid grid-cols-2 gap-6 py-6 border-y border-white/60">
                                     <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Quantity</p>
-                                        <p className="text-sm font-black text-slate-700">{req.quantity || 'N/A'}</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Quantity</p>
+                                        <div className="flex items-center gap-2">
+                                            <Package size={14} className="text-slate-300" />
+                                            <p className="text-sm font-black text-slate-700">{req.quantity || 'Bulk Order'}</p>
+                                        </div>
                                     </div>
                                     <div className="space-y-1 text-right">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Target Budget</p>
-                                        <p className="text-sm font-black text-emerald-600">~${req.amount.toLocaleString()}</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">SDR Budget</p>
+                                        <p className="text-xl font-black text-blue-600">${req.amount.toLocaleString()}</p>
                                     </div>
                                 </div>
 
-                                {/* Quality Standards */}
                                 {req.qualityStandards && (
-                                    <div className="flex items-start gap-2 p-3 bg-amber-50/50 rounded-xl border border-amber-100/50">
-                                        <Award size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+                                    <div className="flex items-start gap-3 p-4 bg-white/40 rounded-2xl border border-white/60 group-hover:bg-white/60 transition-all duration-300">
+                                        <div className="text-blue-600 mt-0.5">
+                                            <Award size={18} />
+                                        </div>
                                         <div>
-                                            <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Quality Standards</p>
-                                            <p className="text-xs font-bold text-amber-800 mt-0.5">{req.qualityStandards}</p>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5 leading-none">Compliance Standards</p>
+                                            <p className="text-xs font-bold text-slate-700 leading-relaxed mt-1.5">{req.qualityStandards}</p>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
-                                    <div className="flex items-center gap-1.5">
-                                        <Calendar size={12} />
-                                        {req.shippingDeadline
-                                            ? `By ${new Date(req.shippingDeadline).toLocaleDateString()}`
-                                            : 'No deadline'}
+                                <div className="flex items-center justify-between text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                                    <div className="flex items-center gap-2">
+                                        <Calendar size={14} className="text-slate-300" />
+                                        <span>
+                                            {req.shippingDeadline
+                                                ? `By ${new Date(req.shippingDeadline).toLocaleDateString()}`
+                                                : 'No Deadline'}
+                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <ShieldCheck size={12} />
-                                        {req.insuranceRequired ? 'Insurance Req.' : 'No Insurance'}
+                                    <div className="flex items-center gap-2">
+                                        <ShieldCheck size={14} className="text-emerald-500" />
+                                        <span>{req.insuranceRequired ? 'Protected' : 'Standard'}</span>
                                     </div>
                                 </div>
                             </div>
 
                             <button
                                 onClick={() => navigate(`/dashboard/discovery/submit-offer/${req.id}`)}
-                                className="w-full mt-8 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-slate-900 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100"
+                                className="btn-primary w-full mt-10 shadow-xl shadow-blue-100/50"
                             >
-                                Submit Offer <ArrowRight size={18} />
+                                <Zap size={18} />
+                                Submit Trade Bid
                             </button>
                         </div>
                     ))}
                 </div>
             ) : (
-                <div className="bg-white border border-slate-100 rounded-[2.5rem] py-32 text-center shadow-sm">
-                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-200">
-                        <Package size={40} />
+                <div className="bg-white/60 backdrop-blur-md border border-white/60 rounded-[3rem] py-40 text-center shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-blue-600/10"></div>
+                    <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 text-slate-200">
+                        <Search size={48} />
                     </div>
-                    <h3 className="text-2xl font-bold text-slate-900 mb-1">No Open Requests</h3>
-                    <p className="text-slate-400 font-medium">Global trade requests will appear here once published by importers.</p>
+                    <h3 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">Market Intelligence Empty</h3>
+                    <p className="text-slate-500 font-medium max-w-md mx-auto">New global trade requests are synchronized from the blockchain in real-time. Check back shortly for new opportunities.</p>
                 </div>
             )}
+
         </div>
     );
 };
 
 export default MarketplaceDiscovery;
+
