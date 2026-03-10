@@ -1,5 +1,5 @@
-import React from 'react';
-import { Clock, FileText, ExternalLink, ShieldCheck, User, CheckCircle2, DollarSign, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Clock, FileText, ExternalLink, ShieldCheck, User, CheckCircle2, DollarSign, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 export interface TradeEvent {
@@ -34,6 +34,9 @@ const formatEventName = (eventName: string) => {
 };
 
 const TradeTimeline: React.FC<TradeTimelineProps> = ({ events }) => {
+    const [currentPage, setCurrentPage] = useState(1);
+    const eventsPerPage = 5;
+
     if (!events || events.length === 0) {
         return (
             <div className="card-premium py-12 text-center bg-white/60 backdrop-blur-md border-white/60">
@@ -44,6 +47,10 @@ const TradeTimeline: React.FC<TradeTimelineProps> = ({ events }) => {
         );
     }
 
+    const totalPages = Math.ceil(events.length / eventsPerPage);
+    const startIndex = (currentPage - 1) * eventsPerPage;
+    const currentEvents = events.slice(startIndex, startIndex + eventsPerPage);
+
     return (
         <div className="card-premium bg-white/60 backdrop-blur-md border-white/60">
             <h2 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-2">
@@ -51,7 +58,7 @@ const TradeTimeline: React.FC<TradeTimelineProps> = ({ events }) => {
                 Immutable Audit Trail
             </h2>
             <div className="relative border-l-2 border-slate-100 ml-4 space-y-8 pb-4">
-                {events.map((event, index) => (
+                {currentEvents.map((event, index) => (
                     <div key={event.id} className="relative pl-8 group">
                         {/* Timeline Dot */}
                         <div className="absolute -left-[11px] top-1 h-5 w-5 rounded-full bg-white border-4 border-slate-100 flex items-center justify-center group-hover:border-blue-100 transition-colors shadow-sm">
@@ -61,7 +68,7 @@ const TradeTimeline: React.FC<TradeTimelineProps> = ({ events }) => {
                         <div className="bg-white/80 backdrop-blur-sm border border-white/60 rounded-2xl p-5 shadow-sm group-hover:shadow-md hover:translate-x-1 transition-all">
                             <div className="flex justify-between items-start mb-2">
                                 <div className="flex items-center gap-2">
-                                    <div className="p-2 bg-slate-50/50 rounded-lg group-hover:bg-blue-50 transition-colors">
+                                    <div className="p-2 flex-shrink-0 bg-slate-50/50 rounded-lg group-hover:bg-blue-50 transition-colors">
                                         {getEventIcon(event.event)}
                                     </div>
                                     <h3 className="font-black text-slate-900 leading-none">
@@ -111,6 +118,30 @@ const TradeTimeline: React.FC<TradeTimelineProps> = ({ events }) => {
                     </div>
                 ))}
             </div>
+
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100/50">
+                    <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                    >
+                        <ChevronLeft size={16} />
+                        Previous
+                    </button>
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                        Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                    >
+                        Next
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

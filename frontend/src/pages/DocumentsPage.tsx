@@ -12,6 +12,7 @@ interface Document {
     status: string;
     date: string;
     verified: boolean;
+    ipfsHash?: string;
 }
 
 const DocumentsPage: React.FC = () => {
@@ -37,21 +38,23 @@ const DocumentsPage: React.FC = () => {
                         id: `doc-loc-${trade.id.slice(0, 8)}`,
                         tradeId: trade.id,
                         type: 'Letter of Credit',
-                        name: `LOC-${trade.productName.substring(0, 3).toUpperCase()}-${trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : 'PENDING'}`,
+                        name: `LOC-${(trade.productName || trade.product).substring(0, 3).toUpperCase()}-${trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : 'PENDING'}`,
                         status: ['LOC_ISSUED', 'LOC_VERIFIED', 'SHIPPING_NOMINATED', 'GOODS_SHIPPED', 'DOCS_SUBMITTED', 'CUSTOMS_CLEARED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status) ? 'ISSUED' : 'PENDING',
                         date: trade.createdAt,
-                        verified: ['LOC_VERIFIED', 'SHIPPING_NOMINATED', 'GOODS_SHIPPED', 'DOCS_SUBMITTED', 'CUSTOMS_CLEARED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status)
+                        verified: ['LOC_VERIFIED', 'SHIPPING_NOMINATED', 'GOODS_SHIPPED', 'DOCS_SUBMITTED', 'CUSTOMS_CLEARED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status),
+                        ipfsHash: trade.letterOfCredit?.ipfsHash
                     });
                 }
-                if (['DOCS_SUBMITTED', 'CUSTOMS_CLEARED', 'DOCS_VERIFIED', 'COMPLETED'].includes(trade.status)) {
+                if (['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status)) {
                     docs.push({
                         id: `doc-bol-${trade.id.slice(0, 8)}`,
                         tradeId: trade.id,
                         type: 'Bill of Lading',
                         name: `BOL-${trade.destination.substring(0, 3).toUpperCase()}-${trade.blockchainId !== null && trade.blockchainId !== undefined ? trade.blockchainId : 'PENDING'}`,
                         status: 'SUBMITTED',
-                        date: new Date().toISOString(), // Mocking recent date for submission
-                        verified: ['DOCS_VERIFIED', 'COMPLETED'].includes(trade.status)
+                        date: trade.billOfLading?.createdAt || new Date().toISOString(),
+                        verified: ['CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status),
+                        ipfsHash: trade.billOfLading?.ipfsHash
                     });
                 }
             });
@@ -62,6 +65,17 @@ const DocumentsPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleViewDocument = (ipfsHash: string) => {
+        if (!ipfsHash) {
+            toast.info("IPFS hash still syncing. Please wait for on-chain confirmation.");
+            return;
+        }
+        const url = ipfsHash.startsWith('http')
+            ? ipfsHash
+            : `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+        window.open(url, '_blank');
     };
 
     if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-4 border-t-indigo-600"></div></div>;
@@ -95,11 +109,11 @@ const DocumentsPage: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {documents.map((doc) => (
+                        {documents.map((doc: any) => (
                             <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
                                 <td className="px-8 py-5">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                                        <div className="w-10 h-10 flex-shrink-0 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
                                             <FileText size={20} />
                                         </div>
                                         <div>
@@ -132,11 +146,19 @@ const DocumentsPage: React.FC = () => {
                                 </td>
                                 <td className="px-8 py-5 text-right">
                                     <div className="flex justify-end gap-2">
-                                        <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all" title="View Document">
-                                            <Eye size={18} />
+                                        <button
+                                            onClick={() => handleViewDocument(doc.ipfsHash)}
+                                            className="p-2.5 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-100 rounded-xl transition-all shadow-sm group"
+                                            title="View Document"
+                                        >
+                                            <Eye size={18} className="group-hover:scale-110 transition-transform" />
                                         </button>
-                                        <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all" title="Download IPFS Hash">
-                                            <Download size={18} />
+                                        <button
+                                            onClick={() => window.open(`https://gateway.pinata.cloud/ipfs/${doc.ipfsHash}`, '_blank')}
+                                            className="p-2.5 bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-100 rounded-xl transition-all shadow-sm group"
+                                            title="Download IPFS Hash"
+                                        >
+                                            <Download size={18} className="group-hover:scale-110 transition-transform" />
                                         </button>
                                     </div>
                                 </td>

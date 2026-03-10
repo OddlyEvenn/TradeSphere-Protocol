@@ -63,7 +63,7 @@ const ExporterDashboard: React.FC = () => {
                 </div>
                 <button
                     onClick={() => navigate('/dashboard/discovery')}
-                    className="btn-primary lg:px-8 lg:py-4 shadow-2xl shadow-blue-100/50"
+                    className="btn-primary w-full lg:w-auto lg:px-8 lg:py-4 shadow-2xl shadow-blue-100/50"
                 >
                     <Search size={20} />
                     Discover Opportunities
@@ -111,7 +111,7 @@ const ExporterDashboard: React.FC = () => {
                                 <div key={trade.id} className="card-premium group cursor-pointer" onClick={() => navigate(`/dashboard/shipments/${trade.id}`)}>
                                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                                         <div className="flex items-center gap-6">
-                                            <div className="w-16 h-16 bg-slate-50 rounded-[1.25rem] flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-6 transition-all duration-500">
+                                            <div className="w-16 h-16 flex-shrink-0 bg-slate-50 rounded-[1.25rem] flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-6 transition-all duration-500">
                                                 <Truck size={28} />
                                             </div>
                                             <div>

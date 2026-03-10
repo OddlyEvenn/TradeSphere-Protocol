@@ -13,7 +13,10 @@ import {
     CheckCircle2,
     XCircle,
     MoreHorizontal,
-    Landmark
+    Landmark,
+    FileText,
+    Eye,
+    Shield
 } from 'lucide-react';
 import { walletService } from '../../services/WalletService';
 import { useToast } from '../../contexts/ToastContext';
@@ -83,6 +86,28 @@ const TradeDetails: React.FC = () => {
         }
     };
 
+    const waitForStatusUpdate = async (expectedStatus: string, maxAttempts = 15) => {
+        let attempts = 0;
+        while (attempts < maxAttempts) {
+            try {
+                const res = await api.get(`/trades/${id}`);
+                const currentStatus = res.data.status;
+                if (currentStatus === expectedStatus || currentStatus === 'COMPLETED') {
+                    setTrade(res.data);
+                    const eventsRes = await api.get(`/trades/${id}/events`);
+                    setEvents(eventsRes.data);
+                    return true;
+                }
+            } catch (err) {
+                console.error('Polling failed', err);
+            }
+            await new Promise(r => setTimeout(r, 2000));
+            attempts++;
+        }
+        await fetchTradeData();
+        return false;
+    };
+
     const handleAcceptOffer = async (offerId: string) => {
         if (!window.confirm("Are you sure you want to finalize this trade with this offer?")) return;
 
@@ -90,7 +115,7 @@ const TradeDetails: React.FC = () => {
         try {
             await api.post(`/marketplace/offers/${offerId}/accept`);
             toast.success("Trade Finalized! The workflow has transitioned to the official trade state.");
-            fetchTradeData(); // Refresh to show LoC request options
+            await waitForStatusUpdate('OFFER_ACCEPTED');
         } catch (err: any) {
             console.error('Finalization failed', err);
             toast.error("Failed to finalize trade: " + (err.response?.data?.message || err.message));
@@ -201,11 +226,10 @@ const TradeDetails: React.FC = () => {
                 importerBankId: selectedBankId
             });
 
-            // Step 4: Small delay then refresh
-            setTimeout(() => {
-                toast.success("Letter of Credit requested on-chain! Syncing UI...");
-                fetchTradeData();
-            }, 1000);
+            // Step 4: Wait for status update
+            toast.info("Waiting for status update...");
+            await waitForStatusUpdate('LOC_INITIATED');
+            toast.success("Letter of Credit requested on-chain! Syncing UI...");
         } catch (err: any) {
             console.error('LoC Request failed', err);
             toast.error("Failed to request LoC: " + (err?.reason || err?.message || "Unknown error"));
@@ -236,16 +260,23 @@ const TradeDetails: React.FC = () => {
             await tx.wait();
 
             // Persist to DB via EventListener auto-sync
-            setTimeout(() => {
-                toast.success("Shipping Carrier Nominated on-chain! Refreshing data...");
-                fetchTradeData();
-            }, 2000);
+            toast.info("Waiting for status update...");
+            await waitForStatusUpdate('SHIPPING_ASSIGNED');
+            toast.success("Shipping Carrier Nominated on-chain! Refreshing data...");
         } catch (err: any) {
             console.error('Carrier nomination failed', err);
             toast.error("Failed to nominate carrier: " + (err?.reason || err?.message || "Unknown error"));
         } finally {
             setNominatingCarrier(false);
         }
+    };
+
+    const handleViewDocument = (ipfsHash: string) => {
+        if (!ipfsHash) return;
+        const url = ipfsHash.startsWith('http')
+            ? ipfsHash
+            : `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+        window.open(url, '_blank');
     };
 
     // Duty payment recording is now handled by the Tax Authority on-chain in TaxDashboard.tsx
@@ -471,7 +502,7 @@ const TradeDetails: React.FC = () => {
                                         {i !== arr.length - 1 && (
                                             <div className={`absolute left-3 top-6 w-0.5 h-6 ${s.done ? 'bg-emerald-500' : 'bg-slate-100'}`}></div>
                                         )}
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 z-10 ${s.done ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
+                                        <div className={`w-6 h-6 rounded-full flex flex-shrink-0 items-center justify-center z-10 ${s.done ? 'bg-emerald-500 text-white shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
                                             {s.done ? <CheckCircle2 size={14} /> : <div className="w-1.5 h-1.5 rounded-full bg-current" />}
                                         </div>
                                         <p className={`text-[11px] font-black uppercase tracking-wider ${s.done ? 'text-slate-900' : 'text-slate-400'}`}>{s.label}</p>
@@ -498,9 +529,63 @@ const TradeDetails: React.FC = () => {
 
                 </div>
 
-                {/* Right: Offers Received */}
-                <div className="lg:col-span-2 space-y-6">
-                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider flex items-center justify-between">
+                <div className="lg:col-span-2 space-y-10">
+                    {/* Protocol Documents Section */}
+                    {['LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(trade.status) && (
+                        <div className="card-premium space-y-6">
+                            <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                                <Shield className="text-blue-600" />
+                                Digital Trade Vault
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {trade.letterOfCredit?.ipfsHash ? (
+                                    <div className="p-6 border-2 border-blue-100 bg-blue-50/20 rounded-3xl flex flex-col items-center justify-between text-center">
+                                        <div className="mb-4">
+                                            <ShieldCheck className="text-blue-600 mx-auto" size={32} />
+                                            <p className="text-xs font-black text-slate-900 uppercase tracking-widest mt-2">Letter of Credit</p>
+                                            <p className="text-[10px] text-blue-500 font-bold italic tracking-tighter">On-Chain Verified</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleViewDocument(trade.letterOfCredit.ipfsHash)}
+                                            className="btn-secondary w-full py-3 text-[10px] font-black uppercase tracking-widest"
+                                        >
+                                            <Eye size={14} /> View Document
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="p-6 border-2 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-center">
+                                        <Clock className="text-slate-200 mb-2" size={32} />
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Letter of Credit</p>
+                                        <p className="text-[10px] text-slate-300 mt-1 uppercase">Pending Issuance</p>
+                                    </div>
+                                )}
+
+                                {trade.billOfLading?.ipfsHash ? (
+                                    <div className="p-6 border-2 border-emerald-100 bg-emerald-50/20 rounded-3xl flex flex-col items-center justify-between text-center">
+                                        <div className="mb-4">
+                                            <FileText className="text-emerald-600 mx-auto" size={32} />
+                                            <p className="text-xs font-black text-slate-900 uppercase tracking-widest mt-2">Bill of Lading</p>
+                                            <p className="text-[10px] text-emerald-500 font-bold italic tracking-tighter">Secured on IPFS</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleViewDocument(trade.billOfLading.ipfsHash)}
+                                            className="btn-secondary w-full py-3 text-[10px] font-black uppercase tracking-widest !bg-emerald-50 !text-emerald-700 !border-emerald-100"
+                                        >
+                                            <Eye size={14} /> View Document
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="p-6 border-2 border-dashed border-slate-100 rounded-3xl flex flex-col items-center justify-center text-center">
+                                        <Clock className="text-slate-200 mb-2" size={32} />
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Bill of Lading</p>
+                                        <p className="text-[10px] text-slate-300 mt-1 uppercase">Awaiting Cargo</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider flex items-center justify-between mt-10">
                         Offers Received
                         <span className="text-xs bg-slate-900 text-white px-3 py-1 rounded-full">{offers.length}</span>
                     </h2>
@@ -514,7 +599,7 @@ const TradeDetails: React.FC = () => {
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Exporter</p>
-                                                    <p className="font-black text-slate-900 text-xl">{offer.exporter?.name}</p>
+                                                    <p className="font-black text-slate-900 text-xl truncate">{offer.exporter?.name}</p>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quote</p>
@@ -549,18 +634,21 @@ const TradeDetails: React.FC = () => {
                             <p className="text-slate-400 font-medium max-w-sm mx-auto">Verified global exporters will see your request on the discovery page. You will be notified of new bids.</p>
                         </div>
                     )}
+                    {/* Timeline Section */}
+                    {offers.length === 0 && trade.status === 'OPEN_FOR_OFFERS' && (
+                        <div className="mt-12 opacity-50 pointer-events-none grayscale transition-all duration-500 hover:grayscale-0 hover:opacity-100">
+                            <TradeTimeline events={[]} />
+                        </div>
+                    )}
+                    {trade.status !== 'OPEN_FOR_OFFERS' && (
+                        <div className="mt-12">
+                            <TradeTimeline events={events} />
+                        </div>
+                    )}
                 </div>
             </div>
-
-            {/* Timeline Section */}
-            {(trade.status !== 'OPEN_FOR_OFFERS' && offers.length >= 0) && (
-                <div className="mt-12">
-                    <TradeTimeline events={events} />
-                </div>
-            )}
         </div>
     );
 };
-
 
 export default TradeDetails;

@@ -98,61 +98,8 @@ const SubmitOffer: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Right Column: Request Summary */}
-                <div className="lg:col-span-1 space-y-6">
-                    <div className="card-premium bg-slate-900 text-white">
-                        <h3 className="text-lg font-black mb-4 flex items-center gap-2">
-                            <Clipboard size={18} className="text-indigo-400" />
-                            Request Summary
-                        </h3>
-                        <div className="space-y-4">
-                            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Importer</p>
-                                <p className="font-bold">{trade?.importer?.name}</p>
-                            </div>
-                            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Target Quantity</p>
-                                <p className="font-bold">{trade?.quantity}</p>
-                            </div>
-                            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Destination</p>
-                                <p className="font-bold flex items-center gap-2">
-                                    <Truck size={14} className="text-indigo-400" />
-                                    {trade?.destination}
-                                </p>
-                            </div>
-                            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Insurance Required</p>
-                                <p className="font-bold text-emerald-400">{trade?.insuranceRequired ? 'Yes' : 'No'}</p>
-                            </div>
-                            {trade?.qualityStandards && (
-                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quality Standards</p>
-                                    <p className="font-bold text-amber-400 text-sm">{trade.qualityStandards}</p>
-                                </div>
-                            )}
-                            {trade?.priceRange && (
-                                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Budget Range</p>
-                                    <p className="font-bold text-emerald-400">${trade.priceRange}</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="card-premium border-amber-100 bg-amber-50/30">
-                        <h4 className="font-black text-amber-900 flex items-center gap-2 mb-2 uppercase text-xs tracking-widest">
-                            <Info size={16} />
-                            Stakeholder Flow
-                        </h4>
-                        <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                            Once you submit, the <strong>Importer</strong> will finalize their choice. Acceptance triggers the on-chain trade setup where Banks will issue the <strong>Letter of Credit (LoC)</strong>.
-                        </p>
-                    </div>
-                </div>
-
                 {/* Left Column: Form */}
-                <form onSubmit={handleSubmit} className="lg:col-span-2 card-premium space-y-8">
+                <form onSubmit={handleSubmit} className="lg:col-span-2 card-premium space-y-8 h-fit">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Price Quotation */}
                         <div className="space-y-2">
@@ -230,23 +177,6 @@ const SubmitOffer: React.FC = () => {
                         ></textarea>
                     </div>
 
-                    <div className="p-6 bg-indigo-50/50 rounded-3xl border border-indigo-100/50 space-y-4">
-                        <h4 className="font-black text-indigo-900 text-sm italic">Next Steps after Finalization:</h4>
-                        <ul className="space-y-3">
-                            {[
-                                "Importer compares & accepts your offer",
-                                "Both parties confirm → Trade Initiated on blockchain",
-                                "Importer's Bank issues Digital Letter of Credit",
-                                "Exporter ships goods & Bill of Lading is verified"
-                            ].map((step, i) => (
-                                <li key={i} className="flex items-center gap-3 text-xs font-bold text-indigo-700">
-                                    <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">{i + 1}</div>
-                                    {step}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
                     <div className="flex items-center justify-end gap-4 pt-4">
                         <button type="button" onClick={() => navigate(-1)} className="btn-secondary">Cancel</button>
                         <button type="submit" disabled={submitting} className="btn-primary">
@@ -255,6 +185,65 @@ const SubmitOffer: React.FC = () => {
                         </button>
                     </div>
                 </form>
+                {/* Right Column: Request Summary */}
+                <div className="lg:col-span-1 space-y-6">
+                    <div className="card-premium">
+                        <h3 className="text-lg text-slate-900 font-black mb-6 flex items-center gap-2">
+                            <Clipboard className="text-indigo-600" />
+                            Request Summary
+                        </h3>
+                        <div className="space-y-4">
+                            <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Importer</p>
+                                <p className="font-bold text-slate-900">{trade?.importer?.name}</p>
+                            </div>
+                            <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Target Quantity</p>
+                                <p className="font-bold text-slate-900">{trade?.quantity}</p>
+                            </div>
+                            <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Destination</p>
+                                <p className="font-bold text-slate-900 flex items-center gap-2">
+                                    <Truck size={14} className="text-indigo-600" />
+                                    {trade?.destination}
+                                </p>
+                            </div>
+                            <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Insurance Required</p>
+                                <p className="font-bold text-slate-900">{trade?.insuranceRequired ? 'Yes' : 'No'}</p>
+                            </div>
+                            {trade?.qualityStandards && (
+                                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Quality Standards</p>
+                                    <p className="font-bold text-slate-900 text-sm">{trade.qualityStandards}</p>
+                                </div>
+                            )}
+                            {trade?.priceRange && (
+                                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Budget Range</p>
+                                    <p className="font-bold text-emerald-600">${trade.priceRange}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="card-premium border-indigo-100 bg-indigo-50/50">
+                        <h4 className="font-black text-indigo-900 flex items-center gap-2 mb-3 uppercase text-[10px] tracking-widest">
+                            <Info size={14} className="flex-shrink-0" />
+                            Next Steps
+                        </h4>
+                        <ol className="space-y-4 text-xs font-medium text-indigo-800">
+                            <li className="flex gap-3">
+                                <span className="w-5 h-5 flex-shrink-0 rounded-full bg-indigo-200 text-indigo-700 flex items-center justify-center font-black">1</span>
+                                Importer reviews and accepts your formal offer on the platform.
+                            </li>
+                            <li className="flex gap-3">
+                                <span className="w-5 h-5 flex-shrink-0 rounded-full bg-indigo-200 text-indigo-700 flex items-center justify-center font-black">2</span>
+                                Bank issues a Digital Letter of Credit, visible in your shipment dashboard.
+                            </li>
+                        </ol>
+                    </div>
+                </div>
             </div>
         </div>
     );

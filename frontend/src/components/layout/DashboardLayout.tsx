@@ -60,7 +60,7 @@ const DashboardLayout: React.FC = () => {
             <GlobalLoader />
 
             {/* Sidebar for Desktop */}
-            <div className={`hidden lg:block transition-all duration-500 ease-in-out ${isSidebarCollapsed ? 'w-24' : 'w-72'}`}>
+            <div className={`hidden lg:block sticky top-0 h-screen transition-all duration-500 ease-in-out ${isSidebarCollapsed ? 'w-24' : 'w-72'}`}>
                 <Sidebar
                     role={user.role}
                     isCollapsed={isSidebarCollapsed}

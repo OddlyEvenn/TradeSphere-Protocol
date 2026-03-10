@@ -67,6 +67,17 @@ const RegulatorDashboard: React.FC = () => {
         }
     };
 
+    const handleViewDocument = (ipfsHash: string) => {
+        if (!ipfsHash) {
+            toast.info("IPFS document still syncing. Please wait for final on-chain confirmation.");
+            return;
+        }
+        const url = ipfsHash.startsWith('http')
+            ? ipfsHash
+            : `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+        window.open(url, '_blank');
+    };
+
     const completed = trades.filter(t => t.status === 'COMPLETED').length;
     const active = trades.filter(t => t.status !== 'COMPLETED').length;
     const onChainVerified = trades.filter(t => t.blockchainId !== null).length;
@@ -86,21 +97,21 @@ const RegulatorDashboard: React.FC = () => {
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="card-premium space-y-3 glass">
-                    <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 flex-shrink-0 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
                         <Activity size={20} />
                     </div>
                     <p className="text-3xl font-black text-slate-900">{trades.length}</p>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Trades</p>
                 </div>
                 <div className="card-premium space-y-3">
-                    <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 flex-shrink-0 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
                         <CheckCircle2 size={20} />
                     </div>
                     <p className="text-3xl font-black text-slate-900">{onChainVerified}</p>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">On-Chain Verified</p>
                 </div>
                 <div className="card-premium space-y-3">
-                    <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 flex-shrink-0 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
                         <TrendingUp size={20} />
                     </div>
                     <p className="text-3xl font-black text-slate-900">{completed}</p>
@@ -124,11 +135,11 @@ const RegulatorDashboard: React.FC = () => {
                     <table className="w-full text-left relative z-10">
                         <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Trade / Product</th>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Importer → Exporter</th>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Value</th>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Chain Verified</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Trade / Product</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Importer → Exporter</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Value</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Status</th>
+                                <th className="px-8 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Chain Verified</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 relative bg-white">
@@ -146,8 +157,8 @@ const RegulatorDashboard: React.FC = () => {
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-5">{trade.productName || '—'}</p>
                                         </td>
                                         <td className="px-8 py-5">
-                                            <p className="text-xs font-bold text-slate-900">{trade.importer?.name || '—'}</p>
-                                            <p className="text-[10px] font-bold text-slate-400">→ {trade.exporter?.name || 'No Exporter Yet'}</p>
+                                            <p className="text-xs font-bold text-slate-900 truncate max-w-[150px]">{trade.importer?.name || '—'}</p>
+                                            <p className="text-[10px] font-bold text-slate-400 truncate max-w-[150px]">→ {trade.exporter?.name || 'No Exporter Yet'}</p>
                                         </td>
                                         <td className="px-8 py-5 font-black text-slate-700">${trade.amount?.toLocaleString()}</td>
                                         <td className="px-8 py-5">
@@ -203,9 +214,26 @@ const RegulatorDashboard: React.FC = () => {
                                                                     </div>
                                                                 </div>
                                                                 <div className="p-6 bg-white/40 rounded-[2rem] border border-white/60">
-                                                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Compliance Status</h4>
-                                                                    <p className="text-emerald-600 font-black text-lg">PROVISIONAL PASS</p>
-                                                                    <p className="text-[10px] font-medium text-slate-500 mt-2 leading-relaxed">System-generated verification of all smart contract events suggests zero policy violations.</p>
+                                                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Compliance Documents</h4>
+                                                                    <div className="flex gap-3 mt-4">
+                                                                        {trade.letterOfCredit?.ipfsHash && (
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleViewDocument(trade.letterOfCredit.ipfsHash); }}
+                                                                                className="btn-secondary py-1.5 px-4 text-[10px] font-black uppercase tracking-widest shadow-none"
+                                                                            >
+                                                                                <Shield size={12} /> View LoC
+                                                                            </button>
+                                                                        )}
+                                                                        {trade.billOfLading?.ipfsHash && (
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleViewDocument(trade.billOfLading.ipfsHash); }}
+                                                                                className="btn-secondary py-1.5 px-4 text-[10px] font-black uppercase tracking-widest !bg-emerald-50 !text-emerald-700 !border-emerald-100 shadow-none"
+                                                                            >
+                                                                                <FileText size={12} /> View BoL
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="text-[10px] font-medium text-slate-500 mt-4 leading-relaxed">System-generated verification of all smart contract events suggests zero policy violations.</p>
                                                                 </div>
                                                             </div>
 

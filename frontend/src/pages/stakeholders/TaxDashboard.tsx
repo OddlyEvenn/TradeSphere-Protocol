@@ -101,6 +101,27 @@ const TaxDashboard: React.FC = () => {
         }
     };
 
+    const handleViewDocument = async (trade: any) => {
+        try {
+            if (trade.billOfLading?.ipfsHash) {
+                const url = trade.billOfLading.ipfsHash.startsWith('http')
+                    ? trade.billOfLading.ipfsHash
+                    : `https://gateway.pinata.cloud/ipfs/${trade.billOfLading.ipfsHash}`;
+                window.open(url, '_blank');
+                return;
+            }
+            const res = await api.get(`/documents/${trade.id}/BOL`);
+            if (res.data.url) {
+                window.open(res.data.url, '_blank');
+            } else {
+                toast.error("Document not found on IPFS.");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to retrieve document.");
+        }
+    };
+
     const handleAuditLog = () => {
         toast.info("Opening secure tax ledger...");
     };
@@ -179,7 +200,7 @@ const TaxDashboard: React.FC = () => {
                                     </td>
                                     <td className="px-8 py-6 text-center">
                                         <button
-                                            onClick={() => { /* handleViewDocument(trade) */ }}
+                                            onClick={() => handleViewDocument(trade)}
                                             className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-blue-100"
                                         >
                                             <FileText size={14} /> View BoL

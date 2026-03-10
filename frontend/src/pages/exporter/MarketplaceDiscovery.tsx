@@ -96,7 +96,7 @@ const MarketplaceDiscovery: React.FC = () => {
                     {filteredRequests.map((req) => (
                         <div key={req.id} className="card-premium group flex flex-col h-full hover:translate-y-[-8px]">
                             <div className="flex justify-between items-start mb-8">
-                                <div className="p-4 bg-blue-50 text-blue-600 rounded-[1.25rem] group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-6 transition-all duration-500">
+                                <div className="p-4 flex-shrink-0 bg-blue-50 text-blue-600 rounded-[1.25rem] group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-6 transition-all duration-500">
                                     <Globe size={32} />
                                 </div>
                                 <div className="flex flex-col items-end gap-2 text-right">
@@ -113,7 +113,7 @@ const MarketplaceDiscovery: React.FC = () => {
 
                             <div className="flex-1 space-y-6">
                                 <div>
-                                    <h3 className="text-2xl font-black text-slate-900 leading-tight tracking-tight group-hover:text-blue-600 transition-colors">
+                                    <h3 className="text-2xl font-black text-slate-900 truncate leading-tight tracking-tight group-hover:text-blue-600 transition-colors">
                                         {req.productName || (req as any).product}
                                     </h3>
                                     <div className="flex items-center gap-2 text-slate-400 mt-2 font-black text-[11px] uppercase tracking-wider">

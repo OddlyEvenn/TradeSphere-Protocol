@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard,
     Package,
@@ -26,6 +26,14 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ role, isCollapsed, onToggle, isMobile }) => {
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        navigate('/login');
+    };
+
     const getNavItems = () => {
         const common = [
             { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -153,7 +161,10 @@ const Sidebar: React.FC<SidebarProps> = ({ role, isCollapsed, onToggle, isMobile
                         )}
                     </div>
                     {!isCollapsed && (
-                        <button className="w-full mt-4 flex items-center justify-center gap-2 text-xs font-black text-slate-400 hover:text-rose-500 transition-colors uppercase tracking-widest pt-4 border-t border-slate-200/50">
+                        <button
+                            onClick={handleLogout}
+                            className="w-full mt-4 flex items-center justify-center gap-2 text-xs font-black text-slate-400 hover:text-rose-500 transition-colors uppercase tracking-widest pt-4 border-t border-slate-200/50"
+                        >
                             <LogOut size={14} />
                             Log Out
                         </button>
