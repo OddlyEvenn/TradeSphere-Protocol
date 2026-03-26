@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import TradeTimeline, { TradeEvent } from '../../components/TradeTimeline';
+import DisputePanel from '../../components/DisputePanel';
 import api from '../../services/api';
 import {
     ArrowLeft,
@@ -271,6 +272,27 @@ const TradeDetails: React.FC = () => {
         }
     };
 
+    const handleCheckSLABreach = async () => {
+        if (!trade?.blockchainId) return;
+        const walletAddr = await ensureWalletConnected();
+        if (!walletAddr) return;
+
+        setActionLoading('CHECK_SLA');
+        try {
+            toast.info("Checking SLA deadlines on-chain...");
+            const registry = walletService.getTradeRegistry();
+            const tx = await registry.triggerSLABreachRevert(trade.blockchainId);
+            await tx.wait();
+            toast.success("SLA Check complete! If a breach occurred, the trade has been reverted.");
+            await fetchTradeData();
+        } catch (err: any) {
+            console.error('SLA Check failed', err);
+            toast.error("SLA breach not met or error: " + (err.reason || err.message));
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
     const handleViewDocument = (ipfsHash: string) => {
         if (!ipfsHash) return;
         const url = ipfsHash.startsWith('http')
@@ -338,6 +360,36 @@ const TradeDetails: React.FC = () => {
                                     {trade?.additionalConditions || "No specific conditions provided."}
                                 </p>
                             </div>
+
+                            {/* Enterprise SLA Section */}
+                            {(trade?.shippingDeadline || trade?.clearanceDeadline) && (
+                                <div className="mt-6 pt-6 border-t border-slate-100">
+                                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Service Level Agreements (SLAs)</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {trade.shippingDeadline && (
+                                            <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100/50">
+                                                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Max Shipping Time</p>
+                                                <p className="font-bold text-amber-900">{trade.shippingDeadline} Hrs</p>
+                                                <p className="text-[10px] text-amber-500 mt-1">From Lock Funds</p>
+                                            </div>
+                                        )}
+                                        {trade.clearanceDeadline && (
+                                            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/50">
+                                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Max Clearance Time</p>
+                                                <p className="font-bold text-blue-900">{trade.clearanceDeadline} Hrs</p>
+                                                <p className="text-[10px] text-blue-500 mt-1">From Arrival</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={handleCheckSLABreach}
+                                        disabled={actionLoading === 'CHECK_SLA'}
+                                        className="mt-4 w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+                                    >
+                                        {actionLoading === 'CHECK_SLA' ? 'Checking...' : 'Check SLA Breach'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -644,6 +696,16 @@ const TradeDetails: React.FC = () => {
                         <div className="mt-12">
                             <TradeTimeline events={events} />
                         </div>
+                    )}
+                    
+                    {/* Add Dispute Panel at the very bottom right column */}
+                    {trade && user && (
+                        <DisputePanel 
+                            trade={trade} 
+                            currentUserRole={user.role} 
+                            currentUserWallet={account || ""} 
+                            onUpdate={fetchTradeData} 
+                        />
                     )}
                 </div>
             </div>

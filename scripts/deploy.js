@@ -33,11 +33,19 @@ async function main() {
   const paymentSettlementAddress = await paymentSettlement.getAddress();
   console.log("PaymentSettlement deployed to:", paymentSettlementAddress);
 
-  // 5. Authorize satellite contracts in TradeRegistry
+  // 5. Deploy ConsensusDispute (depends on TradeRegistry)
+  const ConsensusDispute = await ethers.getContractFactory("ConsensusDispute");
+  const consensusDispute = await ConsensusDispute.deploy(tradeRegistryAddress);
+  await consensusDispute.waitForDeployment();
+  const consensusDisputeAddress = await consensusDispute.getAddress();
+  console.log("ConsensusDispute deployed to:", consensusDisputeAddress);
+
+  // 6. Authorize satellite contracts in TradeRegistry
   console.log("\nAuthorizing satellite contracts in TradeRegistry...");
   await tradeRegistry.setAuthorizedContract(locAddress, true);
   await tradeRegistry.setAuthorizedContract(docVerificationAddress, true);
   await tradeRegistry.setAuthorizedContract(paymentSettlementAddress, true);
+  await tradeRegistry.setAuthorizedContract(consensusDisputeAddress, true);
   console.log("Authorization complete.");
 
   console.log("\n--- Deployment Summary ---");
@@ -45,6 +53,7 @@ async function main() {
   console.log("LETTER_OF_CREDIT_ADDRESS=     ", locAddress);
   console.log("DOCUMENT_VERIFICATION_ADDRESS=", docVerificationAddress);
   console.log("PAYMENT_SETTLEMENT_ADDRESS=   ", paymentSettlementAddress);
+  console.log("CONSENSUS_DISPUTE_ADDRESS=    ", consensusDisputeAddress);
 }
 
 main()

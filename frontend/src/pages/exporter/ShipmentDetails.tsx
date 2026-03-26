@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
+import DisputePanel from '../../components/DisputePanel';
 import api from '../../services/api';
 import {
     ArrowLeft,
@@ -286,6 +287,16 @@ const ShipmentDetails: React.FC = () => {
                                 )}
                             </div>
                         </div>
+                    )}
+                    
+                    {/* Add Dispute Panel at the very bottom right column */}
+                    {trade && user && (
+                        <DisputePanel 
+                            trade={trade} 
+                            currentUserRole={user.role} 
+                            currentUserWallet={account || ""} 
+                            onUpdate={fetchData} 
+                        />
                     )}
                 </div>
             </div>

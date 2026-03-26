@@ -14,29 +14,39 @@ export const createTrade = async (req: Request, res: Response) => {
             destination,
             priceRange,
             shippingDeadline,
+            clearanceDeadline,
             insuranceRequired,
             qualityStandards,
             additionalConditions,
-            status
+            status,
+            priority,
+            inspectorId,
+            customsOfficerId,
+            insuranceId
         } = req.body;
         const importerId = (req as any).user.userId;
 
         const trade = await (prisma.trade as any).create({
             data: {
                 amount: parseFloat(amount.toString()),
-                status: status || 'OPEN_FOR_OFFERS',
+                status: status || 'QUEUED',
+                priority: parseInt(priority?.toString() || '0'),
                 productName,
                 quantity,
                 destination,
                 priceRange: priceRange || null,
                 shippingDeadline: shippingDeadline ? new Date(shippingDeadline) : null,
+                clearanceDeadline: clearanceDeadline ? new Date(clearanceDeadline) : null,
                 insuranceRequired: insuranceRequired === true || insuranceRequired === 'true',
                 qualityStandards: qualityStandards || null,
                 additionalConditions: additionalConditions || null,
                 importer: { connect: { id: importerId } },
                 ...(exporterId && { exporter: { connect: { id: exporterId } } }),
                 ...(importerBankId && { importerBank: { connect: { id: importerBankId } } }),
-                ...(exporterBankId && { exporterBank: { connect: { id: exporterBankId } } })
+                ...(exporterBankId && { exporterBank: { connect: { id: exporterBankId } } }),
+                ...(inspectorId && { inspector: { connect: { id: inspectorId } } }),
+                ...(customsOfficerId && { customs: { connect: { id: customsOfficerId } } }),
+                ...(insuranceId && { insurance: { connect: { id: insuranceId } } })
             }
         });
 
@@ -46,9 +56,9 @@ export const createTrade = async (req: Request, res: Response) => {
                 tradeId: trade.id,
                 actorId: importerId,
                 actorRole: 'IMPORTER',
-                event: 'TRADE_REQUEST_CREATED',
+                event: 'TRADE_REQUEST_QUEUED',
                 fromStatus: null,
-                toStatus: 'OPEN_FOR_OFFERS'
+                toStatus: status || 'QUEUED'
             }
         });
 
@@ -71,6 +81,10 @@ export const getMyTrades = async (req: Request, res: Response) => {
             importerBank: { select: { id: true, name: true, email: true, walletAddress: true } },
             exporterBank: { select: { id: true, name: true, email: true, walletAddress: true } },
             shipping: { select: { id: true, name: true, email: true, walletAddress: true } },
+            inspector: { select: { id: true, name: true, email: true, walletAddress: true } },
+            customs: { select: { id: true, name: true, email: true, walletAddress: true } },
+            insurance: { select: { id: true, name: true, email: true, walletAddress: true } },
+            taxAuthority: { select: { id: true, name: true, email: true, walletAddress: true } },
             letterOfCredit: true,
             billOfLading: true,
             _count: { select: { offers: true } }
@@ -118,6 +132,18 @@ export const getMyTrades = async (req: Request, res: Response) => {
             // Tax authority sees all trades with duty pending
             trades = await (prisma.trade as any).findMany({
                 where: { status: { in: ['DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'COMPLETED'] } },
+                include: includeBase,
+                orderBy: { createdAt: 'desc' }
+            });
+        } else if (role === 'INSPECTOR') {
+            trades = await (prisma.trade as any).findMany({
+                where: { OR: [{ inspectorId: userId }, { status: { in: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'DISPUTED', 'TRADE_REVERTED_BY_CONSENSUS', 'COMPLETED'] } }] },
+                include: includeBase,
+                orderBy: { createdAt: 'desc' }
+            });
+        } else if (role === 'INSURANCE') {
+            trades = await (prisma.trade as any).findMany({
+                where: { OR: [{ insuranceId: userId }, { status: { in: ['GOODS_SHIPPED', 'DISPUTED', 'CLAIM_PAYOUT_APPROVED', 'TRADE_REVERTED_BY_CONSENSUS', 'COMPLETED'] } }] },
                 include: includeBase,
                 orderBy: { createdAt: 'desc' }
             });

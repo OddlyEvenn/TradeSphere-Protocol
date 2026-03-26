@@ -22,9 +22,9 @@ const getEventIcon = (eventName: string) => {
     if (name.includes('CREATED') || name.includes('INITIATED')) return <Clock size={16} className="text-blue-500" />;
     if (name.includes('UPLOADED') || name.includes('ISSUED')) return <FileText size={16} className="text-amber-500" />;
     if (name.includes('APPROVED') || name.includes('CLEARED') || name.includes('AUTHORIZED')) return <ShieldCheck size={16} className="text-emerald-500" />;
-    if (name.includes('COMPLETED') || name.includes('CONFIRMED') || name.includes('SETTLEMENT')) return <CheckCircle2 size={16} className="text-indigo-500" />;
-    if (name.includes('PAID')) return <DollarSign size={16} className="text-emerald-500" />;
-    if (name.includes('DISPUTED')) return <XCircle size={16} className="text-rose-500" />;
+    if (name.includes('COMPLETED') || name.includes('CONFIRMED') || name.includes('SETTLEMENT') || name.includes('CONSENSUS_REACHED')) return <CheckCircle2 size={16} className="text-indigo-500" />;
+    if (name.includes('PAID') || name.includes('PAYOUT')) return <DollarSign size={16} className="text-emerald-500" />;
+    if (name.includes('DISPUTED') || name.includes('REVERTED')) return <XCircle size={16} className="text-rose-500" />;
     return <Clock size={16} className="text-slate-400" />;
 };
 

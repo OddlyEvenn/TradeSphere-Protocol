@@ -13,6 +13,8 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
     const [importerBankId, setImporterBankId] = useState('');
     const [exporterBankId, setExporterBankId] = useState('');
     const [amount, setAmount] = useState('');
+    const [shippingDeadline, setShippingDeadline] = useState('72'); // Default 72 hours
+    const [clearanceDeadline, setClearanceDeadline] = useState('48'); // Default 48 hours
     const [loading, setLoading] = useState(false);
 
     if (!isOpen) return null;
@@ -25,7 +27,9 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
                 exporterId,
                 amount,
                 importerBankId,
-                exporterBankId
+                exporterBankId,
+                shippingDeadline: parseInt(shippingDeadline),
+                clearanceDeadline: parseInt(clearanceDeadline)
             });
             onTradeCreated();
             onClose();
@@ -95,6 +99,30 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
                                 placeholder="50,000"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="group">
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shipping SLA (Hours)</label>
+                            <input
+                                type="number"
+                                required
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all"
+                                placeholder="72"
+                                value={shippingDeadline}
+                                onChange={(e) => setShippingDeadline(e.target.value)}
+                            />
+                        </div>
+                        <div className="group">
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Clearance SLA (Hours)</label>
+                            <input
+                                type="number"
+                                required
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                                placeholder="48"
+                                value={clearanceDeadline}
+                                onChange={(e) => setClearanceDeadline(e.target.value)}
                             />
                         </div>
                     </div>

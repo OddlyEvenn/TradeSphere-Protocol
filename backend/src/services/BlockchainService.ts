@@ -6,6 +6,7 @@ import TradeRegistryABI from "../abis/TradeRegistry.json";
 import LetterOfCreditABI from "../abis/LetterOfCredit.json";
 import DocumentVerificationABI from "../abis/DocumentVerification.json";
 import PaymentSettlementABI from "../abis/PaymentSettlement.json";
+import ConsensusDisputeABI from "../abis/ConsensusDispute.json";
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ export class BlockchainService {
     public letterOfCredit: ethers.Contract;
     public documentVerification: ethers.Contract;
     public paymentSettlement: ethers.Contract;
+    public consensusDispute: ethers.Contract;
 
     private constructor() {
         this.provider = new ethers.JsonRpcProvider(RPC_URL!);
@@ -51,6 +53,12 @@ export class BlockchainService {
         this.paymentSettlement = new ethers.Contract(
             process.env.PAYMENT_SETTLEMENT_ADDRESS!,
             ((PaymentSettlementABI as any).abi || PaymentSettlementABI) as any,
+            this.wallet
+        );
+
+        this.consensusDispute = new ethers.Contract(
+            process.env.CONSENSUS_DISPUTE_ADDRESS!,
+            ((ConsensusDisputeABI as any).abi || ConsensusDisputeABI) as any,
             this.wallet
         );
     }

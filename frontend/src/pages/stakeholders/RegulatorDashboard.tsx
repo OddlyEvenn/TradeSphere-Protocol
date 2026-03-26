@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { Shield, FileText, CheckCircle2, AlertCircle, Search, Gavel, TrendingUp, Activity, ScanSearch, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
+import { useOutletContext } from 'react-router-dom';
 import TradeTimeline from '../../components/TradeTimeline';
+import DisputePanel from '../../components/DisputePanel';
+import { walletService } from '../../services/WalletService';
 
 const getStatusColor = (status: string) => {
     if (status === 'COMPLETED') return 'bg-emerald-50 text-emerald-700';
@@ -19,10 +22,13 @@ const RegulatorDashboard: React.FC = () => {
     const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
     const [tradeEvents, setTradeEvents] = useState<any[]>([]);
     const [eventsLoading, setEventsLoading] = useState(false);
+    const [account, setAccount] = useState<string | null>(null);
+    const { user } = useOutletContext<any>() || {};
     const toast = useToast();
 
     useEffect(() => {
         fetchTrades();
+        walletService.connect().then(acc => setAccount(acc));
     }, []);
 
     const fetchTrades = async () => {
@@ -237,9 +243,20 @@ const RegulatorDashboard: React.FC = () => {
                                                                 </div>
                                                             </div>
 
-                                                            <div className="ml-4">
-                                                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Full Audit Trail (Blockchain Events)</h4>
-                                                                <TradeTimeline events={tradeEvents} />
+                                                            <div className="ml-4 space-y-8">
+                                                                <div>
+                                                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Full Audit Trail (Blockchain Events)</h4>
+                                                                    <TradeTimeline events={tradeEvents} />
+                                                                </div>
+                                                                
+                                                                {trade && user && (
+                                                                    <DisputePanel 
+                                                                        trade={trade} 
+                                                                        currentUserRole={user.role || 'REGULATOR'} 
+                                                                        currentUserWallet={account || ""} 
+                                                                        onUpdate={fetchTrades} 
+                                                                    />
+                                                                )}
                                                             </div>
                                                         </div>
                                                     )}

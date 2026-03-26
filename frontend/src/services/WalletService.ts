@@ -5,13 +5,15 @@ import TradeRegistryABI from "../abis/TradeRegistry.json";
 import LetterOfCreditABI from "../abis/LetterOfCredit.json";
 import DocumentVerificationABI from "../abis/DocumentVerification.json";
 import PaymentSettlementABI from "../abis/PaymentSettlement.json";
+import ConsensusDisputeABI from "../abis/ConsensusDispute.json";
 
 // Contract Addresses (Should match backend .env)
 const ADDRESSES = {
-    TradeRegistry: "0xf76d952C4181c692CA250450De2921a1c36D51DB",
-    LetterOfCredit: "0xF717Dfe4069232336B9A52de2324e6afbB1837a7",
-    DocumentVerification: "0xC31B3940D04A6D90d3Bd94EA1E4f1d866E92B2CA",
-    PaymentSettlement: "0xb295F9fA5881D5870985061beA83FC2D3d203e00",
+    TradeRegistry: "0xA9ff2ECa14470d6AAD15eA1275DCbf53dB3F2E98",
+    LetterOfCredit: "0x31Aea85E90e11612Dc5326fC0134B57F175e45a6",
+    DocumentVerification: "0xDCEB11c0833d623F23354dCE51cB3C0ebDa95bDB",
+    PaymentSettlement: "0x4EAb3B81a2B88236dBA89e4585F93581d6c533F4",
+    ConsensusDispute: "0xCF84FA16B96cbae8f647813965ab1e0047EC4a94",
 };
 
 const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111
@@ -106,6 +108,11 @@ export class WalletService {
     public getPaymentSettlement() {
         if (!this.signer) throw new Error("Wallet not connected");
         return new ethers.Contract(ADDRESSES.PaymentSettlement, ((PaymentSettlementABI as any).abi || PaymentSettlementABI) as any, this.signer);
+    }
+
+    public getConsensusDispute() {
+        if (!this.signer) throw new Error("Wallet not connected");
+        return new ethers.Contract(ADDRESSES.ConsensusDispute, ((ConsensusDisputeABI as any).abi || ConsensusDisputeABI) as any, this.signer);
     }
 }
 

@@ -62,6 +62,10 @@ export class EventListenerService {
                 11: "PAYMENT_AUTHORIZED",
                 12: "SETTLEMENT_CONFIRMED",
                 13: "COMPLETED",
+                14: "DISPUTED",
+                15: "EXPIRED",
+                16: "TRADE_REVERTED_BY_CONSENSUS",
+                17: "CLAIM_PAYOUT_APPROVED",
             };
 
             // ─────────────────────────────────────────────────────────────────────
@@ -645,6 +649,92 @@ export class EventListenerService {
                     logger.success(`✅ Trade #${tradeId} shipping company synced: ${carrierAddr}`);
                 }
             );
+
+            // ─────────────────────────────────────────────────────────────────────
+            // 15. DisputeRaised(uint256 tradeId, string evidenceIpfsHash, address raisedBy)
+            // ─────────────────────────────────────────────────────────────────────
+            if (blockchainService.consensusDispute) {
+                blockchainService.consensusDispute.on(
+                    "DisputeRaised",
+                    async (tradeId: any, evidenceIpfsHash: any, raisedBy: any, event: any) => {
+                        const txHash = event.log.transactionHash;
+                        logger.transaction({ event: "DisputeRaised", txHash, blockchainId: Number(tradeId), actor: `Disputer: ${raisedBy}` });
+                        
+                        const dbTradeId = await getTradeId(Number(tradeId));
+                        if (!dbTradeId) return;
+
+                        const user = await (prisma.user as any).findFirst({ where: { walletAddress: raisedBy.toLowerCase() } });
+                        await (prisma.tradeEvent as any).create({
+                            data: {
+                                tradeId: dbTradeId,
+                                actorId: user?.id || null,
+                                actorRole: user?.role || "SYSTEM",
+                                event: "DISPUTE_RAISED",
+                                ipfsHash: evidenceIpfsHash as string,
+                                txHash
+                            }
+                        });
+                        logger.success(`✅ Trade #${tradeId} Dispute Raised: ${evidenceIpfsHash}`);
+                    }
+                );
+
+                // ─────────────────────────────────────────────────────────────────────
+                // 16. VoteCast(uint256 tradeId, address voter, uint8 vote, uint256 points)
+                // ─────────────────────────────────────────────────────────────────────
+                blockchainService.consensusDispute.on(
+                    "VoteCast",
+                    async (tradeId: any, voter: any, vote: any, points: any, event: any) => {
+                        const txHash = event.log.transactionHash;
+                        let voteStr = "NONE";
+                        if (Number(vote) === 1) voteStr = "REVERT";
+                        else if (Number(vote) === 2) voteStr = "PAYOUT";
+                        else if (Number(vote) === 3) voteStr = "REJECT";
+
+                        logger.transaction({ event: "VoteCast", txHash, blockchainId: Number(tradeId), actor: `Voter: ${voter}`, status: `Voted ${voteStr} (${Number(points)} pts)` as any });
+
+                        const dbTradeId = await getTradeId(Number(tradeId));
+                        if (!dbTradeId) return;
+
+                        const user = await (prisma.user as any).findFirst({ where: { walletAddress: voter.toLowerCase() } });
+                        await (prisma.tradeEvent as any).create({
+                            data: {
+                                tradeId: dbTradeId,
+                                actorId: user?.id || null,
+                                actorRole: user?.role || "SYSTEM",
+                                event: `VOTE_CAST_${voteStr}`,
+                                metadata: { points: Number(points) },
+                                txHash
+                            }
+                        });
+                    }
+                );
+
+                // ─────────────────────────────────────────────────────────────────────
+                // 17. ConsensusReached(uint256 tradeId, TradeStatus newStatus)
+                // ─────────────────────────────────────────────────────────────────────
+                blockchainService.consensusDispute.on(
+                    "ConsensusReached",
+                    async (tradeId: any, newStatus: any, event: any) => {
+                        const txHash = event.log.transactionHash;
+                        const statusStr = statusMap[Number(newStatus)] || "UNKNOWN";
+                        logger.transaction({ event: "ConsensusReached", txHash, blockchainId: Number(tradeId), status: statusStr as any });
+
+                        const dbTradeId = await getTradeId(Number(tradeId));
+                        if (!dbTradeId) return;
+
+                        await (prisma.tradeEvent as any).create({
+                            data: {
+                                tradeId: dbTradeId,
+                                actorRole: "SYSTEM",
+                                event: "CONSENSUS_REACHED",
+                                toStatus: statusStr,
+                                txHash
+                            }
+                        });
+                        logger.success(`✅ Trade #${tradeId} Consensus Reached: ${statusStr}`);
+                    }
+                );
+            }
 
             logger.info("📡 All blockchain event listeners active. DB is now a pure event-driven cache.");
 

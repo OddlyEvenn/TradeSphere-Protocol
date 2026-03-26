@@ -46,7 +46,9 @@ describe("TradeSphere Protocol – Phase 2 Full Lifecycle", function () {
 
     // ── Step 1: Create Trade (status = OFFER_ACCEPTED) ──────────────────
     await tradeRegistry.connect(importer).createTrade(
-      exporter.address, issuingBank.address, advisingBank.address, amount
+      exporter.address, issuingBank.address, advisingBank.address,
+      ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress,
+      amount, 0, 0
     );
     let trade = await tradeRegistry.getTrade(0);
     expect(trade.status).to.equal(0); // OFFER_ACCEPTED
@@ -120,7 +122,9 @@ describe("TradeSphere Protocol – Phase 2 Full Lifecycle", function () {
 
     // Setup: get to GOODS_SHIPPED
     await tradeRegistry.connect(importer).createTrade(
-      exporter.address, issuingBank.address, advisingBank.address, amount
+      exporter.address, issuingBank.address, advisingBank.address,
+      ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress,
+      amount, 0, 0
     );
     await tradeRegistry.connect(importer).confirmTrade(0);
     await tradeRegistry.connect(exporter).confirmTrade(0);
@@ -151,7 +155,9 @@ describe("TradeSphere Protocol – Phase 2 Full Lifecycle", function () {
     const amount = ethers.parseEther("10");
     const expiry = Math.floor(Date.now() / 1000) + 86400;
     await tradeRegistry.connect(importer).createTrade(
-      exporter.address, issuingBank.address, advisingBank.address, amount
+      exporter.address, issuingBank.address, advisingBank.address,
+      ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress,
+      amount, 0, 0
     );
     // Still in OFFER_ACCEPTED — must fail
     await expect(
@@ -163,7 +169,9 @@ describe("TradeSphere Protocol – Phase 2 Full Lifecycle", function () {
     const amount = ethers.parseEther("10");
     const expiry = Math.floor(Date.now() / 1000) + 86400;
     await tradeRegistry.connect(importer).createTrade(
-      exporter.address, issuingBank.address, advisingBank.address, amount
+      exporter.address, issuingBank.address, advisingBank.address,
+      ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress,
+      amount, 0, 0
     );
     await tradeRegistry.connect(importer).confirmTrade(0);
     await tradeRegistry.connect(exporter).confirmTrade(0);

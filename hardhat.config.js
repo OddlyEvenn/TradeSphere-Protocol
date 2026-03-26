@@ -4,7 +4,16 @@ dotenv.config({ path: "./backend/.env" });
 
 /** @type import('hardhat/config').HardhatUserConfig */
 export default {
-  solidity: "0.8.24",
+  solidity: {
+    version: "0.8.24",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      viaIR: true,
+    },
+  },
   networks: {
     amoy: {
       url: process.env.ALCHEMY_RPC_URL || "",

@@ -45,6 +45,7 @@ enum TradeStatus {
   COMPLETED
   DISPUTED
   EXPIRED
+  QUEUED
 }
 
 enum OfferStatus {
@@ -100,6 +101,8 @@ model User {
   tradesAsShipping     Trade[] @relation("ShippingTrades")
   tradesAsCustoms      Trade[] @relation("CustomsTrades")
   tradesAsTaxAuthority Trade[] @relation("TaxAuthorityTrades")
+  tradesAsInspector    Trade[] @relation("InspectorTrades")
+  tradesAsInsurance    Trade[] @relation("InsuranceTrades")
 
   // Other relations
   offers               MarketplaceOffer[]
@@ -139,10 +142,13 @@ model Trade {
   shippingId       String?
   customsOfficerId String?
   taxAuthorityId   String?
+  inspectorId      String?
+  insuranceId      String?
 
   // Financials
   amount     Float
   dutyAmount Float?
+  priority   Int @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -155,6 +161,8 @@ model Trade {
   shipping     User? @relation("ShippingTrades", fields: [shippingId], references: [id])
   customs      User? @relation("CustomsTrades", fields: [customsOfficerId], references: [id])
   taxAuthority User? @relation("TaxAuthorityTrades", fields: [taxAuthorityId], references: [id])
+  inspector    User? @relation("InspectorTrades", fields: [inspectorId], references: [id])
+  insurance    User? @relation("InsuranceTrades", fields: [insuranceId], references: [id])
 
   offers              MarketplaceOffer[]
   letterOfCredit      LetterOfCredit?

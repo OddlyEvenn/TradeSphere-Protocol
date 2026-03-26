@@ -40,7 +40,9 @@ contract TradeRegistry {
         SETTLEMENT_CONFIRMED,  // 12
         COMPLETED,             // 13
         DISPUTED,              // 14
-        EXPIRED                // 15
+        EXPIRED,               // 15
+        TRADE_REVERTED_BY_CONSENSUS, // 16: For when Inspector/Consensus trigger revert
+        CLAIM_PAYOUT_APPROVED        // 17: For insurance payouts
     }
 
     // ── Structs ────────────────────────────────────────────────────────────
@@ -51,9 +53,14 @@ contract TradeRegistry {
         address issuingBank;    // importer's bank
         address advisingBank;   // exporter's bank
         address shippingCompany;
+        address inspector;      // [NEW] Inspector Node
+        address customsNode;    // [NEW] Customs Node
+        address insuranceNode;  // [NEW] Insurance Node
         TradeStatus status;
         uint256 createdAt;
         uint256 amount;
+        uint256 shippingDeadline;  // [NEW] SLA 1
+        uint256 clearanceDeadline; // [NEW] SLA 2
         bool importerConfirmed; // for TRADE_INITIATED mutual confirmation
         bool exporterConfirmed;
     }
@@ -96,7 +103,10 @@ contract TradeRegistry {
             msg.sender == trade.exporter ||
             msg.sender == trade.issuingBank ||
             msg.sender == trade.advisingBank ||
-            msg.sender == trade.shippingCompany,
+            msg.sender == trade.shippingCompany ||
+            msg.sender == trade.inspector ||
+            msg.sender == trade.customsNode ||
+            msg.sender == trade.insuranceNode,
             "Not a participant"
         );
         _;
@@ -117,7 +127,12 @@ contract TradeRegistry {
         address _exporter,
         address _issuingBank,
         address _advisingBank,
-        uint256 _amount
+        address _inspector,
+        address _customsNode,
+        address _insuranceNode,
+        uint256 _amount,
+        uint256 _shippingDeadline,
+        uint256 _clearanceDeadline
     ) external returns (uint256) {
         uint256 tradeId = nextTradeId++;
         trades[tradeId] = Trade({
@@ -127,9 +142,14 @@ contract TradeRegistry {
             issuingBank:       _issuingBank,
             advisingBank:      _advisingBank,
             shippingCompany:   address(0),
+            inspector:         _inspector,
+            customsNode:       _customsNode,
+            insuranceNode:     _insuranceNode,
             status:            TradeStatus.OFFER_ACCEPTED,
             createdAt:         block.timestamp,
             amount:            _amount,
+            shippingDeadline:  _shippingDeadline,
+            clearanceDeadline: _clearanceDeadline,
             importerConfirmed: false,
             exporterConfirmed: false
         });
@@ -230,6 +250,32 @@ contract TradeRegistry {
         TradeStatus old = trades[_tradeId].status;
         trades[_tradeId].status = _newStatus;
         emit TradeStatusUpdated(_tradeId, old, _newStatus);
+    }
+
+    /**
+     * @notice Importer's bank triggers a revert if the shipping deadline is breached.
+     */
+    function triggerSLABreachRevert(uint256 _tradeId) external {
+        Trade storage trade = trades[_tradeId];
+        require(msg.sender == trade.issuingBank, "Only issuing bank");
+        require(trade.status == TradeStatus.FUNDS_LOCKED || trade.status == TradeStatus.SHIPPING_ASSIGNED, "Invalid status for SLA revert");
+        require(block.timestamp > trade.shippingDeadline, "Deadline not yet breached");
+
+        TradeStatus old = trade.status;
+        trade.status = TradeStatus.TRADE_REVERTED_BY_CONSENSUS;
+        emit TradeStatusUpdated(_tradeId, old, TradeStatus.TRADE_REVERTED_BY_CONSENSUS);
+    }
+
+    /**
+     * @notice Any participant can raise a dispute, halting the trade.
+     */
+    function raiseDispute(uint256 _tradeId) external onlyParticipant(_tradeId) {
+        Trade storage trade = trades[_tradeId];
+        require(trade.status != TradeStatus.COMPLETED && trade.status != TradeStatus.TRADE_REVERTED_BY_CONSENSUS, "Cannot dispute finished trade");
+
+        TradeStatus old = trade.status;
+        trade.status = TradeStatus.DISPUTED;
+        emit TradeStatusUpdated(_tradeId, old, TradeStatus.DISPUTED);
     }
 
     /**
