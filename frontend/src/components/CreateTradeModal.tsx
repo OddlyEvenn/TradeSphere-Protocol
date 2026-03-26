@@ -15,6 +15,8 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
     const [amount, setAmount] = useState('');
     const [shippingDeadline, setShippingDeadline] = useState('72'); // Default 72 hours
     const [clearanceDeadline, setClearanceDeadline] = useState('48'); // Default 48 hours
+    const [inspectorId, setInspectorId] = useState('');
+    const [insuranceId, setInsuranceId] = useState('');
     const [loading, setLoading] = useState(false);
 
     if (!isOpen) return null;
@@ -28,6 +30,8 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
                 amount,
                 importerBankId,
                 exporterBankId,
+                inspectorId,
+                insuranceId,
                 shippingDeadline: parseInt(shippingDeadline),
                 clearanceDeadline: parseInt(clearanceDeadline)
             });
@@ -66,25 +70,47 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="group">
-                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Importer Bank ID</label>
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1 text-[10px] uppercase tracking-widest text-slate-400">Importer Bank ID</label>
                             <input
                                 type="text"
                                 required
-                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all"
-                                placeholder="Bank ID"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all text-sm"
+                                placeholder="Bank Node ID"
                                 value={importerBankId}
                                 onChange={(e) => setImporterBankId(e.target.value)}
                             />
                         </div>
                         <div className="group">
-                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Exporter Bank ID</label>
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1 text-[10px] uppercase tracking-widest text-slate-400">Exporter Bank ID</label>
                             <input
                                 type="text"
                                 required
-                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all"
-                                placeholder="Bank ID"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all text-sm"
+                                placeholder="Bank Node ID"
                                 value={exporterBankId}
                                 onChange={(e) => setExporterBankId(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="group">
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1 text-[10px] uppercase tracking-widest text-slate-400">Inspector ID (Optional)</label>
+                            <input
+                                type="text"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all text-sm"
+                                placeholder="Audit Node ID"
+                                value={inspectorId}
+                                onChange={(e) => setInspectorId(e.target.value)}
+                            />
+                        </div>
+                        <div className="group">
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1 text-[10px] uppercase tracking-widest text-slate-400">Insurance ID (Optional)</label>
+                            <input
+                                type="text"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all text-sm"
+                                placeholder="Underwriter Node ID"
+                                value={insuranceId}
+                                onChange={(e) => setInsuranceId(e.target.value)}
                             />
                         </div>
                     </div>

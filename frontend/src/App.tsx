@@ -20,6 +20,8 @@ import ShippingDashboard from './pages/stakeholders/ShippingDashboard';
 import CustomsDashboard from './pages/stakeholders/CustomsDashboard';
 import TaxDashboard from './pages/stakeholders/TaxDashboard';
 import RegulatorDashboard from './pages/stakeholders/RegulatorDashboard';
+import InsuranceDashboard from './pages/stakeholders/InsuranceDashboard';
+import InspectorDashboard from './pages/stakeholders/InspectorDashboard';
 
 import DocumentsPage from './pages/DocumentsPage';
 import HistoryPage from './pages/HistoryPage';
@@ -84,9 +86,10 @@ function App() {
                                 <Route path="approvals" element={<BankRequests />} />
 
                                 {/* Authority Routes */}
-                                <Route path="inspections" element={<CustomsDashboard />} />
+                                <Route path="inspections" element={<InspectorDashboard />} />
+                                <Route path="clearance" element={<CustomsDashboard />} />
                                 <Route path="fleet" element={<ShippingDashboard />} />
-                                <Route path="policies" element={<Placeholder title="Insurance Policies" />} />
+                                <Route path="policies" element={<InsuranceDashboard />} />
                                 <Route path="compliance" element={<TaxDashboard />} />
                                 <Route path="audits" element={<RegulatorDashboard />} />
 

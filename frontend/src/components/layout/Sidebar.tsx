@@ -68,7 +68,13 @@ const Sidebar: React.FC<SidebarProps> = ({ role, isCollapsed, onToggle, isMobile
             case 'CUSTOMS':
                 return [
                     ...common.slice(0, 1),
-                    { name: 'Inspections', path: '/dashboard/inspections', icon: ShieldCheck },
+                    { name: 'Clearance', path: '/dashboard/clearance', icon: ShieldCheck },
+                    ...common.slice(1),
+                ];
+            case 'INSPECTOR':
+                return [
+                    ...common.slice(0, 1),
+                    { name: 'Inspections', path: '/dashboard/inspections', icon: ClipboardCheck },
                     ...common.slice(1),
                 ];
             case 'SHIPPING':

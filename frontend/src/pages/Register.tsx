@@ -96,6 +96,7 @@ const Register: React.FC = () => {
                                     <option value="TAX_AUTHORITY">Tax Authority</option>
                                     <option value="REGULATORS">Regulators</option>
                                     <option value="CUSTOMS">Customs Authority</option>
+                                    <option value="INSPECTOR">Inspector Node</option>
                                 </select>
                             </div>
                         </div>

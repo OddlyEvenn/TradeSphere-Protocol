@@ -8,6 +8,8 @@ import ShippingDashboard from './stakeholders/ShippingDashboard';
 import CustomsOverview from './stakeholders/CustomsOverview';
 import TaxDashboard from './stakeholders/TaxDashboard';
 import RegulatorDashboard from './stakeholders/RegulatorDashboard';
+import InsuranceDashboard from './stakeholders/InsuranceDashboard';
+import InspectorDashboard from './stakeholders/InspectorDashboard';
 
 const DashboardHome: React.FC = () => {
     const { user, account } = useOutletContext<{ user: any, account: string | null }>();
@@ -23,7 +25,8 @@ const DashboardHome: React.FC = () => {
         case 'SHIPPING': return <ShippingDashboard />;
         case 'TAX_AUTHORITY': return <TaxDashboard />;
         case 'REGULATORS': return <RegulatorDashboard />;
-        case 'INSURANCE': return <div className="card-premium h-96 flex items-center justify-center font-black text-slate-400 uppercase tracking-widest">Insurance Portal Active</div>;
+        case 'INSURANCE': return <InsuranceDashboard />;
+        case 'INSPECTOR': return <InspectorDashboard />;
         default:
             return (
                 <div className="card-premium">
