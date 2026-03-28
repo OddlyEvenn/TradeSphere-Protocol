@@ -5,10 +5,12 @@ import TopNav from './TopNav';
 import GlobalLoader from '../common/GlobalLoader';
 import { walletService } from '../../services/WalletService';
 import api from '../../services/api';
+import { useToast } from '../../contexts/ToastContext';
 
 const DashboardLayout: React.FC = () => {
     const [user, setUser] = useState<any>(null);
     const [account, setAccount] = useState<string | null>(null);
+    const toast = useToast();
     const [loading, setLoading] = useState(true);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -40,13 +42,22 @@ const DashboardLayout: React.FC = () => {
         const addr = await walletService.connect();
         if (addr) {
             setAccount(addr);
-            try {
-                await api.post('/auth/update-wallet', {
-                    userId: user.id,
-                    walletAddress: addr
-                });
-            } catch (err) {
-                console.error("Failed to sync wallet address", err);
+            
+            // Sync if the address is DIFFERENT from the one in local state OR if local state is missing it
+            if (addr.toLowerCase() !== user.walletAddress?.toLowerCase() || !user.walletAddress) {
+                try {
+                    const res = await api.post('/auth/update-wallet', {
+                        userId: user.id,
+                        walletAddress: addr
+                    });
+                    // Update local user state
+                    const updatedUser = res.data.user;
+                    setUser(updatedUser);
+                    localStorage.setItem('user', JSON.stringify(updatedUser));
+                    toast.success("Identity Secured! Your wallet is now linked to this node.");
+                } catch (err) {
+                    console.error("Failed to sync wallet address", err);
+                }
             }
         }
     };

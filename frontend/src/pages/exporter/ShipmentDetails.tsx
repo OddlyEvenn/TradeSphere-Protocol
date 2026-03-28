@@ -159,17 +159,15 @@ const ShipmentDetails: React.FC = () => {
                         </h2>
                         <div className="space-y-6">
                             {[
-                                { label: 'Offer Accepted', done: ['OFFER_ACCEPTED', 'TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Offer Accepted', done: ['OFFER_ACCEPTED', 'TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                 { label: 'Bank Nominated', done: !!trade.exporterBankId },
-                                { label: 'LoC Approved', done: ['LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Carrier Assigned', done: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Customs Under Review', done: ['CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Duty Pending', done: ['DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Duty Paid', done: ['DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Customs Cleared', done: ['CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                { label: 'Receive Goods', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'LoC Approved', done: ['LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Carrier Assigned', done: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Customs Decision', done: ['CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Customs Cleared', done: ['CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                { label: 'Goods Received', done: ['GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                 { label: 'Payment Authorized', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                 { label: 'Settlement Confirmed', done: ['SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                 { label: 'Completed', done: trade.status === 'COMPLETED' },
@@ -245,7 +243,7 @@ const ShipmentDetails: React.FC = () => {
                     )}
 
                     {/* Document View */}
-                    {['GOODS_SHIPPED', 'DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(trade.status) && (
+                    {['GOODS_SHIPPED', 'CUSTOMS_FLAGGED', 'CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(trade.status) && (
                         <div className="card-premium">
                             <h2 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-2">
                                 <FileText className="text-indigo-600" />

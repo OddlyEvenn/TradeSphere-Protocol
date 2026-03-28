@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 /**
  * @title TradeRegistry
  * @dev Central registry for all trades. Manages participants, state machine,
- *      and authorization of satellite contracts (LoC, DocVerification, Payment).
+ *      and authorization of satellite contracts (LoC, DocVerification, Payment, Consensus).
  *
  * ── State Machine ────────────────────────────────────────────────────────────
  *  OFFER_ACCEPTED  → TRADE_INITIATED (both parties on-chain confirm)
@@ -12,11 +12,17 @@ pragma solidity ^0.8.24;
  *  LOC_INITIATED   → LOC_UPLOADED    (importer bank uploads doc + IPFS hash)
  *  LOC_UPLOADED    → LOC_APPROVED    (exporter bank approves)
  *  LOC_APPROVED    → FUNDS_LOCKED    (importer bank locks funds)
- *  FUNDS_LOCKED    → GOODS_SHIPPED   (shipping company issues BoL)
- *  GOODS_SHIPPED   → CUSTOMS_CLEARED or DUTY_PENDING (customs decision)
- *  DUTY_PENDING    → DUTY_PAID       (importer pays duty via bank)
- *  DUTY_PAID       → CUSTOMS_CLEARED (tax authority releases)
- *  CUSTOMS_CLEARED → PAYMENT_AUTHORIZED (importer bank authorizes)
+ *  FUNDS_LOCKED    → SHIPPING_ASSIGNED (importer assigns shipping)
+ *  SHIPPING_ASSIGNED → GOODS_SHIPPED (shipping company issues BoL)
+ *  GOODS_SHIPPED   → CUSTOMS_CLEARED (customs decision: 0 = clear)
+ *  GOODS_SHIPPED   → CUSTOMS_FLAGGED (customs decision: 1 = flags / tax)
+ *  GOODS_SHIPPED   → ENTRY_REJECTED  (customs decision: 2 = rejected)
+ *  CUSTOMS_FLAGGED → CUSTOMS_CLEARED (exporter pays tax, customs releases)
+ *  ENTRY_REJECTED  → VOTING_ACTIVE   (7-node voting starts, 24hr timer)
+ *  VOTING_ACTIVE   → TRADE_REVERTED_BY_CONSENSUS (votes >= 4)
+ *  VOTING_ACTIVE   → DISPUTE_RESOLVED_NO_REVERT  (votes < 4)
+ *  CUSTOMS_CLEARED → GOODS_RECEIVED  (importer confirms receipt)
+ *  GOODS_RECEIVED  → PAYMENT_AUTHORIZED (importer bank authorizes)
  *  PAYMENT_AUTHORIZED → SETTLEMENT_CONFIRMED (exporter bank confirms)
  *  SETTLEMENT_CONFIRMED → COMPLETED
  * ─────────────────────────────────────────────────────────────────────────────
@@ -25,43 +31,47 @@ contract TradeRegistry {
 
     // ── Enums ──────────────────────────────────────────────────────────────
     enum TradeStatus {
-        OFFER_ACCEPTED,        // 0
-        TRADE_INITIATED,       // 1
-        LOC_INITIATED,         // 2
-        LOC_UPLOADED,          // 3
-        LOC_APPROVED,          // 4
-        FUNDS_LOCKED,          // 5
-        SHIPPING_ASSIGNED,     // 6
-        GOODS_SHIPPED,         // 7
-        CUSTOMS_CLEARED,       // 8
-        DUTY_PENDING,          // 9
-        DUTY_PAID,             // 10
-        PAYMENT_AUTHORIZED,    // 11
-        SETTLEMENT_CONFIRMED,  // 12
-        COMPLETED,             // 13
-        DISPUTED,              // 14
-        EXPIRED,               // 15
-        TRADE_REVERTED_BY_CONSENSUS, // 16: For when Inspector/Consensus trigger revert
-        CLAIM_PAYOUT_APPROVED        // 17: For insurance payouts
+        OFFER_ACCEPTED,                // 0
+        TRADE_INITIATED,               // 1
+        LOC_INITIATED,                 // 2
+        LOC_UPLOADED,                  // 3
+        LOC_APPROVED,                  // 4
+        FUNDS_LOCKED,                  // 5
+        SHIPPING_ASSIGNED,             // 6
+        GOODS_SHIPPED,                 // 7
+        CUSTOMS_CLEARED,               // 8
+        CUSTOMS_FLAGGED,               // 9  (was DUTY_PENDING — now "flags" with tax)
+        ENTRY_REJECTED,                // 10 (customs rejected entry → triggers voting)
+        VOTING_ACTIVE,                 // 11 (7-node voting in progress)
+        GOODS_RECEIVED,                // 12 (importer confirms goods receipt)
+        PAYMENT_AUTHORIZED,            // 13
+        SETTLEMENT_CONFIRMED,          // 14
+        COMPLETED,                     // 15
+        DISPUTED,                      // 16
+        EXPIRED,                       // 17
+        TRADE_REVERTED_BY_CONSENSUS,   // 18 (vote >= 4 threshold passed)
+        DISPUTE_RESOLVED_NO_REVERT,    // 19 (vote < 4 — no revert)
+        CLAIM_PAYOUT_APPROVED          // 20 (insurance payout for damaged cargo)
     }
 
     // ── Structs ────────────────────────────────────────────────────────────
     struct Trade {
         uint256 tradeId;
+        uint256 amount;
+        uint256 createdAt;
+        uint256 shippingDeadline;  // SLA 1
+        uint256 clearanceDeadline; // SLA 2
+        uint256 votingDeadline;    // 24-hour voting window (set on ENTRY_REJECTED)
         address importer;
         address exporter;
-        address issuingBank;    // importer's bank
-        address advisingBank;   // exporter's bank
+        address issuingBank;       // importer's bank
+        address advisingBank;      // exporter's bank
         address shippingCompany;
-        address inspector;      // [NEW] Inspector Node
-        address customsNode;    // [NEW] Customs Node
-        address insuranceNode;  // [NEW] Insurance Node
+        address inspector;         // Inspector Node
+        address customsAuthority;  // Merged Custom & Tax Authority Node
+        address insuranceNode;     // Insurance Node
         TradeStatus status;
-        uint256 createdAt;
-        uint256 amount;
-        uint256 shippingDeadline;  // [NEW] SLA 1
-        uint256 clearanceDeadline; // [NEW] SLA 2
-        bool importerConfirmed; // for TRADE_INITIATED mutual confirmation
+        bool importerConfirmed;
         bool exporterConfirmed;
     }
 
@@ -72,13 +82,14 @@ contract TradeRegistry {
     uint256 public nextTradeId;
 
     // ── Events ─────────────────────────────────────────────────────────────
-    event TradeCreated(uint256 indexed tradeId, address importer, address exporter, uint256 amount);
+    event TradeCreated(uint256 indexed tradeId, address indexed importer, address indexed exporter, uint256 amount);
     event TradeStatusUpdated(uint256 indexed tradeId, TradeStatus oldStatus, TradeStatus newStatus);
-    event TradeConfirmed(uint256 indexed tradeId, address confirmedBy);
+    event TradeConfirmed(uint256 indexed tradeId, address indexed confirmedBy);
     event TradeInitiated(uint256 indexed tradeId);
-    event ContractAuthorized(address indexed contractAddress, bool authorized);
-    event AdvisingBankAssigned(uint256 indexed tradeId, address advisingBank);
-    event ShippingCompanyAssigned(uint256 indexed tradeId, address shippingCompany);
+    event ContractAuthorized(address indexed contractAddress, bool indexed authorized);
+    event AdvisingBankAssigned(uint256 indexed tradeId, address indexed advisingBank);
+    event ShippingCompanyAssigned(uint256 indexed tradeId, address indexed shippingCompany);
+    event VotingDeadlineSet(uint256 indexed tradeId, uint256 indexed deadline);
 
     // ── Constructor ────────────────────────────────────────────────────────
     constructor() {
@@ -105,7 +116,7 @@ contract TradeRegistry {
             msg.sender == trade.advisingBank ||
             msg.sender == trade.shippingCompany ||
             msg.sender == trade.inspector ||
-            msg.sender == trade.customsNode ||
+            msg.sender == trade.customsAuthority ||
             msg.sender == trade.insuranceNode,
             "Not a participant"
         );
@@ -118,23 +129,20 @@ contract TradeRegistry {
      * @notice Create a new on-chain trade record after offer acceptance.
      *         Sets status to OFFER_ACCEPTED. Both parties must then call
      *         confirmTrade() to move to TRADE_INITIATED.
-     * @param _exporter      Exporter wallet address
-     * @param _issuingBank   Importer's bank wallet address
-     * @param _advisingBank  Exporter's bank wallet address
-     * @param _amount        Trade value in wei
      */
     function createTrade(
         address _exporter,
         address _issuingBank,
         address _advisingBank,
         address _inspector,
-        address _customsNode,
+        address _customsAuthority,
         address _insuranceNode,
         uint256 _amount,
         uint256 _shippingDeadline,
         uint256 _clearanceDeadline
     ) external returns (uint256) {
-        uint256 tradeId = nextTradeId++;
+        uint256 tradeId = nextTradeId;
+        ++nextTradeId;
         trades[tradeId] = Trade({
             tradeId:           tradeId,
             importer:          msg.sender,
@@ -143,13 +151,14 @@ contract TradeRegistry {
             advisingBank:      _advisingBank,
             shippingCompany:   address(0),
             inspector:         _inspector,
-            customsNode:       _customsNode,
+            customsAuthority:  _customsAuthority,
             insuranceNode:     _insuranceNode,
             status:            TradeStatus.OFFER_ACCEPTED,
             createdAt:         block.timestamp,
             amount:            _amount,
             shippingDeadline:  _shippingDeadline,
             clearanceDeadline: _clearanceDeadline,
+            votingDeadline:    0,
             importerConfirmed: false,
             exporterConfirmed: false
         });
@@ -189,8 +198,7 @@ contract TradeRegistry {
     }
 
     /**
-     * @notice Importer requests a Letter of Credit, transitioning the trade
-     *         to LOC_INITIATED on-chain so the bank can upload it.
+     * @notice Importer requests a Letter of Credit → LOC_INITIATED.
      */
     function requestLetterOfCredit(uint256 _tradeId) external {
         Trade storage trade = trades[_tradeId];
@@ -206,15 +214,14 @@ contract TradeRegistry {
     }
 
     /**
-     * @notice Assign a shipping company to the trade.
-     *         Called by the importer after funds are locked.
+     * @notice Assign a shipping company to the trade (importer, after funds locked).
      */
     function assignShippingCompany(uint256 _tradeId, address _shippingCompany) external {
         Trade storage trade = trades[_tradeId];
         require(msg.sender == trade.importer, "Only importer");
         require(trade.status == TradeStatus.FUNDS_LOCKED, "Funds not locked yet");
         require(_shippingCompany != address(0), "Invalid address");
-        
+
         trade.shippingCompany = _shippingCompany;
         emit ShippingCompanyAssigned(_tradeId, _shippingCompany);
 
@@ -225,7 +232,6 @@ contract TradeRegistry {
 
     /**
      * @notice Assign an advising bank (exporter bank) to the trade.
-     *         Called by the exporter before the LoC is uploaded/approved.
      */
     function assignAdvisingBank(uint256 _tradeId, address _advisingBank) external {
         Trade storage trade = trades[_tradeId];
@@ -233,6 +239,20 @@ contract TradeRegistry {
         require(_advisingBank != address(0), "Invalid address");
         trade.advisingBank = _advisingBank;
         emit AdvisingBankAssigned(_tradeId, _advisingBank);
+    }
+
+    /**
+     * @notice Importer signals that goods have been received perfectly.
+     *         Transitions from CUSTOMS_CLEARED → GOODS_RECEIVED.
+     */
+    function confirmGoodsReceived(uint256 _tradeId) external {
+        Trade storage trade = trades[_tradeId];
+        require(msg.sender == trade.importer, "Only importer");
+        require(trade.status == TradeStatus.CUSTOMS_CLEARED, "Customs not cleared");
+
+        TradeStatus old = trade.status;
+        trade.status = TradeStatus.GOODS_RECEIVED;
+        emit TradeStatusUpdated(_tradeId, old, TradeStatus.GOODS_RECEIVED);
     }
 
     /**
@@ -253,13 +273,41 @@ contract TradeRegistry {
     }
 
     /**
+     * @notice Set the 24-hour voting deadline on a trade. Called by ConsensusDispute.
+     */
+    function setVotingDeadline(uint256 _tradeId, uint256 _deadline) external onlyAuthorized {
+        trades[_tradeId].votingDeadline = _deadline;
+        emit VotingDeadlineSet(_tradeId, _deadline);
+    }
+
+    /**
      * @notice Importer's bank triggers a revert if the shipping deadline is breached.
      */
     function triggerSLABreachRevert(uint256 _tradeId) external {
         Trade storage trade = trades[_tradeId];
         require(msg.sender == trade.issuingBank, "Only issuing bank");
-        require(trade.status == TradeStatus.FUNDS_LOCKED || trade.status == TradeStatus.SHIPPING_ASSIGNED, "Invalid status for SLA revert");
+        require(
+            trade.status == TradeStatus.FUNDS_LOCKED || trade.status == TradeStatus.SHIPPING_ASSIGNED,
+            "Invalid status for SLA revert"
+        );
         require(block.timestamp > trade.shippingDeadline, "Deadline not yet breached");
+
+        TradeStatus old = trade.status;
+        trade.status = TradeStatus.TRADE_REVERTED_BY_CONSENSUS;
+        emit TradeStatusUpdated(_tradeId, old, TradeStatus.TRADE_REVERTED_BY_CONSENSUS);
+    }
+
+    /**
+     * @notice Issuing Bank or Importer triggers revert if clearance deadline is breached (SLA 2).
+     */
+    function triggerClearanceSLABreachRevert(uint256 _tradeId) external {
+        Trade storage trade = trades[_tradeId];
+        require(msg.sender == trade.issuingBank || msg.sender == trade.importer, "Not authorized");
+        require(
+            trade.status == TradeStatus.GOODS_SHIPPED || trade.status == TradeStatus.CUSTOMS_FLAGGED,
+            "Invalid status for clearance revert"
+        );
+        require(block.timestamp > trade.clearanceDeadline, "Clearance deadline not yet breached");
 
         TradeStatus old = trade.status;
         trade.status = TradeStatus.TRADE_REVERTED_BY_CONSENSUS;
@@ -271,7 +319,10 @@ contract TradeRegistry {
      */
     function raiseDispute(uint256 _tradeId) external onlyParticipant(_tradeId) {
         Trade storage trade = trades[_tradeId];
-        require(trade.status != TradeStatus.COMPLETED && trade.status != TradeStatus.TRADE_REVERTED_BY_CONSENSUS, "Cannot dispute finished trade");
+        require(
+            trade.status != TradeStatus.COMPLETED && trade.status != TradeStatus.TRADE_REVERTED_BY_CONSENSUS,
+            "Cannot dispute finished trade"
+        );
 
         TradeStatus old = trade.status;
         trade.status = TradeStatus.DISPUTED;

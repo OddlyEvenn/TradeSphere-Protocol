@@ -80,12 +80,12 @@ const ImporterBankDashboard: React.FC = () => {
         }
     };
 
-    const dutyPendingTrades = trades.filter(t => t.status === 'DUTY_PENDING' && t.dutyAmount);
+    const taxPendingTrades = trades.filter(t => t.status === 'CUSTOMS_FLAGGED');
 
     const stats = [
         { label: 'Pending LoCs', value: trades.filter(t => t.status === 'LOC_INITIATED').length.toString(), icon: ClipboardCheck, color: 'text-blue-600', bg: 'bg-blue-50' },
         { label: 'Locked Funds', value: `$${trades.filter(t => t.status === 'LOC_ISSUED' || t.status === 'LOC_UPLOADED' || t.status === 'FUNDS_LOCKED').reduce((acc, t) => acc + t.amount, 0).toLocaleString()}`, icon: Lock, color: 'text-amber-600', bg: 'bg-amber-50' },
-        { label: 'Duty Pending', value: dutyPendingTrades.length.toString(), icon: BadgePercent, color: 'text-rose-600', bg: 'bg-rose-50' },
+        { label: 'Tax Flagged', value: taxPendingTrades.length.toString(), icon: BadgePercent, color: 'text-rose-600', bg: 'bg-rose-50' },
         { label: 'Settlements', value: trades.filter(t => t.status === 'PAYMENT_AUTHORIZED').length.toString(), icon: Clock, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     ];
 
@@ -122,14 +122,14 @@ const ImporterBankDashboard: React.FC = () => {
             </div>
 
             {/* ── Duty Payment Queue (NEW) ────────────────────────────────── */}
-            {dutyPendingTrades.length > 0 && (
+            {taxPendingTrades.length > 0 && (
                 <div className="space-y-6">
                     <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
                         <DollarSign className="text-rose-600" size={22} />
                         Duty Payment Confirmation Queue
                     </h2>
                     <div className="space-y-4">
-                        {dutyPendingTrades.map((trade) => (
+                        {taxPendingTrades.map((trade) => (
                             <div key={trade.id} className="card-premium border-rose-100 bg-rose-50/10 group hover:border-rose-200 glass">
                                 <div className="flex flex-col md:flex-row justify-between gap-6">
                                     <div className="flex gap-5 items-center flex-1">
@@ -224,7 +224,7 @@ const ImporterBankDashboard: React.FC = () => {
                             <div className="grid grid-cols-2 gap-8">
                                 <div>
                                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Escrow Balance</p>
-                                    <p className="text-3xl font-black text-white">${trades.reduce((acc, t) => acc + (['FUNDS_LOCKED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED'].includes(t.status) ? t.amount : 0), 0).toLocaleString()}</p>
+                                    <p className="text-3xl font-black text-white">${trades.reduce((acc, t) => acc + (['FUNDS_LOCKED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED'].includes(t.status) ? t.amount : 0), 0).toLocaleString()}</p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Approval Velocity</p>

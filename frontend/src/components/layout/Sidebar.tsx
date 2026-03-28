@@ -10,9 +10,8 @@ import {
     Truck,
     Landmark,
     ShieldCheck,
-    Globe,
     Gavel,
-    BadgePercent,
+    Globe,
     ChevronLeft,
     Menu,
     LogOut
@@ -37,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, isCollapsed, onToggle, isMobile
     const getNavItems = () => {
         const common = [
             { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+            { name: 'Consensus', path: '/dashboard/voting', icon: Gavel },
             { name: 'Documents', path: '/dashboard/documents', icon: FileText },
             { name: 'History', path: '/dashboard/history', icon: History },
             { name: 'Settings', path: '/dashboard/settings', icon: Settings },
@@ -87,18 +87,6 @@ const Sidebar: React.FC<SidebarProps> = ({ role, isCollapsed, onToggle, isMobile
                 return [
                     ...common.slice(0, 1),
                     { name: 'Policies', path: '/dashboard/policies', icon: ShieldCheck },
-                    ...common.slice(1),
-                ];
-            case 'TAX_AUTHORITY':
-                return [
-                    ...common.slice(0, 1),
-                    { name: 'Compliance', path: '/dashboard/compliance', icon: BadgePercent },
-                    ...common.slice(1),
-                ];
-            case 'REGULATORS':
-                return [
-                    ...common.slice(0, 1),
-                    { name: 'Audits', path: '/dashboard/audits', icon: Gavel },
                     ...common.slice(1),
                 ];
             default:
@@ -162,7 +150,9 @@ const Sidebar: React.FC<SidebarProps> = ({ role, isCollapsed, onToggle, isMobile
                         {!isCollapsed && (
                             <div className="flex flex-col animate-in min-w-0">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Role</p>
-                                <p className="text-sm font-black text-slate-900 truncate uppercase">{role.replace('_', ' ')}</p>
+                                <p className="text-sm font-black text-slate-900 truncate uppercase">
+                                    {role === 'CUSTOMS' ? 'CUSTOMS & TAX AUTHORITY' : role.replace(/_/g, ' ')}
+                                </p>
                             </div>
                         )}
                     </div>

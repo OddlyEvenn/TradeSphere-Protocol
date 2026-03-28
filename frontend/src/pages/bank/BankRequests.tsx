@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { ethers } from 'ethers';
 import api from '../../services/api';
 import { walletService } from '../../services/WalletService';
 import {
@@ -10,7 +11,8 @@ import {
     AlertTriangle,
     Landmark,
     ArrowUpRight,
-    Search
+    Search,
+    DollarSign
 } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -129,9 +131,14 @@ const BankRequests: React.FC = () => {
                 const contract = walletService.getLetterOfCredit();
                 tx = await contract.approveLoC(trade.blockchainId);
             } else if (action === 'LOCK_FUNDS') {
-                toast.info("Locking funds in escrow on blockchain...");
-                const contractLoC = walletService.getLetterOfCredit();
-                tx = await contractLoC.lockFunds(trade.blockchainId);
+                toast.info("Depositing escrow funds to blockchain vault...");
+                const contract = walletService.getPaymentSettlement();
+                // ARCHITECTURE: Convert USD amount to ETH (fixed rate 2000 USD/ETH)
+                // This must match the amount registered on-chain in TradeRegistry
+                const amountInEth = (trade.amount / 2000).toFixed(4);
+                const valueInWei = ethers.parseEther(amountInEth);
+                
+                tx = await contract.depositEscrow(trade.blockchainId, { value: valueInWei });
             } else if (action === 'AUTHORIZE_PAYMENT') {
                 toast.info("Authorizing payment on blockchain...");
                 const contract = walletService.getPaymentSettlement();
@@ -140,6 +147,10 @@ const BankRequests: React.FC = () => {
                 toast.info("Confirming settlement on blockchain...");
                 const contract = walletService.getPaymentSettlement();
                 tx = await contract.confirmSettlement(trade.blockchainId);
+            } else if (action === 'CLAIM_REFUND') {
+                toast.info("Claiming escrow refund for trade...");
+                const contract = walletService.getPaymentSettlement();
+                tx = await contract.refundImporter(trade.blockchainId);
             }
 
             if (tx) {
@@ -150,7 +161,8 @@ const BankRequests: React.FC = () => {
                     'APPROVE_LOC': 'LOC_APPROVED',
                     'LOCK_FUNDS': 'FUNDS_LOCKED',
                     'AUTHORIZE_PAYMENT': 'PAYMENT_AUTHORIZED',
-                    'CONFIRM_SETTLEMENT': 'SETTLEMENT_CONFIRMED'
+                    'CONFIRM_SETTLEMENT': 'SETTLEMENT_CONFIRMED',
+                    'CLAIM_REFUND': 'TRADE_REVERTED_BY_CONSENSUS' // Status stays reverted, but funds move
                 };
 
                 await api.patch(`/trades/${trade.id}/state`, {
@@ -165,7 +177,7 @@ const BankRequests: React.FC = () => {
         } catch (error: any) {
             console.error(`Action ${action} failed:`, error);
             const errorMsg = error.reason || error.message || "";
-            if (errorMsg.includes("already approved") || errorMsg.includes("already locked") || errorMsg.includes("Invalid status")) {
+            if (errorMsg.includes("already approved") || errorMsg.includes("already locked") || errorMsg.includes("Invalid status") || errorMsg.includes("Already refunded")) {
                 toast.success("Action already recorded on-chain. Refreshing...");
                 fetchTrades();
             } else {
@@ -177,7 +189,7 @@ const BankRequests: React.FC = () => {
     };
 
     const getTargetStatuses = () => {
-        if (user.role === 'IMPORTER_BANK') return ['LOC_INITIATED', 'LOC_APPROVED', 'CUSTOMS_CLEARED'];
+        if (user.role === 'IMPORTER_BANK') return ['LOC_INITIATED', 'LOC_APPROVED', 'CUSTOMS_CLEARED', 'TRADE_REVERTED_BY_CONSENSUS'];
         if (user.role === 'EXPORTER_BANK') return ['LOC_UPLOADED', 'PAYMENT_AUTHORIZED'];
         return [];
     };
@@ -187,6 +199,7 @@ const BankRequests: React.FC = () => {
             if (trade.status === 'LOC_INITIATED') return { label: 'Issue LoC', key: 'ISSUE_LOC', icon: UploadCloud, needsFile: true };
             if (trade.status === 'LOC_APPROVED') return { label: 'Lock Funds', key: 'LOCK_FUNDS', icon: ShieldCheck };
             if (trade.status === 'CUSTOMS_CLEARED') return { label: 'Authorize', key: 'AUTHORIZE_PAYMENT', icon: ClipboardCheck };
+            if (trade.status === 'TRADE_REVERTED_BY_CONSENSUS') return { label: 'Claim Refund', key: 'CLAIM_REFUND', icon: DollarSign };
         }
         if (user.role === 'EXPORTER_BANK') {
             if (trade.status === 'LOC_UPLOADED') return { label: 'Approve LoC', key: 'APPROVE_LOC', icon: ShieldCheck };

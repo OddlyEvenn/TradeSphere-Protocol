@@ -57,15 +57,18 @@ export class EventListenerService {
                 6: "SHIPPING_ASSIGNED",
                 7: "GOODS_SHIPPED",
                 8: "CUSTOMS_CLEARED",
-                9: "DUTY_PENDING",
-                10: "DUTY_PAID",
-                11: "PAYMENT_AUTHORIZED",
-                12: "SETTLEMENT_CONFIRMED",
-                13: "COMPLETED",
-                14: "DISPUTED",
-                15: "EXPIRED",
-                16: "TRADE_REVERTED_BY_CONSENSUS",
-                17: "CLAIM_PAYOUT_APPROVED",
+                9: "CUSTOMS_FLAGGED",
+                10: "ENTRY_REJECTED",
+                11: "VOTING_ACTIVE",
+                12: "GOODS_RECEIVED",
+                13: "PAYMENT_AUTHORIZED",
+                14: "SETTLEMENT_CONFIRMED",
+                15: "COMPLETED",
+                16: "DISPUTED",
+                17: "EXPIRED",
+                18: "TRADE_REVERTED_BY_CONSENSUS",
+                19: "DISPUTE_RESOLVED_NO_REVERT",
+                20: "CLAIM_PAYOUT_APPROVED"
             };
 
             // ─────────────────────────────────────────────────────────────────────
@@ -347,6 +350,12 @@ export class EventListenerService {
                             data: { status: "GOODS_SHIPPED" }
                         });
 
+                        const shippingCompanyId = shipper?.id || trade?.shippingId;
+                        if (!shippingCompanyId) {
+                            logger.warn(`⚠️ Cannot create BillOfLading for trade ${dbTradeId}: No shipping context found (user or trade).`);
+                            return;
+                        }
+
                         await (prisma.billOfLading as any).upsert({
                             where: { tradeId: dbTradeId },
                             update: {
@@ -356,7 +365,7 @@ export class EventListenerService {
                             },
                             create: {
                                 tradeId: dbTradeId,
-                                shippingCompanyId: shipper?.id || trade?.shippingId,
+                                shippingCompanyId,
                                 bolNumber: `BOL-${dbTradeId.substring(0, 8).toUpperCase()}`,
                                 portOfLoading: "Origin",
                                 portOfDischarge: trade?.destination || "Destination",
@@ -386,18 +395,23 @@ export class EventListenerService {
             );
 
             // ─────────────────────────────────────────────────────────────────────
-            // 7. CustomsDecision(uint256 tradeId, bool cleared, address decidedBy)
+            // 7. CustomsDecisionMade(uint256 tradeId, uint8 decision, uint256 taxAmount, address decidedBy)
             // ─────────────────────────────────────────────────────────────────────
             blockchainService.documentVerification.on(
-                "CustomsDecision",
-                async (tradeId: any, cleared: any, decidedBy: any, event: any) => {
+                "CustomsDecisionMade",
+                async (tradeId: any, decision: any, taxAmount: any, decidedBy: any, event: any) => {
                     const txHash = event.log.transactionHash;
-                    const newStatus = cleared ? "CUSTOMS_CLEARED" : "DUTY_PENDING";
+                    const decisionNum = Number(decision);
+                    // 0 = clear, 1 = flags, 2 = reject
+                    let newStatus = "CUSTOMS_CLEARED";
+                    if (decisionNum === 1) newStatus = "CUSTOMS_FLAGGED";
+                    if (decisionNum === 2) newStatus = "ENTRY_REJECTED";
+
                     logger.transaction({
-                        event: "CustomsDecision",
+                        event: "CustomsDecisionMade",
                         txHash,
                         blockchainId: Number(tradeId),
-                        status: newStatus,
+                        status: newStatus as any,
                         actor: `Customs: ${decidedBy}`
                     });
 
@@ -407,6 +421,25 @@ export class EventListenerService {
                     const customs = await (prisma.user as any).findFirst({ where: { walletAddress: decidedBy.toLowerCase() } });
                     try {
                         await (prisma.trade as any).update({ where: { id: dbTradeId }, data: { status: newStatus } });
+                        
+                        // Update or create CustomsVerification record
+                        await (prisma.customsVerification as any).upsert({
+                            where: { tradeId: dbTradeId },
+                            update: {
+                                decision: decisionNum,
+                                taxAmount: decisionNum === 1 ? Number(taxAmount) : 0,
+                                verifiedAt: new Date()
+                            },
+                            create: {
+                                tradeId: dbTradeId,
+                                customsOfficerId: customs?.id || '',
+                                decision: decisionNum,
+                                taxAmount: decisionNum === 1 ? Number(taxAmount) : 0,
+                                verifiedAt: new Date()
+                            }
+                        });
+
+
                         await (prisma.tradeEvent as any).create({
                             data: {
                                 tradeId: dbTradeId,
@@ -418,86 +451,21 @@ export class EventListenerService {
                                 txHash
                             }
                         });
-                        logger.success(`✅ Trade #${tradeId} → ${newStatus}`);
+                        logger.success(`✅ Trade #${tradeId} → CustomsDecisionMade: ${newStatus}`);
                     } catch (error) {
-                        logger.error(`Error processing CustomsDecision for #${tradeId}:`, error);
+                        logger.error(`Error processing CustomsDecisionMade for #${tradeId}:`, error);
                     }
                 }
             );
 
             // ─────────────────────────────────────────────────────────────────────
-            // 8. DutyPaymentConfirmed(uint256 tradeId, address confirmedBy)
+            // 8. TaxPaidAndGoodsReleased(uint256 tradeId, uint256 taxAmount, address releasedBy)
             // ─────────────────────────────────────────────────────────────────────
             blockchainService.documentVerification.on(
-                "DutyPaymentConfirmed",
-                async (tradeId: any, confirmedBy: any, event: any) => {
+                "TaxPaidAndGoodsReleased",
+                async (tradeId: any, taxAmount: any, releasedBy: any, event: any) => {
                     const txHash = event.log.transactionHash;
-                    logger.transaction({ event: "DutyPaymentConfirmed", txHash, blockchainId: Number(tradeId) });
-
-                    const dbTradeId = await getTradeId(Number(tradeId));
-                    if (!dbTradeId) return;
-
-                    const actor = await (prisma.user as any).findFirst({ where: { walletAddress: confirmedBy.toLowerCase() } });
-                    try {
-                        await (prisma.trade as any).update({ where: { id: dbTradeId }, data: { status: "DUTY_PAID" } });
-                        await (prisma.tradeEvent as any).create({
-                            data: {
-                                tradeId: dbTradeId,
-                                actorId: actor?.id || null,
-                                actorRole: "IMPORTER_BANK",
-                                event: "DUTY_PAYMENT_CONFIRMED",
-                                fromStatus: "DUTY_PENDING",
-                                toStatus: "DUTY_PAID",
-                                txHash
-                            }
-                        });
-                        logger.success(`✅ Trade #${tradeId} → DUTY_PAID (confirmed by Importer Bank)`);
-                    } catch (error) {
-                        logger.error(`Error processing DutyPaymentConfirmed for #${tradeId}:`, error);
-                    }
-                }
-            );
-
-            // ─────────────────────────────────────────────────────────────────────
-            // 8b. TaxReceiptRecorded(uint256 tradeId, address recordedBy)
-            // ─────────────────────────────────────────────────────────────────────
-            blockchainService.documentVerification.on(
-                "TaxReceiptRecorded",
-                async (tradeId: any, recordedBy: any, event: any) => {
-                    const txHash = event.log.transactionHash;
-                    logger.transaction({ event: "TaxReceiptRecorded", txHash, blockchainId: Number(tradeId) });
-
-                    const dbTradeId = await getTradeId(Number(tradeId));
-                    if (!dbTradeId) return;
-
-                    const actor = await (prisma.user as any).findFirst({ where: { walletAddress: recordedBy.toLowerCase() } });
-                    try {
-                        await (prisma.tradeEvent as any).create({
-                            data: {
-                                tradeId: dbTradeId,
-                                actorId: actor?.id || null,
-                                actorRole: "TAX_AUTHORITY",
-                                event: "TAX_RECEIPT_RECORDED",
-                                fromStatus: "DUTY_PAID",
-                                toStatus: "DUTY_PAID",
-                                txHash
-                            }
-                        });
-                        logger.success(`✅ Trade #${tradeId} → Tax receipt recorded by Tax Authority`);
-                    } catch (error) {
-                        logger.error(`Error processing TaxReceiptRecorded for #${tradeId}:`, error);
-                    }
-                }
-            );
-
-            // ─────────────────────────────────────────────────────────────────────
-            // 9. GoodsReleasedFromDuty(uint256 tradeId, address releasedBy)
-            // ─────────────────────────────────────────────────────────────────────
-            blockchainService.documentVerification.on(
-                "GoodsReleasedFromDuty",
-                async (tradeId: any, releasedBy: any, event: any) => {
-                    const txHash = event.log.transactionHash;
-                    logger.transaction({ event: "GoodsReleasedFromDuty", txHash, blockchainId: Number(tradeId) });
+                    logger.transaction({ event: "TaxPaidAndGoodsReleased", txHash, blockchainId: Number(tradeId) });
 
                     const dbTradeId = await getTradeId(Number(tradeId));
                     if (!dbTradeId) return;
@@ -505,20 +473,24 @@ export class EventListenerService {
                     const actor = await (prisma.user as any).findFirst({ where: { walletAddress: releasedBy.toLowerCase() } });
                     try {
                         await (prisma.trade as any).update({ where: { id: dbTradeId }, data: { status: "CUSTOMS_CLEARED" } });
+                        await (prisma.customsVerification as any).updateMany({
+                            where: { tradeId: dbTradeId },
+                            data: { taxPaid: true }
+                        });
                         await (prisma.tradeEvent as any).create({
                             data: {
                                 tradeId: dbTradeId,
                                 actorId: actor?.id || null,
-                                actorRole: "TAX_AUTHORITY",
-                                event: "GOODS_RELEASED_FROM_DUTY",
-                                fromStatus: "DUTY_PAID",
+                                actorRole: "EXPORTER",  // EXPORTER PAYS THE TAX
+                                event: "TAX_PAID_AND_GOODS_RELEASED",
+                                fromStatus: "CUSTOMS_FLAGGED",
                                 toStatus: "CUSTOMS_CLEARED",
                                 txHash
                             }
                         });
-                        logger.success(`✅ Trade #${tradeId} → CUSTOMS_CLEARED (from duty release)`);
+                        logger.success(`✅ Trade #${tradeId} → CUSTOMS_CLEARED (Tax Paid)`);
                     } catch (error) {
-                        logger.error(`Error processing GoodsReleasedFromDuty for #${tradeId}:`, error);
+                        logger.error(`Error processing TaxPaidAndGoodsReleased for #${tradeId}:`, error);
                     }
                 }
             );
@@ -590,6 +562,74 @@ export class EventListenerService {
             );
 
             // ─────────────────────────────────────────────────────────────────────
+            // 11b. FundsRefunded(uint256 tradeId, address to, uint256 amount)
+            // ─────────────────────────────────────────────────────────────────────
+            blockchainService.paymentSettlement.on(
+                "FundsRefunded",
+                async (tradeId: any, to: any, amount: any, event: any) => {
+                    const txHash = event.log.transactionHash;
+                    logger.transaction({ event: "FundsRefunded", txHash, blockchainId: Number(tradeId), actor: `To: ${to}` });
+
+                    const dbTradeId = await getTradeId(Number(tradeId));
+                    if (!dbTradeId) return;
+
+                    try {
+                        const actor = await (prisma.user as any).findFirst({ where: { walletAddress: to.toLowerCase() } });
+                        await (prisma.trade as any).update({
+                            where: { id: dbTradeId },
+                            data: { status: "TRADE_REFUNDED" }
+                        });
+
+                        await (prisma.tradeEvent as any).create({
+                            data: {
+                                tradeId: dbTradeId,
+                                actorId: actor?.id || null,
+                                actorRole: "SYSTEM",
+                                event: "FUNDS_REFUNDED",
+                                toStatus: "TRADE_REFUNDED",
+                                metadata: { refundAmount: Number(amount) },
+                                txHash
+                            }
+                        });
+                        logger.success(`✅ Trade #${tradeId} Funds Refunded to Importer`);
+                    } catch (error) {
+                        logger.error(`Error logging FundsRefunded for #${tradeId}:`, error);
+                    }
+                }
+            );
+
+            // ─────────────────────────────────────────────────────────────────────
+            // 11c. InsurancePayout(uint256 tradeId, address to, uint256 amount)
+            // ─────────────────────────────────────────────────────────────────────
+            blockchainService.paymentSettlement.on(
+                "InsurancePayout",
+                async (tradeId: any, to: any, amount: any, event: any) => {
+                    const txHash = event.log.transactionHash;
+                    logger.transaction({ event: "InsurancePayout", txHash, blockchainId: Number(tradeId), actor: `To: ${to}` });
+
+                    const dbTradeId = await getTradeId(Number(tradeId));
+                    if (!dbTradeId) return;
+
+                    try {
+                        const actor = await (prisma.user as any).findFirst({ where: { walletAddress: to.toLowerCase() } });
+                        await (prisma.tradeEvent as any).create({
+                            data: {
+                                tradeId: dbTradeId,
+                                actorId: actor?.id || null,
+                                actorRole: "SYSTEM",
+                                event: "INSURANCE_PAYOUT_INITIATED",
+                                metadata: { payoutAmount: Number(amount) },
+                                txHash
+                            }
+                        });
+                        logger.success(`✅ Trade #${tradeId} Insurance Payout Triggered`);
+                    } catch (error) {
+                        logger.error(`Error logging InsurancePayout for #${tradeId}:`, error);
+                    }
+                }
+            );
+
+            // ─────────────────────────────────────────────────────────────────────
             // 13. AdvisingBankAssigned(uint256 tradeId, address advisingBank)
             // ─────────────────────────────────────────────────────────────────────
             blockchainService.tradeRegistry.on(
@@ -651,46 +691,77 @@ export class EventListenerService {
             );
 
             // ─────────────────────────────────────────────────────────────────────
-            // 15. DisputeRaised(uint256 tradeId, string evidenceIpfsHash, address raisedBy)
+            // 14b. VotingDeadlineSet(uint256 tradeId, uint256 deadline)
+            // ─────────────────────────────────────────────────────────────────────
+            blockchainService.tradeRegistry.on(
+                "VotingDeadlineSet",
+                async (tradeId: any, deadline: any, event: any) => {
+                    const txHash = event.log.transactionHash;
+                    const dbTradeId = await getTradeId(Number(tradeId));
+                    if (!dbTradeId) return;
+
+                    const deadlineDate = new Date(Number(deadline) * 1000);
+                    logger.transaction({ event: "VotingDeadlineSet", txHash, blockchainId: Number(tradeId), status: deadlineDate.toISOString() as any });
+
+                    await (prisma.trade as any).update({
+                        where: { id: dbTradeId },
+                        data: { votingDeadline: deadlineDate }
+                    });
+                    logger.success(`✅ Trade #${tradeId} Voting Deadline set to: ${deadlineDate.toISOString()}`);
+                }
+            );
+
+            // ─────────────────────────────────────────────────────────────────────
+            // 15. DisputeActivated(uint256 tradeId, uint256 votingDeadline, address activatedBy)
             // ─────────────────────────────────────────────────────────────────────
             if (blockchainService.consensusDispute) {
                 blockchainService.consensusDispute.on(
-                    "DisputeRaised",
-                    async (tradeId: any, evidenceIpfsHash: any, raisedBy: any, event: any) => {
+                    "DisputeActivated",
+                    async (tradeId: any, votingDeadline: any, activatedBy: any, event: any) => {
                         const txHash = event.log.transactionHash;
-                        logger.transaction({ event: "DisputeRaised", txHash, blockchainId: Number(tradeId), actor: `Disputer: ${raisedBy}` });
+                        logger.transaction({ event: "DisputeActivated", txHash, blockchainId: Number(tradeId), actor: `System: ${activatedBy}` });
                         
                         const dbTradeId = await getTradeId(Number(tradeId));
                         if (!dbTradeId) return;
 
-                        const user = await (prisma.user as any).findFirst({ where: { walletAddress: raisedBy.toLowerCase() } });
+                        const user = await (prisma.user as any).findFirst({ where: { walletAddress: activatedBy.toLowerCase() } });
+                        
+                        // Update trade with voting deadline and status
+                        const deadlineDate = new Date(Number(votingDeadline) * 1000);
+                        await (prisma.trade as any).update({ 
+                            where: { id: dbTradeId }, 
+                            data: { 
+                                status: "VOTING_ACTIVE",
+                                votingDeadline: deadlineDate 
+                            } 
+                        });
+
                         await (prisma.tradeEvent as any).create({
                             data: {
                                 tradeId: dbTradeId,
                                 actorId: user?.id || null,
                                 actorRole: user?.role || "SYSTEM",
-                                event: "DISPUTE_RAISED",
-                                ipfsHash: evidenceIpfsHash as string,
+                                event: "DISPUTE_ACTIVATED",
+                                metadata: { deadline: deadlineDate.toISOString() },
                                 txHash
                             }
                         });
-                        logger.success(`✅ Trade #${tradeId} Dispute Raised: ${evidenceIpfsHash}`);
+                        logger.success(`✅ Trade #${tradeId} Dispute Activated. Deadline: ${deadlineDate.toISOString()}`);
                     }
                 );
 
                 // ─────────────────────────────────────────────────────────────────────
-                // 16. VoteCast(uint256 tradeId, address voter, uint8 vote, uint256 points)
+                // 16. VoteCast(uint256 tradeId, address voter, uint8 vote)
                 // ─────────────────────────────────────────────────────────────────────
                 blockchainService.consensusDispute.on(
                     "VoteCast",
-                    async (tradeId: any, voter: any, vote: any, points: any, event: any) => {
+                    async (tradeId: any, voter: any, vote: any, event: any) => {
                         const txHash = event.log.transactionHash;
                         let voteStr = "NONE";
                         if (Number(vote) === 1) voteStr = "REVERT";
-                        else if (Number(vote) === 2) voteStr = "PAYOUT";
-                        else if (Number(vote) === 3) voteStr = "REJECT";
+                        else if (Number(vote) === 2) voteStr = "NO_REVERT";
 
-                        logger.transaction({ event: "VoteCast", txHash, blockchainId: Number(tradeId), actor: `Voter: ${voter}`, status: `Voted ${voteStr} (${Number(points)} pts)` as any });
+                        logger.transaction({ event: "VoteCast", txHash, blockchainId: Number(tradeId), actor: `Voter: ${voter}`, status: `Voted ${voteStr}` as any });
 
                         const dbTradeId = await getTradeId(Number(tradeId));
                         if (!dbTradeId) return;
@@ -702,7 +773,6 @@ export class EventListenerService {
                                 actorId: user?.id || null,
                                 actorRole: user?.role || "SYSTEM",
                                 event: `VOTE_CAST_${voteStr}`,
-                                metadata: { points: Number(points) },
                                 txHash
                             }
                         });
@@ -710,14 +780,17 @@ export class EventListenerService {
                 );
 
                 // ─────────────────────────────────────────────────────────────────────
-                // 17. ConsensusReached(uint256 tradeId, TradeStatus newStatus)
+                // 17. InspectorDecisionSubmitted(uint256 tradeId, bool decision, uint8 cargoStatus)
                 // ─────────────────────────────────────────────────────────────────────
                 blockchainService.consensusDispute.on(
-                    "ConsensusReached",
-                    async (tradeId: any, newStatus: any, event: any) => {
+                    "InspectorDecisionSubmitted",
+                    async (tradeId: any, decision: any, cargoStatus: any, event: any) => {
                         const txHash = event.log.transactionHash;
-                        const statusStr = statusMap[Number(newStatus)] || "UNKNOWN";
-                        logger.transaction({ event: "ConsensusReached", txHash, blockchainId: Number(tradeId), status: statusStr as any });
+                        let statusStr = "SAFE";
+                        if (Number(cargoStatus) === 1) statusStr = "DAMAGED";
+                        else if (Number(cargoStatus) === 2) statusStr = "FAKE_DOCUMENTS";
+
+                        logger.transaction({ event: "InspectorDecisionSubmitted", txHash, blockchainId: Number(tradeId), status: `Cargo: ${statusStr}` as any });
 
                         const dbTradeId = await getTradeId(Number(tradeId));
                         if (!dbTradeId) return;
@@ -725,13 +798,42 @@ export class EventListenerService {
                         await (prisma.tradeEvent as any).create({
                             data: {
                                 tradeId: dbTradeId,
-                                actorRole: "SYSTEM",
-                                event: "CONSENSUS_REACHED",
-                                toStatus: statusStr,
+                                actorRole: "INSPECTOR",
+                                event: "INSPECTOR_DECISION",
+                                metadata: { cargoStatus: statusStr, decision: decision },
                                 txHash
                             }
                         });
-                        logger.success(`✅ Trade #${tradeId} Consensus Reached: ${statusStr}`);
+                        logger.success(`✅ Trade #${tradeId} Inspector Decision: Cargo ${statusStr}`);
+                    }
+                );
+
+                // ─────────────────────────────────────────────────────────────────────
+                // 18. VotingFinalized(uint256 tradeId, uint8 revertVotes, uint8 noRevertVotes, uint8 outcome)
+                // ─────────────────────────────────────────────────────────────────────
+                blockchainService.consensusDispute.on(
+                    "VotingFinalized",
+                    async (tradeId: any, revertVotes: any, noRevertVotes: any, outcome: any, event: any) => {
+                        const txHash = event.log.transactionHash;
+                        const statusStr = statusMap[Number(outcome)] || "UNKNOWN";
+                        logger.transaction({ event: "VotingFinalized", txHash, blockchainId: Number(tradeId), status: statusStr as any });
+
+                        const dbTradeId = await getTradeId(Number(tradeId));
+                        if (!dbTradeId) return;
+
+                        await (prisma.trade as any).update({ where: { id: dbTradeId }, data: { status: statusStr } });
+
+                        await (prisma.tradeEvent as any).create({
+                            data: {
+                                tradeId: dbTradeId,
+                                actorRole: "SYSTEM",
+                                event: "VOTING_FINALIZED",
+                                toStatus: statusStr,
+                                metadata: { revertVotes: Number(revertVotes), noRevertVotes: Number(noRevertVotes) },
+                                txHash
+                            }
+                        });
+                        logger.success(`✅ Trade #${tradeId} Voting Finalized: ${statusStr}`);
                     }
                 );
             }
@@ -742,8 +844,13 @@ export class EventListenerService {
             // Using a persistent error handler on the provider to catch polling failures
             const errorHandler = (error: any) => {
                 const message = error?.message || error?.error?.message || "";
-                if (message.includes("filter not found") || message.includes("could not coalesce error")) {
-                    logger.warn("⚠️  Blockchain filter or provider error detected. Re-starting listeners...");
+                if (
+                    message.includes("filter not found") || 
+                    message.includes("could not coalesce error") ||
+                    message.includes("ECONNRESET") ||
+                    message.includes("NETWORK_ERROR")
+                ) {
+                    logger.warn("⚠️  Blockchain connection issue or filter error detected. Re-starting listeners in 5s...");
 
                     // Prevent infinite recursion by removing the error handler before restarting
                     blockchainService.provider.off("error", errorHandler);

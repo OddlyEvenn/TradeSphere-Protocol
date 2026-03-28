@@ -1,9 +1,39 @@
 import { Request, Response } from 'express';
 import { prisma } from '../services/PrismaService';
 import { logger } from '../utils/logger';
+import { Prisma } from '@prisma/client';
+import { getStringParam } from '../utils/request';
+
+
+/**
+ * Shared inclusion object for Trade relations to ensure consistency across endpoints.
+ */
+const TRADE_INCLUDE = {
+    importer: { select: { id: true, name: true, email: true, walletAddress: true } },
+    exporter: { select: { id: true, name: true, email: true, walletAddress: true } },
+    importerBank: { select: { id: true, name: true, email: true, walletAddress: true } },
+    exporterBank: { select: { id: true, name: true, email: true, walletAddress: true } },
+    shipping: { select: { id: true, name: true, email: true, walletAddress: true } },
+    customs: { select: { id: true, name: true, email: true, walletAddress: true } },
+    insurance: { select: { id: true, name: true, email: true, walletAddress: true } },
+    letterOfCredit: true,
+    billOfLading: true,
+    customsVerification: true,
+    _count: { select: { offers: true } }
+} satisfies Prisma.TradeInclude;
+
+interface AuthUser {
+    userId: string;
+    role: string;
+}
+
+interface AuthRequest extends Request {
+    user: AuthUser;
+}
 
 export const createTrade = async (req: Request, res: Response) => {
     try {
+        const authReq = req as AuthRequest;
         const {
             exporterId,
             amount,
@@ -18,15 +48,16 @@ export const createTrade = async (req: Request, res: Response) => {
             insuranceRequired,
             qualityStandards,
             additionalConditions,
-            status,
             priority,
             inspectorId,
             customsOfficerId,
-            insuranceId
+            insuranceId,
+            status
         } = req.body;
-        const importerId = (req as any).user.userId;
+        
+        const importerId = authReq.user.userId;
 
-        const trade = await (prisma.trade as any).create({
+        const trade = await prisma.trade.create({
             data: {
                 amount: parseFloat(amount.toString()),
                 status: status || 'QUEUED',
@@ -36,7 +67,8 @@ export const createTrade = async (req: Request, res: Response) => {
                 destination,
                 priceRange: priceRange || null,
                 shippingDeadline: shippingDeadline ? new Date(shippingDeadline) : null,
-                clearanceDeadline: clearanceDeadline ? new Date(clearanceDeadline) : null,
+                // Using clearanceDeadline as qualityStandards if appropriate, or mapping it correctly
+                // clearanceDeadline: clearanceDeadline ? new Date(clearanceDeadline) : null, 
                 insuranceRequired: insuranceRequired === true || insuranceRequired === 'true',
                 qualityStandards: qualityStandards || null,
                 additionalConditions: additionalConditions || null,
@@ -45,155 +77,114 @@ export const createTrade = async (req: Request, res: Response) => {
                 ...(importerBankId && { importerBank: { connect: { id: importerBankId } } }),
                 ...(exporterBankId && { exporterBank: { connect: { id: exporterBankId } } }),
                 ...(inspectorId && { inspector: { connect: { id: inspectorId } } }),
+                // Fixing mapping: customsOfficerId used to connect 'customs' relation
                 ...(customsOfficerId && { customs: { connect: { id: customsOfficerId } } }),
                 ...(insuranceId && { insurance: { connect: { id: insuranceId } } })
-            }
+            },
+            include: TRADE_INCLUDE
         });
 
         // Create initial trade event
-        await (prisma.tradeEvent as any).create({
+        await prisma.tradeEvent.create({
             data: {
                 tradeId: trade.id,
                 actorId: importerId,
                 actorRole: 'IMPORTER',
                 event: 'TRADE_REQUEST_QUEUED',
                 fromStatus: null,
-                toStatus: status || 'QUEUED'
+                toStatus: trade.status
             }
         });
 
         res.status(201).json(trade);
     } catch (error: any) {
-        console.error("Create trade error:", error);
+        logger.error("Create trade error:", error);
         res.status(500).json({ message: error.message });
     }
 };
 
 export const getMyTrades = async (req: Request, res: Response) => {
     try {
-        const userId = (req as any).user.userId;
-        const role = (req as any).user.role;
+        const authReq = req as AuthRequest;
+        const userId = authReq.user.userId;
+        const role = authReq.user.role;
 
-        let trades;
-        const includeBase = {
-            importer: { select: { id: true, name: true, email: true, walletAddress: true } },
-            exporter: { select: { id: true, name: true, email: true, walletAddress: true } },
-            importerBank: { select: { id: true, name: true, email: true, walletAddress: true } },
-            exporterBank: { select: { id: true, name: true, email: true, walletAddress: true } },
-            shipping: { select: { id: true, name: true, email: true, walletAddress: true } },
-            inspector: { select: { id: true, name: true, email: true, walletAddress: true } },
-            customs: { select: { id: true, name: true, email: true, walletAddress: true } },
-            insurance: { select: { id: true, name: true, email: true, walletAddress: true } },
-            taxAuthority: { select: { id: true, name: true, email: true, walletAddress: true } },
-            letterOfCredit: true,
-            billOfLading: true,
-            _count: { select: { offers: true } }
-        };
+        let whereClause: Prisma.TradeWhereInput = {};
 
-        if (role === 'IMPORTER') {
-            trades = await (prisma.trade as any).findMany({
-                where: { importerId: userId },
-                include: includeBase,
-                orderBy: { createdAt: 'desc' }
-            });
-        } else if (role === 'EXPORTER') {
-            trades = await (prisma.trade as any).findMany({
-                where: { exporterId: userId },
-                include: includeBase,
-                orderBy: { createdAt: 'desc' }
-            });
-        } else if (role === 'IMPORTER_BANK') {
-            trades = await (prisma.trade as any).findMany({
-                where: { importerBankId: userId },
-                include: includeBase,
-                orderBy: { createdAt: 'desc' }
-            });
-        } else if (role === 'EXPORTER_BANK') {
-            trades = await (prisma.trade as any).findMany({
-                where: { exporterBankId: userId },
-                include: includeBase,
-                orderBy: { createdAt: 'desc' }
-            });
-        } else if (role === 'SHIPPING') {
-            // Shipping sees all trades that need dispatch or are in transit
-            trades = await (prisma.trade as any).findMany({
-                where: { status: { in: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'COMPLETED'] } },
-                include: includeBase,
-                orderBy: { createdAt: 'desc' }
-            });
-        } else if (role === 'CUSTOMS') {
-            // Customs sees all trades that are in shipment/clearance statuses
-            trades = await (prisma.trade as any).findMany({
-                where: { status: { in: ['GOODS_SHIPPED', 'DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'COMPLETED'] } },
-                include: includeBase,
-                orderBy: { createdAt: 'desc' }
-            });
-        } else if (role === 'TAX_AUTHORITY') {
-            // Tax authority sees all trades with duty pending
-            trades = await (prisma.trade as any).findMany({
-                where: { status: { in: ['DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'COMPLETED'] } },
-                include: includeBase,
-                orderBy: { createdAt: 'desc' }
-            });
-        } else if (role === 'INSPECTOR') {
-            trades = await (prisma.trade as any).findMany({
-                where: { OR: [{ inspectorId: userId }, { status: { in: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'DISPUTED', 'TRADE_REVERTED_BY_CONSENSUS', 'COMPLETED'] } }] },
-                include: includeBase,
-                orderBy: { createdAt: 'desc' }
-            });
-        } else if (role === 'INSURANCE') {
-            trades = await (prisma.trade as any).findMany({
-                where: { OR: [{ insuranceId: userId }, { status: { in: ['GOODS_SHIPPED', 'DISPUTED', 'CLAIM_PAYOUT_APPROVED', 'TRADE_REVERTED_BY_CONSENSUS', 'COMPLETED'] } }] },
-                include: includeBase,
-                orderBy: { createdAt: 'desc' }
-            });
-        } else {
-            // REGULATORS and other roles see all trades
-            trades = await (prisma.trade as any).findMany({
-                include: includeBase,
-                orderBy: { createdAt: 'desc' }
-            });
+        // Best practice: Use relation filtering instead of scalar IDs to avoid client desync issues
+        switch (role) {
+            case 'IMPORTER':
+                whereClause = { importer: { id: userId } };
+                break;
+            case 'EXPORTER':
+                whereClause = { exporter: { id: userId } };
+                break;
+            case 'IMPORTER_BANK':
+                whereClause = { importerBank: { id: userId } };
+                break;
+            case 'EXPORTER_BANK':
+                whereClause = { exporterBank: { id: userId } };
+                break;
+            case 'SHIPPING':
+                whereClause = { status: { in: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'PAYMENT_AUTHORIZED', 'COMPLETED'] } };
+                break;
+            case 'CUSTOMS':
+                whereClause = { status: { in: ['GOODS_SHIPPED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'DISPUTE_RESOLVED_NO_REVERT', 'CLAIM_PAYOUT_APPROVED', 'COMPLETED'] } };
+                break;
+            case 'INSPECTOR':
+                whereClause = { 
+                    OR: [
+                        { inspector: { id: userId } }, 
+                        { status: { in: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'DISPUTED', 'DISPUTE_RESOLVED_NO_REVERT', 'CLAIM_PAYOUT_APPROVED', 'COMPLETED'] } }
+                    ] 
+                };
+                break;
+            case 'INSURANCE':
+                whereClause = { 
+                    OR: [
+                        { insurance: { id: userId } }, 
+                        { status: { in: ['ENTRY_REJECTED', 'VOTING_ACTIVE', 'DISPUTED', 'DISPUTE_RESOLVED_NO_REVERT', 'CLAIM_PAYOUT_APPROVED', 'COMPLETED'] } }
+                    ] 
+                };
+                break;
+            default:
+                // Any other roles see all trades if they don't have specific filtering
+                whereClause = {};
         }
+
+        const trades = await prisma.trade.findMany({
+            where: whereClause,
+            include: TRADE_INCLUDE,
+            orderBy: { createdAt: 'desc' }
+        });
 
         res.status(200).json(trades);
     } catch (error: any) {
-        console.error("Get my trades error:", error);
+        logger.error("Get my trades error:", error);
         res.status(500).json({ message: error.message });
     }
 };
 
 export const getTradeById = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
-        const trade = await (prisma.trade as any).findUnique({
-            where: { id: id as string },
-            include: {
-                importer: { select: { id: true, name: true, email: true, walletAddress: true } },
-                exporter: { select: { id: true, name: true, email: true, walletAddress: true } },
-                importerBank: { select: { id: true, name: true, email: true, walletAddress: true } },
-                exporterBank: { select: { id: true, name: true, email: true, walletAddress: true } },
-                shipping: { select: { id: true, name: true, email: true, walletAddress: true } },
-                customs: { select: { id: true, name: true, email: true } },
-                taxAuthority: { select: { id: true, name: true, email: true } },
-                letterOfCredit: true,
-                billOfLading: true,
-                customsVerification: true,
-                dutyAssessment: true,
-                _count: { select: { offers: true } }
-            }
+        const id = getStringParam(req.params.id);
+        const trade = await prisma.trade.findUnique({
+            where: { id },
+            include: TRADE_INCLUDE
         });
+
 
         if (!trade) return res.status(404).json({ message: 'Trade not found' });
         res.json(trade);
     } catch (error: any) {
-        console.error("Get trade by id error:", error);
+        logger.error("Get trade by id error:", error);
         res.status(500).json({ message: error.message });
     }
 };
 
 export const getMarketplaceTrades = async (req: Request, res: Response) => {
     try {
-        const trades = await (prisma.trade as any).findMany({
+        const trades = await prisma.trade.findMany({
             where: { status: 'OPEN_FOR_OFFERS' },
             include: {
                 importer: { select: { id: true, name: true } },
@@ -203,15 +194,15 @@ export const getMarketplaceTrades = async (req: Request, res: Response) => {
         });
         res.json(trades);
     } catch (error: any) {
-        console.error("Get marketplace trades error:", error);
+        logger.error("Get marketplace trades error:", error);
         res.status(500).json({ message: error.message });
     }
 };
 
 export const getTradeEvents = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
-        const events = await (prisma.tradeEvent as any).findMany({
+        const id = getStringParam(req.params.id);
+        const events = await prisma.tradeEvent.findMany({
             where: { tradeId: id },
             include: {
                 actor: { select: { id: true, name: true, role: true } }
@@ -220,53 +211,50 @@ export const getTradeEvents = async (req: Request, res: Response) => {
         });
         res.json(events);
     } catch (error: any) {
-        console.error("Get trade events error:", error);
+        logger.error("Get trade events error:", error);
         res.status(500).json({ message: error.message });
     }
 };
 
 export const updateTrade = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const id = getStringParam(req.params.id);
         const updates = req.body;
 
-        // ─── STALE ID CLEANUP (FOR MANUAL PUSH) ───────────────────────────
-        // If frontend manually pushes a blockchainId, we must ensure it's not 
-        // already taken by a stale record.
         if (updates.blockchainId !== undefined && updates.blockchainId !== null) {
             const bcId = Number(updates.blockchainId);
-            const staleTrade = await (prisma.trade as any).findUnique({
+            const staleTrade = await prisma.trade.findUnique({
                 where: { blockchainId: bcId }
             });
 
             if (staleTrade && staleTrade.id !== id) {
                 logger.warn(`⚠️  Manual push: Blockchain ID #${bcId} was assigned to STALE trade ${staleTrade.id}. Un-mapping.`);
-                await (prisma.trade as any).update({
+                await prisma.trade.update({
                     where: { id: staleTrade.id },
                     data: { blockchainId: null }
                 });
             }
         }
-        // ──────────────────────────────────────────────────────────────
 
-        const trade = await (prisma.trade as any).update({
+        const trade = await prisma.trade.update({
             where: { id },
             data: updates,
         });
 
         res.json(trade);
     } catch (error: any) {
-        console.error("Update trade error:", error);
+        logger.error("Update trade error:", error);
         res.status(500).json({ message: error.message });
     }
 };
 
 export const deleteTrade = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
-        const userId = (req as any).user.userId;
+        const authReq = req as AuthRequest;
+        const id = getStringParam(req.params.id);
+        const userId = authReq.user.userId;
 
-        const trade = await (prisma.trade as any).findUnique({
+        const trade = await prisma.trade.findUnique({
             where: { id }
         });
 
@@ -282,101 +270,117 @@ export const deleteTrade = async (req: Request, res: Response) => {
             return res.status(400).json({ message: `Cannot delete trade with status: ${trade.status}` });
         }
 
-        // Delete associated records first
-        await (prisma.tradeEvent as any).deleteMany({ where: { tradeId: id } });
-        await (prisma.marketplaceOffer as any).deleteMany({ where: { tradeId: id } });
-
-        await (prisma.trade as any).delete({
-            where: { id }
-        });
+        // Transactional delete to ensure consistency
+        await prisma.$transaction([
+            prisma.tradeEvent.deleteMany({ where: { tradeId: id } }),
+            prisma.marketplaceOffer.deleteMany({ where: { tradeId: id } }),
+            prisma.trade.delete({ where: { id } })
+        ]);
 
         res.status(200).json({ message: 'Trade deleted successfully' });
     } catch (error: any) {
-        console.error("Delete trade error:", error);
+        logger.error("Delete trade error:", error);
         res.status(500).json({ message: error.message });
     }
 };
 
 export const updateTradeState = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
-        const status = req.body.status as string | undefined;
-        const txHash = req.body.txHash as string | undefined;
-        const ipfsHash = req.body.ipfsHash as string | undefined;
-        const eventName = req.body.eventName as string | undefined;
-        const taxAmount = req.body.taxAmount;
+        const authReq = req as AuthRequest;
+        const id = getStringParam(req.params.id);
+        const { status, txHash, ipfsHash, eventName, taxAmount } = req.body;
 
-        const userId = (req as any).user.userId;
-        const role = (req as any).user.role;
+        const userId = authReq.user.userId;
+        const role = authReq.user.role;
 
-        // ─── ARCHITECTURE ENFORCEMENT ──────────────────────────────────────
-        // Trade status transitions ONLY happen through blockchain events.
-        // The EventListenerService listens to on-chain events and updates the DB.
-        // This endpoint is for recording satellite data only (dutyAmount, eventName).
-        //
-        // EXCEPTION: a txHash MUST accompany any status change requested here.
-        // This ensures the DB change is backed by a real blockchain transaction.
-        // ──────────────────────────────────────────────────────────────────────
-        const STATUS_CHANGING_ACTIONS = [
-            'DUTY_ASSESSED',    // Tax authority assesses duty amount (off-chain input, on-chain record)
-        ];
+        const STATUS_CHANGING_ACTIONS = ['CUSTOMS_DECISION'];
 
-        // If caller is trying to change status without a txHash, reject it.
-        // Status must come from EventListenerService (on-chain event) EXCEPT for special off-chain helpers.
         if (status && !txHash && !STATUS_CHANGING_ACTIONS.includes(eventName || '')) {
-            logger.warn(
-                `🚫 REJECTED direct DB status update for trade ${id}. ` +
-                `Status "${status}" must originate from a blockchain transaction. Missing txHash.`
-            );
+            logger.warn(`🚫 REJECTED direct DB status update for trade ${id}. Missing txHash.`);
             return res.status(400).json({
-                message: `BLOCKCHAIN ENFORCEMENT: Trade status changes must originate from a blockchain transaction. ` +
-                    `Please submit the on-chain transaction first. The EventListenerService will update the database automatically.`,
+                message: `BLOCKCHAIN ENFORCEMENT: Trade status changes must originate from a blockchain transaction.`,
                 code: 'MISSING_TX_HASH'
             });
         }
 
         if (txHash) {
             logger.transaction({
-                event: (eventName as any) || "FrontendStateRecord",
+                event: eventName || "FrontendStateRecord",
                 txHash,
-                dbId: id as string,
+                dbId: id,
                 actor: `${role} (${userId})`,
-                status: status as any
+                status: status
             });
         }
 
-        const trade = await (prisma.trade as any).findUnique({ where: { id } });
+        const trade = await prisma.trade.findUnique({ where: { id } });
         if (!trade) return res.status(404).json({ message: 'Trade not found' });
 
-        // Only record satellite / auxiliary data — never mutate status unless txHash is present
-        const updateData: any = {};
-        if (status && txHash) updateData.status = status as any; // backed by blockchain tx
-        if (taxAmount !== undefined && taxAmount !== null) updateData.dutyAmount = parseFloat(taxAmount);
+        const updateData: Prisma.TradeUpdateInput = {};
+        if (status && txHash) updateData.status = status;
 
-        const updatedTrade = await (prisma.trade as any).update({
+        const updatedTrade = await prisma.trade.update({
             where: { id },
-            data: updateData as any
+            data: updateData
         });
 
-        // Create a TradeEvent audit record
-        await (prisma.tradeEvent as any).create({
+        await prisma.tradeEvent.create({
             data: {
                 tradeId: id,
                 actorId: userId,
                 actorRole: role,
-                event: (eventName as any) || (status as any) || 'TRADE_RECORD_UPDATED',
+                event: eventName || status || 'TRADE_RECORD_UPDATED',
                 fromStatus: trade.status,
-                toStatus: (updateData.status as any) || trade.status,
-                txHash: (txHash as any) || null,
-                ipfsHash: (ipfsHash as any) || null
-            } as any
+                toStatus: (updateData.status as string) || trade.status,
+                txHash: txHash || null,
+                ipfsHash: ipfsHash || null
+            }
         });
 
-        const newStatus = updateData.status || trade.status;
-        logger.success(`Trade ${id} — satellite data recorded. Status: ${trade.status} → ${newStatus}`);
         res.json({ message: `Trade record updated`, trade: updatedTrade });
     } catch (error: any) {
         logger.error("Update trade state error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getVotingSummary = async (req: Request, res: Response) => {
+    try {
+        const id = getStringParam(req.params.id);
+        const { blockchainService } = await import('../services/BlockchainService');
+
+        const trade = await prisma.trade.findUnique({
+            where: { id },
+            include: TRADE_INCLUDE
+        });
+
+        if (!trade || !trade.blockchainId) {
+            return res.status(404).json({ message: 'Trade or Blockchain ID not found' });
+        }
+
+        const contract = blockchainService.consensusDispute;
+        const summary = await contract.getVotingSummary(trade.blockchainId);
+        const decision = await contract.getInspectorDecision(trade.blockchainId);
+
+        res.json({
+            trade,
+            voting: {
+                active: summary[0],
+                finalized: summary[1],
+                votingDeadline: Number(summary[2]),
+                revertVotes: Number(summary[3]),
+                noRevertVotes: Number(summary[4]),
+                totalVotesCast: Number(summary[5])
+            },
+            inspectorDecision: {
+                submitted: decision[0],
+                decision: decision[1],
+                cargoStatus: Number(decision[2]),
+                notes: decision[3]
+            }
+        });
+    } catch (error: any) {
+        logger.error("Get voting summary error:", error);
         res.status(500).json({ message: error.message });
     }
 };

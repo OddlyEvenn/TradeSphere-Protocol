@@ -1,0 +1,54 @@
+name: Smart Contract CI/CD and Security
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  linting:
+    name: Solhint Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm ci || npm install
+
+      - name: Run Solhint
+        run: npx solhint 'contracts/**/*.sol'
+
+  slither-security-scan:
+    name: Slither Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Node Dependencies
+        run: npm ci || npm install
+
+      - name: Install Slither and Solc-Select
+        run: pip3 install slither-analyzer solc-select
+
+      - name: Run Slither Analyzer
+        # Fails the pipeline if any High or Critical issues are found (common SWC checks). 
+        # Adding `--fail-none` or specific thresholds blocks deployment on failure.
+        run: slither .

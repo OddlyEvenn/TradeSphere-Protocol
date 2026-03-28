@@ -44,15 +44,24 @@ const Dashboard: React.FC = () => {
         const addr = await walletService.connect();
         if (addr) {
             setAccount(addr);
-            // Sync with backend
-            try {
-                await api.post('/auth/update-wallet', {
-                    userId: user.id,
-                    walletAddress: addr
-                });
-                console.log("Wallet address synced with backend");
-            } catch (err) {
-                console.error("Failed to sync wallet address", err);
+            
+            // Sync if the address is DIFFERENT from the one in local state OR if local state is missing it
+            if (addr.toLowerCase() !== user.walletAddress?.toLowerCase() || !user.walletAddress) {
+                try {
+                    const res = await api.post('/auth/update-wallet', {
+                        userId: user.id,
+                        walletAddress: addr
+                    });
+                    console.log("Wallet address synced with backend");
+                    
+                    // Update local user state using response from backend
+                    const updatedUser = res.data.user;
+                    setUser(updatedUser);
+                    localStorage.setItem('user', JSON.stringify(updatedUser));
+                    toast.success("Identity Secured! Your wallet is now linked to this node.");
+                } catch (err) {
+                    console.error("Failed to sync wallet address", err);
+                }
             }
         }
     };
@@ -109,7 +118,7 @@ const Dashboard: React.FC = () => {
             case 'EXPORTER_BANK':
                 return { title: 'Bank Control', subtitle: 'Verify creditworthiness and release settlements', icon: Landmark };
             case 'CUSTOMS':
-                return { title: 'Customs Authority', subtitle: 'International trade clearance and inspection', icon: Globe };
+                return { title: 'Customs & Tax Authority', subtitle: 'International trade clearance and inspection', icon: Globe };
             default:
                 return { title: 'Trade Control', subtitle: 'Operational overview', icon: Shield };
         }
@@ -182,11 +191,17 @@ const Dashboard: React.FC = () => {
                                 <div className="p-4 bg-slate-50 rounded-2xl text-slate-400 group-hover:bg-indigo-800 group-hover:text-white transition-all">
                                     <Package size={28} />
                                 </div>
-                                <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${trade.status === 'CREATED' ? 'bg-amber-50 text-amber-600' :
-                                    trade.status === 'PAYMENT_AUTHORIZED' ? 'bg-emerald-50 text-emerald-600' :
-                                        'bg-indigo-50 text-indigo-700'
+                                <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                                    trade.status === 'COMPLETED' || trade.status === 'CUSTOMS_CLEARED' || trade.status === 'GOODS_RECEIVED' ? 'bg-emerald-50 text-emerald-600' :
+                                    trade.status === 'CUSTOMS_FLAGGED' ? 'bg-amber-50 text-amber-600' :
+                                    trade.status === 'ENTRY_REJECTED' || trade.status === 'TRADE_REVERTED_BY_CONSENSUS' ? 'bg-rose-50 text-rose-600' :
+                                    trade.status === 'VOTING_ACTIVE' ? 'bg-purple-50 text-purple-600' :
+                                    trade.status === 'DISPUTE_RESOLVED_NO_REVERT' ? 'bg-teal-50 text-teal-600' :
+                                    trade.status === 'CLAIM_PAYOUT_APPROVED' ? 'bg-indigo-50 text-indigo-600' :
+                                    trade.status === 'PAYMENT_AUTHORIZED' || trade.status === 'SETTLEMENT_CONFIRMED' ? 'bg-emerald-50 text-emerald-600' :
+                                    'bg-blue-50 text-blue-700'
                                     }`}>
-                                    {trade.status}
+                                    {trade.status.replace(/_/g, ' ')}
                                 </span>
                             </div>
 

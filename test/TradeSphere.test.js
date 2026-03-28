@@ -2,12 +2,13 @@ import { expect } from "chai";
 import pkg from "hardhat";
 const { ethers } = pkg;
 
-describe("TradeSphere Protocol – Phase 2 Full Lifecycle", function () {
+describe("TradeSphere Protocol – Full Lifecycle Tests", function () {
   let tradeRegistry, letterOfCredit, docVerification, paymentSettlement;
-  let owner, importer, exporter, issuingBank, advisingBank, shipping;
+  let owner, importer, exporter, issuingBank, advisingBank, shipping, inspector, customs, insurance;
 
   beforeEach(async function () {
-    [owner, importer, exporter, issuingBank, advisingBank, shipping] = await ethers.getSigners();
+    [owner, importer, exporter, issuingBank, advisingBank, shipping, inspector, customs, insurance] =
+      await ethers.getSigners();
 
     const TradeRegistry = await ethers.getContractFactory("TradeRegistry");
     tradeRegistry = await TradeRegistry.deploy();
@@ -27,6 +28,38 @@ describe("TradeSphere Protocol – Phase 2 Full Lifecycle", function () {
     await tradeRegistry.setAuthorizedContract(await paymentSettlement.getAddress(), true);
   });
 
+  /**
+   * Helper: Create a trade and advance to GOODS_SHIPPED
+   */
+  async function setupToGoodsShipped(amount) {
+    const expiry = Math.floor(Date.now() / 1000) + 86400;
+    const bolIpfs = "QmBillOfLadingHash456";
+
+    await tradeRegistry.connect(importer).createTrade(
+      exporter.address, issuingBank.address, advisingBank.address,
+      inspector.address, customs.address, insurance.address,
+      amount, 0, 0
+    );
+    await tradeRegistry.connect(importer).confirmTrade(0);
+    await tradeRegistry.connect(exporter).confirmTrade(0);
+    await tradeRegistry.updateStatus(0, 2); // LOC_INITIATED
+    await letterOfCredit.connect(issuingBank).uploadLocDocument(0, expiry, "QmLoCDoc123");
+    await letterOfCredit.connect(advisingBank).approveLoC(0);
+    await letterOfCredit.connect(issuingBank).lockFunds(0);
+    await tradeRegistry.connect(importer).assignShippingCompany(0, shipping.address);
+    await docVerification.connect(shipping).issueBillOfLading(0, bolIpfs);
+
+    return bolIpfs;
+  }
+
+  // ── Status Enum Reference ──
+  // 0=OFFER_ACCEPTED, 1=TRADE_INITIATED, 2=LOC_INITIATED, 3=LOC_UPLOADED,
+  // 4=LOC_APPROVED, 5=FUNDS_LOCKED, 6=SHIPPING_ASSIGNED, 7=GOODS_SHIPPED,
+  // 8=CUSTOMS_CLEARED, 9=CUSTOMS_FLAGGED, 10=ENTRY_REJECTED, 11=VOTING_ACTIVE,
+  // 12=GOODS_RECEIVED, 13=PAYMENT_AUTHORIZED, 14=SETTLEMENT_CONFIRMED,
+  // 15=COMPLETED, 16=DISPUTED, 17=EXPIRED, 18=TRADE_REVERTED_BY_CONSENSUS,
+  // 19=DISPUTE_RESOLVED_NO_REVERT, 20=CLAIM_PAYOUT_APPROVED
+
   it("Should prevent unauthorized status updates", async function () {
     await expect(
       tradeRegistry.connect(importer).updateStatus(0, 1)
@@ -38,139 +71,106 @@ describe("TradeSphere Protocol – Phase 2 Full Lifecycle", function () {
     expect(await tradeRegistry.authorizedContracts(locAddress)).to.equal(true);
   });
 
-  it("Should facilitate full trade lifecycle — OFFER_ACCEPTED → COMPLETED", async function () {
+  it("Should complete full trade lifecycle — CLEAR path (decision 0)", async function () {
     const amount = ethers.parseEther("10");
-    const expiry = Math.floor(Date.now() / 1000) + 86400; // 24h
-    const locIpfs = "QmLoCDocumentHash123";
-    const bolIpfs = "QmBillOfLadingHash456";
 
-    // ── Step 1: Create Trade (status = OFFER_ACCEPTED) ──────────────────
-    await tradeRegistry.connect(importer).createTrade(
-      exporter.address, issuingBank.address, advisingBank.address,
-      ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress,
-      amount, 0, 0
-    );
+    // Setup to GOODS_SHIPPED
+    await setupToGoodsShipped(amount);
+
     let trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(0); // OFFER_ACCEPTED
+    expect(trade.status).to.equal(7); // GOODS_SHIPPED
 
-    // ── Step 2: Both parties confirm → TRADE_INITIATED ──────────────────
-    await tradeRegistry.connect(importer).confirmTrade(0);
-    await tradeRegistry.connect(exporter).confirmTrade(0);
+    // Customs decision: CLEAR (decision=0) → CUSTOMS_CLEARED
+    await docVerification.connect(customs).verifyAsCustoms(0, 0, 0, "");
     trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(1); // TRADE_INITIATED
+    expect(trade.status).to.equal(8); // CUSTOMS_CLEARED
 
-    // ── Step 3: Move to LOC_INITIATED (done by backend updateStatus) ────
-    await tradeRegistry.updateStatus(0, 2); // LOC_INITIATED
+    // Importer confirms goods received → GOODS_RECEIVED
+    await tradeRegistry.connect(importer).confirmGoodsReceived(0);
     trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(2); // LOC_INITIATED
+    expect(trade.status).to.equal(12); // GOODS_RECEIVED
 
-    // ── Step 4: Importer bank uploads LoC doc → LOC_UPLOADED ────────────
-    await letterOfCredit.connect(issuingBank).uploadLocDocument(0, expiry, locIpfs);
-    trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(3); // LOC_UPLOADED
-
-    // Verify IPFS hash stored on-chain
-    const loc = await letterOfCredit.getLoC(0);
-    expect(loc.locDocIpfsHash).to.equal(locIpfs);
-
-    // ── Step 5: Exporter bank approves LoC → LOC_APPROVED ───────────────
-    await letterOfCredit.connect(advisingBank).approveLoC(0);
-    trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(4); // LOC_APPROVED
-
-    // ── Step 6: Importer bank locks funds → FUNDS_LOCKED ────────────────
-    await letterOfCredit.connect(issuingBank).lockFunds(0);
-    trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(5); // FUNDS_LOCKED
-
-    // ── Step 7: Assign shipping company ─────────────────────────────────
-    await tradeRegistry.connect(importer).assignShippingCompany(0, shipping.address);
-    trade = await tradeRegistry.getTrade(0);
-    expect(trade.shippingCompany).to.equal(shipping.address);
-
-    // ── Step 8: Shipping issues BoL → GOODS_SHIPPED ─────────────────────
-    await docVerification.connect(shipping).issueBillOfLading(0, bolIpfs);
-    trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(6); // GOODS_SHIPPED
-
-    // Verify BoL IPFS hash on-chain
-    const bolHash = await docVerification.getBolIpfsHash(0);
-    expect(bolHash).to.equal(bolIpfs);
-
-    // ── Step 9: Customs clears goods → CUSTOMS_CLEARED ──────────────────
-    await docVerification.connect(owner).verifyAsCustoms(0, true, "");
-    trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(7); // CUSTOMS_CLEARED
-
-    // ── Step 10: Importer bank authorizes payment → PAYMENT_AUTHORIZED ──
+    // Importer bank authorizes payment → PAYMENT_AUTHORIZED
     await paymentSettlement.connect(issuingBank).authorizePayment(0);
     trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(10); // PAYMENT_AUTHORIZED
+    expect(trade.status).to.equal(13); // PAYMENT_AUTHORIZED
 
-    // ── Step 11: Exporter bank confirms settlement → COMPLETED ───────────
+    // Exporter bank confirms settlement → COMPLETED
     await paymentSettlement.connect(advisingBank).confirmSettlement(0);
     trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(12); // COMPLETED
+    expect(trade.status).to.equal(15); // COMPLETED
 
     const settlement = await paymentSettlement.getSettlement(0);
     expect(settlement.settlementConfirmed).to.equal(true);
   });
 
-  it("Should enforce DUTY_PENDING → DUTY_PAID → CUSTOMS_CLEARED branch", async function () {
+  it("Should enforce CUSTOMS_FLAGGED → tax paid → CUSTOMS_CLEARED path (decision 1)", async function () {
     const amount = ethers.parseEther("5");
-    const expiry = Math.floor(Date.now() / 1000) + 86400;
+    const taxAmount = ethers.parseEther("0.5");
 
-    // Setup: get to GOODS_SHIPPED
-    await tradeRegistry.connect(importer).createTrade(
-      exporter.address, issuingBank.address, advisingBank.address,
-      ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress,
-      amount, 0, 0
-    );
-    await tradeRegistry.connect(importer).confirmTrade(0);
-    await tradeRegistry.connect(exporter).confirmTrade(0);
-    await tradeRegistry.updateStatus(0, 2); // LOC_INITIATED
-    await letterOfCredit.connect(issuingBank).uploadLocDocument(0, expiry, "QmLoC");
-    await letterOfCredit.connect(advisingBank).approveLoC(0);
-    await letterOfCredit.connect(issuingBank).lockFunds(0);
-    await tradeRegistry.connect(importer).assignShippingCompany(0, shipping.address);
-    await docVerification.connect(shipping).issueBillOfLading(0, "QmBoL");
+    await setupToGoodsShipped(amount);
 
-    // Customs holds goods → DUTY_PENDING
-    await docVerification.connect(owner).verifyAsCustoms(0, false, "");
+    // Customs decision: FLAGS (decision=1) with tax of 0.5 ETH → CUSTOMS_FLAGGED
+    await docVerification.connect(customs).verifyAsCustoms(0, 1, taxAmount, "");
     let trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(8); // DUTY_PENDING
+    expect(trade.status).to.equal(9); // CUSTOMS_FLAGGED
 
-    // Tax authority records duty payment → DUTY_PAID
-    await docVerification.connect(owner).recordDutyPayment(0);
-    trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(9); // DUTY_PAID
+    // Verify tax amount stored
+    const verification = await docVerification.getVerification(0);
+    expect(verification.taxAmount).to.equal(taxAmount);
 
-    // Tax authority releases → CUSTOMS_CLEARED
-    await docVerification.connect(owner).releaseFromDuty(0);
+    // Customs confirms tax paid and releases → CUSTOMS_CLEARED
+    await docVerification.connect(customs).payTaxAndRelease(0);
     trade = await tradeRegistry.getTrade(0);
-    expect(trade.status).to.equal(7); // CUSTOMS_CLEARED
+    expect(trade.status).to.equal(8); // CUSTOMS_CLEARED
+
+    // Chain continues: importer confirms goods → authorize → settle → complete
+    await tradeRegistry.connect(importer).confirmGoodsReceived(0);
+    await paymentSettlement.connect(issuingBank).authorizePayment(0);
+    await paymentSettlement.connect(advisingBank).confirmSettlement(0);
+    trade = await tradeRegistry.getTrade(0);
+    expect(trade.status).to.equal(15); // COMPLETED
   });
 
-  it("Should enforce state transition guards – cannot uploadLoC without LOC_INITIATED", async function () {
+  it("Should enforce ENTRY_REJECTED path (decision 2)", async function () {
+    const amount = ethers.parseEther("5");
+
+    await setupToGoodsShipped(amount);
+
+    // Customs decision: ENTRY REJECTION (decision=2) → ENTRY_REJECTED
+    await docVerification.connect(customs).verifyAsCustoms(0, 2, 0, "");
+    const trade = await tradeRegistry.getTrade(0);
+    expect(trade.status).to.equal(10); // ENTRY_REJECTED
+  });
+
+  it("Should reject invalid customs decision codes", async function () {
+    const amount = ethers.parseEther("5");
+    await setupToGoodsShipped(amount);
+
+    await expect(
+      docVerification.connect(customs).verifyAsCustoms(0, 3, 0, "")
+    ).to.be.revertedWith("Invalid decision code");
+  });
+
+  it("Should enforce state guards — cannot uploadLoC without LOC_INITIATED", async function () {
     const amount = ethers.parseEther("10");
     const expiry = Math.floor(Date.now() / 1000) + 86400;
     await tradeRegistry.connect(importer).createTrade(
       exporter.address, issuingBank.address, advisingBank.address,
-      ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress,
+      inspector.address, customs.address, insurance.address,
       amount, 0, 0
     );
-    // Still in OFFER_ACCEPTED — must fail
     await expect(
       letterOfCredit.connect(issuingBank).uploadLocDocument(0, expiry, "QmHash")
     ).to.be.revertedWith("Trade must be in LOC_INITIATED status");
   });
 
-  it("Should enforce BoL can only be issued after FUNDS_LOCKED", async function () {
+  it("Should enforce BoL can only be issued after SHIPPING_ASSIGNED", async function () {
     const amount = ethers.parseEther("10");
     const expiry = Math.floor(Date.now() / 1000) + 86400;
     await tradeRegistry.connect(importer).createTrade(
       exporter.address, issuingBank.address, advisingBank.address,
-      ethers.ZeroAddress, ethers.ZeroAddress, ethers.ZeroAddress,
+      inspector.address, customs.address, insurance.address,
       amount, 0, 0
     );
     await tradeRegistry.connect(importer).confirmTrade(0);
@@ -182,5 +182,23 @@ describe("TradeSphere Protocol – Phase 2 Full Lifecycle", function () {
     await expect(
       tradeRegistry.connect(importer).assignShippingCompany(0, shipping.address)
     ).to.be.revertedWith("Funds not locked yet");
+  });
+
+  it("Should reject verifyAsCustoms if not customs authority", async function () {
+    const amount = ethers.parseEther("5");
+    await setupToGoodsShipped(amount);
+
+    await expect(
+      docVerification.connect(importer).verifyAsCustoms(0, 0, 0, "")
+    ).to.be.revertedWith("Only Custom & Tax Authority");
+  });
+
+  it("Should require tax amount > 0 for FLAGS decision", async function () {
+    const amount = ethers.parseEther("5");
+    await setupToGoodsShipped(amount);
+
+    await expect(
+      docVerification.connect(customs).verifyAsCustoms(0, 1, 0, "")
+    ).to.be.revertedWith("Tax amount must be > 0 for flagged goods");
   });
 });

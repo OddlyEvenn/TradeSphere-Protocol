@@ -1,0 +1,7 @@
+node_modules
+contracts/flat/*
+test
+scripts
+dist
+artifacts
+cache

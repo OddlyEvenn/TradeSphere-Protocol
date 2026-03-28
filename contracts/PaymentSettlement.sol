@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TradeRegistry.sol";
+import {TradeRegistry} from "./TradeRegistry.sol";
 
 /**
  * @title PaymentSettlement
- * @dev Manages the final payment authorization and off-chain settlement confirmation.
+ * @dev Manages escrow deposits, payment authorization, settlement confirmation,
+ *      refunds on dispute revert, and insurance payouts for damaged cargo.
  *
  * ── Payment Flow ─────────────────────────────────────────────────────────────
- *  1. After CUSTOMS_CLEARED:
+ *  1. After CUSTOMS_CLEARED + GOODS_RECEIVED:
  *     Importer bank calls authorizePayment(tradeId) → PAYMENT_AUTHORIZED
  *
  *  2. Off-chain: Bank-to-bank SWIFT/SEPA settlement happens.
@@ -16,9 +17,11 @@ import "./TradeRegistry.sol";
  *  3. Exporter bank confirms receipt of funds:
  *     confirmSettlement(tradeId) → SETTLEMENT_CONFIRMED → COMPLETED
  *
- * Note: Actual fund transfer is off-chain (traditional banking). This contract
- *       records the authorization and confirmation events on-chain for the
- *       immutable audit trail visible to all stakeholders (incl. Regulator).
+ *  4. [If TRADE_REVERTED_BY_CONSENSUS]:
+ *     refundImporter(tradeId) → returns escrow funds to Importer Bank
+ *
+ *  5. [If CLAIM_PAYOUT_APPROVED]:
+ *     payoutInsurance(tradeId) → pays escrowed funds to Exporter (insurance claim)
  * ─────────────────────────────────────────────────────────────────────────────
  */
 contract PaymentSettlement {
@@ -28,10 +31,10 @@ contract PaymentSettlement {
     struct Settlement {
         uint256 tradeId;
         uint256 amount;
-        bool    fundsLocked;        // NEW: Actual ETH held in contract
+        bool    fundsLocked;
         bool    paymentAuthorized;
         bool    settlementConfirmed;
-        bool    refunded;           // NEW: Refunded due to dispute
+        bool    refunded;
         uint256 authorizedAt;
         uint256 confirmedAt;
     }
@@ -40,12 +43,12 @@ contract PaymentSettlement {
     mapping(uint256 => Settlement) public settlements;
 
     // ── Events ─────────────────────────────────────────────────────────────
-    event PaymentAuthorized(uint256 indexed tradeId, uint256 amount, address authorizedBy);
-    event SettlementConfirmed(uint256 indexed tradeId, address confirmedBy);
+    event PaymentAuthorized(uint256 indexed tradeId, uint256 indexed amount, address indexed authorizedBy);
+    event SettlementConfirmed(uint256 indexed tradeId, address indexed confirmedBy);
     event TradeCompleted(uint256 indexed tradeId);
-    event FundsLocked(uint256 indexed tradeId, uint256 amount);
-    event FundsRefunded(uint256 indexed tradeId, address to, uint256 amount);
-    event InsurancePayout(uint256 indexed tradeId, address to, uint256 amount);
+    event FundsLocked(uint256 indexed tradeId, uint256 indexed amount);
+    event FundsRefunded(uint256 indexed tradeId, address indexed to, uint256 indexed amount);
+    event InsurancePayout(uint256 indexed tradeId, address indexed to, uint256 indexed amount);
 
     // ── Constructor ────────────────────────────────────────────────────────
     constructor(address _tradeRegistry) {
@@ -73,16 +76,14 @@ contract PaymentSettlement {
     // ── External Functions ─────────────────────────────────────────────────
 
     /**
-     * @notice Importer bank authorizes payment after customs clearance.
+     * @notice Importer bank authorizes payment after goods received.
      *         Transitions trade to PAYMENT_AUTHORIZED.
-     *         Off-chain bank settlement will follow after this.
-     * @param _tradeId  On-chain trade ID
      */
     function authorizePayment(uint256 _tradeId) external onlyIssuingBank(_tradeId) {
         TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
         require(
-            trade.status == TradeRegistry.TradeStatus.CUSTOMS_CLEARED,
-            "Customs must be cleared first"
+            trade.status == TradeRegistry.TradeStatus.GOODS_RECEIVED,
+            "Importer must confirm goods received first"
         );
 
         Settlement storage s = settlements[_tradeId];
@@ -98,9 +99,8 @@ contract PaymentSettlement {
     }
 
     /**
-     * @notice Exporter bank confirms that off-chain bank settlement has completed.
-     *         Transitions trade to SETTLEMENT_CONFIRMED then immediately to COMPLETED.
-     * @param _tradeId  On-chain trade ID
+     * @notice Exporter bank confirms off-chain settlement completed.
+     *         Transitions trade to SETTLEMENT_CONFIRMED → COMPLETED.
      */
     function confirmSettlement(uint256 _tradeId) external onlyAdvisingBank(_tradeId) {
         TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
@@ -116,7 +116,6 @@ contract PaymentSettlement {
         s.settlementConfirmed = true;
         s.confirmedAt         = block.timestamp;
 
-        // Transition: PAYMENT_AUTHORIZED → SETTLEMENT_CONFIRMED → COMPLETED
         tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.SETTLEMENT_CONFIRMED);
         emit SettlementConfirmed(_tradeId, msg.sender);
 
@@ -140,12 +139,12 @@ contract PaymentSettlement {
     }
 
     /**
-     * @notice Refund the locked amount back to the Importer Bank if consensus is reach for revert.
+     * @notice Refund locked escrow back to the Importer Bank on consensus revert.
      */
     function refundImporter(uint256 _tradeId) external {
         TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
         require(trade.status == TradeRegistry.TradeStatus.TRADE_REVERTED_BY_CONSENSUS, "Not in reverted status");
-        
+
         Settlement storage s = settlements[_tradeId];
         require(s.fundsLocked, "No funds locked");
         require(!s.refunded, "Already refunded");
@@ -159,7 +158,8 @@ contract PaymentSettlement {
     }
 
     /**
-     * @notice Payout insurance to Exporter if consensus is reached for insurance claim.
+     * @notice Payout insurance to Exporter if consensus approves insurance claim.
+     *         This is triggered when Inspector marks cargo as damaged.
      */
     function payoutInsurance(uint256 _tradeId) external {
         TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
@@ -169,7 +169,7 @@ contract PaymentSettlement {
         require(s.fundsLocked, "No funds locked");
         require(!s.refunded, "Already processed");
 
-        s.refunded = true; // Mark as processed
+        s.refunded = true;
         uint256 amount = s.amount;
         s.amount = 0;
 

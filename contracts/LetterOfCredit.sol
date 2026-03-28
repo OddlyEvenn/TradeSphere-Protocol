@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TradeRegistry.sol";
+import {TradeRegistry} from "./TradeRegistry.sol";
 
 /**
  * @title LetterOfCredit
@@ -34,9 +34,9 @@ contract LetterOfCredit {
     mapping(uint256 => LoC) public locs;
 
     // ── Events ─────────────────────────────────────────────────────────────
-    event LoCDocumentUploaded(uint256 indexed tradeId, string ipfsHash, address uploadedBy);
-    event LoCApproved(uint256 indexed tradeId, address approvedBy);
-    event FundsLocked(uint256 indexed tradeId, uint256 amount);
+    event LoCDocumentUploaded(uint256 indexed tradeId, string ipfsHash, address indexed uploadedBy);
+    event LoCApproved(uint256 indexed tradeId, address indexed approvedBy);
+    event FundsLocked(uint256 indexed tradeId, uint256 indexed amount);
 
     // ── Constructor ────────────────────────────────────────────────────────
     constructor(address _tradeRegistry) {

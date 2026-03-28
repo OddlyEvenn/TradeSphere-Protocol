@@ -9,11 +9,11 @@ import ConsensusDisputeABI from "../abis/ConsensusDispute.json";
 
 // Contract Addresses (Should match backend .env)
 const ADDRESSES = {
-    TradeRegistry: "0xA9ff2ECa14470d6AAD15eA1275DCbf53dB3F2E98",
-    LetterOfCredit: "0x31Aea85E90e11612Dc5326fC0134B57F175e45a6",
-    DocumentVerification: "0xDCEB11c0833d623F23354dCE51cB3C0ebDa95bDB",
-    PaymentSettlement: "0x4EAb3B81a2B88236dBA89e4585F93581d6c533F4",
-    ConsensusDispute: "0xCF84FA16B96cbae8f647813965ab1e0047EC4a94",
+    TradeRegistry: "0x60109c07908089eA1B27bFEbb4f45d3DC9388B1D",
+    LetterOfCredit: "0xa5fEfE8EBFc37c2933Eebd9bC15D4542CF6a7571",
+    DocumentVerification: "0xD45821c7Df3539F73857014E10B7dDAa77f428aE",
+    PaymentSettlement: "0xd323150A4785ceCBae8476E480083848A9b121e0",
+    ConsensusDispute: "0xa6B4Aa18aBF31323b23D09aCFc801EC9A11391c8",
 };
 
 const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111

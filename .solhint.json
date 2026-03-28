@@ -1,0 +1,15 @@
+{
+  "extends": "solhint:recommended",
+  "rules": {
+    "compiler-version": ["error", "^0.8.0"],
+    "const-name-snakecase": "off",
+    "private-vars-leading-underscore": "off",
+    "use-natspec": "off",
+    "gas-custom-errors": "off",
+    "reason-string": "off",
+    "gas-small-strings": "off",
+    "func-visibility": ["warn", {"ignoreConstructors": true}],
+    "gas-strict-inequalities": "off",
+    "gas-struct-packing": "off"
+  }
+}
