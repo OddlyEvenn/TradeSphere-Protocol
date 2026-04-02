@@ -577,7 +577,7 @@ export class EventListenerService {
                         const actor = await (prisma.user as any).findFirst({ where: { walletAddress: to.toLowerCase() } });
                         await (prisma.trade as any).update({
                             where: { id: dbTradeId },
-                            data: { status: "TRADE_REFUNDED" }
+                            data: { status: "TRADE_REVERTED_BY_CONSENSUS" }
                         });
 
                         await (prisma.tradeEvent as any).create({
@@ -586,7 +586,7 @@ export class EventListenerService {
                                 actorId: actor?.id || null,
                                 actorRole: "SYSTEM",
                                 event: "FUNDS_REFUNDED",
-                                toStatus: "TRADE_REFUNDED",
+                                toStatus: "TRADE_REVERTED_BY_CONSENSUS",
                                 metadata: { refundAmount: Number(amount) },
                                 txHash
                             }

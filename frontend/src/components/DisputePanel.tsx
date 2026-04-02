@@ -74,6 +74,16 @@ const DisputePanel: React.FC<DisputePanelProps> = ({ trade, currentUserRole, cur
         }
     };
 
+    const hasVoted = trade.events?.some((e: any) => 
+        (e.event === 'VOTE_CAST_REVERT' || e.event === 'VOTE_CAST_NO_REVERT') && 
+        e.actor?.walletAddress?.toLowerCase() === currentUserWallet.toLowerCase()
+    );
+
+    const hasReported = trade.events?.some((e: any) => 
+        e.event === 'INSPECTOR_DECISION' && 
+        e.actorRole === 'INSPECTOR'
+    );
+
     // Cast vote: 1 = REVERT, 2 = NO_REVERT
     const handleVote = async (voteType: number, voteName: string) => {
         setLoading(true);
@@ -234,25 +244,30 @@ const DisputePanel: React.FC<DisputePanelProps> = ({ trade, currentUserRole, cur
                     {/* Voting Buttons */}
                     {canVote && !deadlineExpired && (
                         <div className="space-y-4">
-                            <p className="text-sm text-purple-800 font-medium">
-                                As an authorized voting node ({currentUserRole.replace(/_/g, ' ')}), cast your consensus vote:
-                            </p>
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={() => handleVote(1, 'REVERT (Refund Importer)')}
-                                    disabled={loading}
-                                    className="btn-primary !bg-rose-600 hover:!bg-rose-700 shadow-rose-200 flex-1 whitespace-nowrap"
-                                >
-                                    Vote REVERT (Refund)
-                                </button>
-                                <button
-                                    onClick={() => handleVote(2, 'NO REVERT (Continue Trade)')}
-                                    disabled={loading}
-                                    className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 shadow-emerald-200 flex-1 whitespace-nowrap"
-                                >
-                                    Vote NO REVERT
-                                </button>
-                            </div>
+                            <NoVoteHeader hasVoted={hasVoted} currentUserRole={currentUserRole} />
+                            {!hasVoted ? (
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => handleVote(1, 'REVERT (Refund Importer)')}
+                                        disabled={loading}
+                                        className="btn-primary !bg-rose-600 hover:!bg-rose-700 shadow-rose-200 flex-1 whitespace-nowrap"
+                                    >
+                                        Vote REVERT (Refund)
+                                    </button>
+                                    <button
+                                        onClick={() => handleVote(2, 'NO REVERT (Continue Trade)')}
+                                        disabled={loading}
+                                        className="btn-primary !bg-emerald-600 hover:!bg-emerald-700 shadow-emerald-200 flex-1 whitespace-nowrap"
+                                    >
+                                        Vote NO REVERT
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="bg-purple-100 border border-purple-200 rounded-2xl p-4 flex items-center gap-3">
+                                    <CheckCircle2 className="text-purple-600" size={20} />
+                                    <p className="text-sm font-bold text-purple-800">Your consensus vote has already been recorded on-chain.</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -262,47 +277,56 @@ const DisputePanel: React.FC<DisputePanelProps> = ({ trade, currentUserRole, cur
                             <h3 className="text-sm font-black text-purple-900 uppercase tracking-widest flex items-center gap-2">
                                 <Eye size={16} /> Inspector Field Decision
                             </h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-purple-700 mb-1 block">Decision</label>
-                                    <select
-                                        value={inspectorDecision ? 'yes' : 'no'}
-                                        onChange={(e) => setInspectorDecision(e.target.value === 'yes')}
-                                        className="input-premium text-sm py-2 border-purple-200 focus:ring-purple-500 w-full"
+                            {!hasReported ? (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-purple-700 mb-1 block">Decision</label>
+                                            <select
+                                                value={inspectorDecision ? 'yes' : 'no'}
+                                                onChange={(e) => setInspectorDecision(e.target.value === 'yes')}
+                                                className="input-premium text-sm py-2 border-purple-200 focus:ring-purple-500 w-full"
+                                            >
+                                                <option value="yes">Yes — Approve</option>
+                                                <option value="no">No — Reject</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-purple-700 mb-1 block">Cargo Status</label>
+                                            <select
+                                                value={cargoStatus}
+                                                onChange={(e) => setCargoStatus(Number(e.target.value))}
+                                                className="input-premium text-sm py-2 border-purple-200 focus:ring-purple-500 w-full"
+                                            >
+                                                <option value={0}>Safe</option>
+                                                <option value={1}>Damaged</option>
+                                                <option value={2}>Fake Documents</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-purple-700 mb-1 block">Inspector Notes / Reason</label>
+                                        <textarea
+                                            value={notes}
+                                            onChange={(e) => setNotes(e.target.value)}
+                                            placeholder="Provide detailed reasoning for your decision (e.g. Evidence of tampering, physical damage reports...)"
+                                            className="input-premium text-sm py-3 border-purple-200 focus:ring-purple-500 w-full min-h-[100px] resize-none"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleInspectorDecision}
+                                        disabled={loading}
+                                        className="btn-primary !bg-purple-600 hover:!bg-purple-700 shadow-purple-200 w-full"
                                     >
-                                        <option value="yes">Yes — Approve</option>
-                                        <option value="no">No — Reject</option>
-                                    </select>
+                                        {loading ? 'Processing...' : 'Submit Inspector Decision'}
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
+                                    <CheckCircle2 className="text-emerald-600" size={20} />
+                                    <p className="text-sm font-bold text-emerald-800">Inspector report has been already submitted and finalized.</p>
                                 </div>
-                                <div>
-                                    <label className="text-xs font-bold text-purple-700 mb-1 block">Cargo Status</label>
-                                    <select
-                                        value={cargoStatus}
-                                        onChange={(e) => setCargoStatus(Number(e.target.value))}
-                                        className="input-premium text-sm py-2 border-purple-200 focus:ring-purple-500 w-full"
-                                    >
-                                        <option value={0}>Safe</option>
-                                        <option value={1}>Damaged</option>
-                                        <option value={2}>Fake Documents</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-purple-700 mb-1 block">Inspector Notes / Reason</label>
-                                <textarea
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    placeholder="Provide detailed reasoning for your decision (e.g. Evidence of tampering, physical damage reports...)"
-                                    className="input-premium text-sm py-3 border-purple-200 focus:ring-purple-500 w-full min-h-[100px] resize-none"
-                                />
-                            </div>
-                            <button
-                                onClick={handleInspectorDecision}
-                                disabled={loading}
-                                className="btn-primary !bg-purple-600 hover:!bg-purple-700 shadow-purple-200 w-full"
-                            >
-                                {loading ? 'Processing...' : 'Submit Inspector Decision'}
-                            </button>
+                            )}
                         </div>
                     )}
 
@@ -331,6 +355,16 @@ const DisputePanel: React.FC<DisputePanelProps> = ({ trade, currentUserRole, cur
                 </div>
             )}
         </div>
+    );
+};
+
+// Helper component for cleaner voting header
+const NoVoteHeader: React.FC<{ hasVoted: boolean, currentUserRole: string }> = ({ hasVoted, currentUserRole }) => {
+    if (hasVoted) return null;
+    return (
+        <p className="text-sm text-purple-800 font-medium">
+            As an authorized voting node ({currentUserRole.replace(/_/g, ' ')}), cast your consensus vote:
+        </p>
     );
 };
 

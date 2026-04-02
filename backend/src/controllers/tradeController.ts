@@ -19,6 +19,11 @@ const TRADE_INCLUDE = {
     letterOfCredit: true,
     billOfLading: true,
     customsVerification: true,
+    events: {
+        include: {
+            actor: { select: { id: true, name: true, walletAddress: true } }
+        }
+    },
     _count: { select: { offers: true } }
 } satisfies Prisma.TradeInclude;
 

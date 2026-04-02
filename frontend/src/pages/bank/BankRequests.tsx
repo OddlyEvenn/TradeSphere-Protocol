@@ -162,7 +162,7 @@ const BankRequests: React.FC = () => {
                     'LOCK_FUNDS': 'FUNDS_LOCKED',
                     'AUTHORIZE_PAYMENT': 'PAYMENT_AUTHORIZED',
                     'CONFIRM_SETTLEMENT': 'SETTLEMENT_CONFIRMED',
-                    'CLAIM_REFUND': 'TRADE_REVERTED_BY_CONSENSUS' // Status stays reverted, but funds move
+                    'CLAIM_REFUND': 'TRADE_REVERTED_BY_CONSENSUS'
                 };
 
                 await api.patch(`/trades/${trade.id}/state`, {
@@ -209,7 +209,16 @@ const BankRequests: React.FC = () => {
     };
 
     const targetStatuses = getTargetStatuses();
-    const filteredTrades = trades.filter(t => targetStatuses.includes(t.status));
+    const filteredTrades = trades.filter(t => {
+        if (!targetStatuses.includes(t.status)) return false;
+        
+        // Hide if already refunded
+        if (t.status === 'TRADE_REVERTED_BY_CONSENSUS') {
+            const hasRefundEvent = (t as any).events?.some((e: any) => e.event === 'FUNDS_REFUNDED' || e.event === 'CLAIM_REFUND');
+            if (hasRefundEvent) return false;
+        }
+        return true;
+    });
 
     return (
         <div className="space-y-12 animate-in lg:p-4">
