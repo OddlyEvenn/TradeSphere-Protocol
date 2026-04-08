@@ -25,7 +25,7 @@ import {TradeRegistry} from "./TradeRegistry.sol";
  * ─────────────────────────────────────────────────────────────────────────────
  */
 contract PaymentSettlement {
-    TradeRegistry public tradeRegistry;
+    TradeRegistry public immutable tradeRegistry;
 
     // ── Structs ────────────────────────────────────────────────────────────
     struct Settlement {
@@ -153,8 +153,8 @@ contract PaymentSettlement {
         uint256 amount = s.amount;
         s.amount = 0;
 
-        payable(trade.issuingBank).transfer(amount);
         emit FundsRefunded(_tradeId, trade.issuingBank, amount);
+        payable(trade.issuingBank).transfer(amount);
     }
 
     /**
@@ -173,8 +173,8 @@ contract PaymentSettlement {
         uint256 amount = s.amount;
         s.amount = 0;
 
-        payable(trade.exporter).transfer(amount);
         emit InsurancePayout(_tradeId, trade.exporter, amount);
+        payable(trade.exporter).transfer(amount);
     }
 
     /**

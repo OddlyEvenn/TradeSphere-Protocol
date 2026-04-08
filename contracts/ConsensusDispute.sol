@@ -35,7 +35,7 @@ import {TradeRegistry} from "./TradeRegistry.sol";
  * ────────────────────────────────────────────────────────────────────────────
  */
 contract ConsensusDispute {
-    TradeRegistry public tradeRegistry;
+    TradeRegistry public immutable tradeRegistry;
 
     uint256 public constant VOTING_DURATION = 24 hours;
     uint256 public constant VOTE_THRESHOLD = 4;

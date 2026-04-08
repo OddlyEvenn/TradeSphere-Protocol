@@ -17,7 +17,7 @@ import {TradeRegistry} from "./TradeRegistry.sol";
  * ─────────────────────────────────────────────────────────────────────────────
  */
 contract LetterOfCredit {
-    TradeRegistry public tradeRegistry;
+    TradeRegistry public immutable tradeRegistry;
 
     // ── Structs ────────────────────────────────────────────────────────────
     struct LoC {

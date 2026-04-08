@@ -9,11 +9,11 @@ import ConsensusDisputeABI from "../abis/ConsensusDispute.json";
 
 // Contract Addresses (Should match backend .env)
 const ADDRESSES = {
-    TradeRegistry: "0x60109c07908089eA1B27bFEbb4f45d3DC9388B1D",
-    LetterOfCredit: "0xa5fEfE8EBFc37c2933Eebd9bC15D4542CF6a7571",
-    DocumentVerification: "0xD45821c7Df3539F73857014E10B7dDAa77f428aE",
-    PaymentSettlement: "0xd323150A4785ceCBae8476E480083848A9b121e0",
-    ConsensusDispute: "0xa6B4Aa18aBF31323b23D09aCFc801EC9A11391c8",
+    TradeRegistry: import.meta.env.VITE_TRADE_REGISTRY_ADDRESS,
+    LetterOfCredit: import.meta.env.VITE_LETTER_OF_CREDIT_ADDRESS,
+    DocumentVerification: import.meta.env.VITE_DOCUMENT_VERIFICATION_ADDRESS,
+    PaymentSettlement: import.meta.env.VITE_PAYMENT_SETTLEMENT_ADDRESS,
+    ConsensusDispute: import.meta.env.VITE_CONSENSUS_DISPUTE_ADDRESS,
 };
 
 const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111

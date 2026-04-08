@@ -22,7 +22,7 @@ import {TradeRegistry} from "./TradeRegistry.sol";
  * ─────────────────────────────────────────────────────────────────────────────
  */
 contract DocumentVerification {
-    TradeRegistry public tradeRegistry;
+    TradeRegistry public immutable tradeRegistry;
 
     // ── Structs ────────────────────────────────────────────────────────────
     struct VerificationState {

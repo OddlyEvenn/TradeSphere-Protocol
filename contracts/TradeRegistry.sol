@@ -78,7 +78,7 @@ contract TradeRegistry {
     // ── Storage ────────────────────────────────────────────────────────────
     mapping(uint256 => Trade) public trades;
     mapping(address => bool) public authorizedContracts;
-    address public owner;
+    address public immutable owner;
     uint256 public nextTradeId;
 
     // ── Events ─────────────────────────────────────────────────────────────
@@ -216,75 +216,75 @@ contract TradeRegistry {
     /**
      * @notice Assign a shipping company to the trade (importer, after funds locked).
      */
-    function assignShippingCompany(uint256 _tradeId, address _shippingCompany) external {
-        Trade storage trade = trades[_tradeId];
+    function assignShippingCompany(uint256 tradeId, address shippingCompany) external {
+        Trade storage trade = trades[tradeId];
         require(msg.sender == trade.importer, "Only importer");
         require(trade.status == TradeStatus.FUNDS_LOCKED, "Funds not locked yet");
-        require(_shippingCompany != address(0), "Invalid address");
+        require(shippingCompany != address(0), "Invalid address");
 
-        trade.shippingCompany = _shippingCompany;
-        emit ShippingCompanyAssigned(_tradeId, _shippingCompany);
+        trade.shippingCompany = shippingCompany;
+        emit ShippingCompanyAssigned(tradeId, shippingCompany);
 
         TradeStatus old = trade.status;
         trade.status = TradeStatus.SHIPPING_ASSIGNED;
-        emit TradeStatusUpdated(_tradeId, old, TradeStatus.SHIPPING_ASSIGNED);
+        emit TradeStatusUpdated(tradeId, old, TradeStatus.SHIPPING_ASSIGNED);
     }
 
     /**
      * @notice Assign an advising bank (exporter bank) to the trade.
      */
-    function assignAdvisingBank(uint256 _tradeId, address _advisingBank) external {
-        Trade storage trade = trades[_tradeId];
+    function assignAdvisingBank(uint256 tradeId, address advisingBank) external {
+        Trade storage trade = trades[tradeId];
         require(msg.sender == trade.exporter, "Only exporter");
-        require(_advisingBank != address(0), "Invalid address");
-        trade.advisingBank = _advisingBank;
-        emit AdvisingBankAssigned(_tradeId, _advisingBank);
+        require(advisingBank != address(0), "Invalid address");
+        trade.advisingBank = advisingBank;
+        emit AdvisingBankAssigned(tradeId, advisingBank);
     }
 
     /**
      * @notice Importer signals that goods have been received perfectly.
      *         Transitions from CUSTOMS_CLEARED → GOODS_RECEIVED.
      */
-    function confirmGoodsReceived(uint256 _tradeId) external {
-        Trade storage trade = trades[_tradeId];
+    function confirmGoodsReceived(uint256 tradeId) external {
+        Trade storage trade = trades[tradeId];
         require(msg.sender == trade.importer, "Only importer");
         require(trade.status == TradeStatus.CUSTOMS_CLEARED, "Customs not cleared");
 
         TradeStatus old = trade.status;
         trade.status = TradeStatus.GOODS_RECEIVED;
-        emit TradeStatusUpdated(_tradeId, old, TradeStatus.GOODS_RECEIVED);
+        emit TradeStatusUpdated(tradeId, old, TradeStatus.GOODS_RECEIVED);
     }
 
     /**
      * @notice Authorize or de-authorize a satellite contract to call updateStatus.
      */
-    function setAuthorizedContract(address _contract, bool _authorized) external onlyOwner {
-        authorizedContracts[_contract] = _authorized;
-        emit ContractAuthorized(_contract, _authorized);
+    function setAuthorizedContract(address contractAddress, bool authorized) external onlyOwner {
+        authorizedContracts[contractAddress] = authorized;
+        emit ContractAuthorized(contractAddress, authorized);
     }
 
     /**
      * @notice Update trade status. Only callable by authorized satellite contracts or owner.
      */
-    function updateStatus(uint256 _tradeId, TradeStatus _newStatus) external onlyAuthorized {
-        TradeStatus old = trades[_tradeId].status;
-        trades[_tradeId].status = _newStatus;
-        emit TradeStatusUpdated(_tradeId, old, _newStatus);
+    function updateStatus(uint256 tradeId, TradeStatus newStatus) external onlyAuthorized {
+        TradeStatus old = trades[tradeId].status;
+        trades[tradeId].status = newStatus;
+        emit TradeStatusUpdated(tradeId, old, newStatus);
     }
 
     /**
      * @notice Set the 24-hour voting deadline on a trade. Called by ConsensusDispute.
      */
-    function setVotingDeadline(uint256 _tradeId, uint256 _deadline) external onlyAuthorized {
-        trades[_tradeId].votingDeadline = _deadline;
-        emit VotingDeadlineSet(_tradeId, _deadline);
+    function setVotingDeadline(uint256 tradeId, uint256 deadline) external onlyAuthorized {
+        trades[tradeId].votingDeadline = deadline;
+        emit VotingDeadlineSet(tradeId, deadline);
     }
 
     /**
      * @notice Importer's bank triggers a revert if the shipping deadline is breached.
      */
-    function triggerSLABreachRevert(uint256 _tradeId) external {
-        Trade storage trade = trades[_tradeId];
+    function triggerSLABreachRevert(uint256 tradeId) external {
+        Trade storage trade = trades[tradeId];
         require(msg.sender == trade.issuingBank, "Only issuing bank");
         require(
             trade.status == TradeStatus.FUNDS_LOCKED || trade.status == TradeStatus.SHIPPING_ASSIGNED,
@@ -294,14 +294,14 @@ contract TradeRegistry {
 
         TradeStatus old = trade.status;
         trade.status = TradeStatus.TRADE_REVERTED_BY_CONSENSUS;
-        emit TradeStatusUpdated(_tradeId, old, TradeStatus.TRADE_REVERTED_BY_CONSENSUS);
+        emit TradeStatusUpdated(tradeId, old, TradeStatus.TRADE_REVERTED_BY_CONSENSUS);
     }
 
     /**
      * @notice Issuing Bank or Importer triggers revert if clearance deadline is breached (SLA 2).
      */
-    function triggerClearanceSLABreachRevert(uint256 _tradeId) external {
-        Trade storage trade = trades[_tradeId];
+    function triggerClearanceSLABreachRevert(uint256 tradeId) external {
+        Trade storage trade = trades[tradeId];
         require(msg.sender == trade.issuingBank || msg.sender == trade.importer, "Not authorized");
         require(
             trade.status == TradeStatus.GOODS_SHIPPED || trade.status == TradeStatus.CUSTOMS_FLAGGED,
@@ -311,14 +311,14 @@ contract TradeRegistry {
 
         TradeStatus old = trade.status;
         trade.status = TradeStatus.TRADE_REVERTED_BY_CONSENSUS;
-        emit TradeStatusUpdated(_tradeId, old, TradeStatus.TRADE_REVERTED_BY_CONSENSUS);
+        emit TradeStatusUpdated(tradeId, old, TradeStatus.TRADE_REVERTED_BY_CONSENSUS);
     }
 
     /**
      * @notice Any participant can raise a dispute, halting the trade.
      */
-    function raiseDispute(uint256 _tradeId) external onlyParticipant(_tradeId) {
-        Trade storage trade = trades[_tradeId];
+    function raiseDispute(uint256 tradeId) external onlyParticipant(tradeId) {
+        Trade storage trade = trades[tradeId];
         require(
             trade.status != TradeStatus.COMPLETED && trade.status != TradeStatus.TRADE_REVERTED_BY_CONSENSUS,
             "Cannot dispute finished trade"
@@ -326,13 +326,13 @@ contract TradeRegistry {
 
         TradeStatus old = trade.status;
         trade.status = TradeStatus.DISPUTED;
-        emit TradeStatusUpdated(_tradeId, old, TradeStatus.DISPUTED);
+        emit TradeStatusUpdated(tradeId, old, TradeStatus.DISPUTED);
     }
 
     /**
      * @notice Read a trade record.
      */
-    function getTrade(uint256 _tradeId) external view returns (Trade memory) {
-        return trades[_tradeId];
+    function getTrade(uint256 tradeId) external view returns (Trade memory) {
+        return trades[tradeId];
     }
 }
