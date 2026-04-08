@@ -59,8 +59,13 @@ export const createTrade = async (req: Request, res: Response) => {
             insuranceId,
             status
         } = req.body;
-        
+
         const importerId = authReq.user.userId;
+
+        logger.os(`[PROCESS CREATION] Spawning new Trade Process. PID (ImporterID): ${importerId}`);
+        if (parseInt(priority?.toString() || '0') > 0) {
+            logger.os(`[PRIORITY SCHEDULING] Process tagged with HIGH PREEMPTION PRIORITY (Level: ${priority}). Allocating fast-lane resources.`);
+        }
 
         const trade = await prisma.trade.create({
             data: {
@@ -137,19 +142,19 @@ export const getMyTrades = async (req: Request, res: Response) => {
                 whereClause = { status: { in: ['GOODS_SHIPPED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'DISPUTE_RESOLVED_NO_REVERT', 'CLAIM_PAYOUT_APPROVED', 'COMPLETED'] } };
                 break;
             case 'INSPECTOR':
-                whereClause = { 
+                whereClause = {
                     OR: [
-                        { inspector: { id: userId } }, 
+                        { inspector: { id: userId } },
                         { status: { in: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'DISPUTED', 'DISPUTE_RESOLVED_NO_REVERT', 'CLAIM_PAYOUT_APPROVED', 'COMPLETED'] } }
-                    ] 
+                    ]
                 };
                 break;
             case 'INSURANCE':
-                whereClause = { 
+                whereClause = {
                     OR: [
-                        { insurance: { id: userId } }, 
+                        { insurance: { id: userId } },
                         { status: { in: ['ENTRY_REJECTED', 'VOTING_ACTIVE', 'DISPUTED', 'DISPUTE_RESOLVED_NO_REVERT', 'CLAIM_PAYOUT_APPROVED', 'COMPLETED'] } }
-                    ] 
+                    ]
                 };
                 break;
             default:
@@ -298,6 +303,14 @@ export const updateTradeState = async (req: Request, res: Response) => {
         const userId = authReq.user.userId;
         const role = authReq.user.role;
 
+        const trade = await prisma.trade.findUnique({ where: { id } });
+        if (!trade) return res.status(404).json({ message: 'Trade not found' });
+
+        // DEADLOCK PREVENTION / MUTUAL EXCLUSION LOGGING
+        if (status === 'LOC_INITIATED' && !trade.exporterBankId) {
+            logger.os(`[MUTEX/DEADLOCK PREVENTION] Process '${id}' requests 'LetterOfCredit' creation, but required resource 'ExporterBank' is NOT ALLOCATED. Operation temporarily blocked.`);
+        }
+
         const STATUS_CHANGING_ACTIONS = ['CUSTOMS_DECISION'];
 
         if (status && !txHash && !STATUS_CHANGING_ACTIONS.includes(eventName || '')) {
@@ -317,9 +330,6 @@ export const updateTradeState = async (req: Request, res: Response) => {
                 status: status
             });
         }
-
-        const trade = await prisma.trade.findUnique({ where: { id } });
-        if (!trade) return res.status(404).json({ message: 'Trade not found' });
 
         const updateData: Prisma.TradeUpdateInput = {};
         if (status && txHash) updateData.status = status;

@@ -57,6 +57,10 @@ class TransactionLogger {
         console.warn(this.formatMessage("WARN", message, colors.fg.yellow));
     }
 
+    public os(message: string): void {
+        console.log(this.formatMessage("OS-KERNEL", message, colors.fg.cyan));
+    }
+
     public error(message: string, error?: any): void {
         console.error(this.formatMessage("ERROR", message, colors.fg.red));
         if (error) {

@@ -6,8 +6,7 @@
     "scripts": {
         "start": "node dist/app.js",
         "dev": "nodemon src/app.ts",
-        "build": "tsc",
-        "redis:start": "powershell -Command \"Start-Process -FilePath './redis/redis-server.exe' -ArgumentList 'redis.windows.conf' -WorkingDirectory './redis' -WindowStyle Hidden\""
+        "build": "tsc"
     },
     "dependencies": {
         "@pinata/sdk": "^2.1.0",

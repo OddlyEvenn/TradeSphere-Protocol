@@ -1,3 +1,0 @@
-[31m[1mError[22m[39m [31m[1mHH308:[22m[39m Unrecognized positional argument 
-
-For more info go to https://v2.hardhat.org/HH308 or run Hardhat with --show-stack-traces

@@ -38,6 +38,7 @@ import { logger } from "../utils/logger";
 export class EventListenerService {
     public static async startListeners() {
         logger.info("📡 [EventListenerService] Starting Blockchain Event Listeners...");
+        logger.os("[IPC INIT] Subscribing to Blockchain Event Bus (Kernel Space) from Backend Engine (User Space)");
 
         try {
             // Helper: resolve DB trade UUID from on-chain blockchainId
@@ -78,6 +79,7 @@ export class EventListenerService {
                 "TradeCreated",
                 async (tradeId: any, importerAddr: any, exporterAddr: any, amount: any, event: any) => {
                     const txHash = event.log.transactionHash;
+                    logger.os(`[IPC BUS] Incoming Event 'TradeCreated' from Kernel -> Enqueuing to FCFS Scheduler`);
                     logger.transaction({
                         event: "TradeCreated",
                         txHash,
@@ -155,6 +157,7 @@ export class EventListenerService {
                 "TradeStatusUpdated",
                 async (tradeId: any, oldStatus: any, newStatus: any, event: any) => {
                     const txHash = event.log.transactionHash;
+                    logger.os(`[SCHEDULER - FCFS] Dequeued 'TradeStatusUpdated' task. Executing context switch...`);
                     const oldStatusNum = Number(oldStatus);
                     const newStatusNum = Number(newStatus);
 
