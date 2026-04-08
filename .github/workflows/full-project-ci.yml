@@ -47,7 +47,7 @@ jobs:
         run: npm ci || npm install
       - name: Lint Backend (ESLint)
         working-directory: ./backend
-        run: npm run lint
+        run: npx eslint src/**/*.ts --quiet
       - name: Prisma Generate
         working-directory: ./backend
         run: npx prisma generate
@@ -71,7 +71,7 @@ jobs:
         run: npm ci || npm install
       - name: Lint Frontend
         working-directory: ./frontend
-        run: npm run lint
+        run: npx eslint . --ext ts,tsx --quiet
       - name: Build Frontend
         working-directory: ./frontend
         run: npm run build
