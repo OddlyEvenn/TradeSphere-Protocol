@@ -56,14 +56,14 @@ contract PaymentSettlement {
     }
 
     // ── Modifiers ──────────────────────────────────────────────────────────
-    modifier onlyIssuingBank(uint256 _tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    modifier onlyIssuingBank(uint256 tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(msg.sender == trade.issuingBank, "Only issuing bank (importer bank)");
         _;
     }
 
-    modifier onlyAdvisingBank(uint256 _tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    modifier onlyAdvisingBank(uint256 tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(msg.sender == trade.advisingBank, "Only advising bank (exporter bank)");
         _;
     }
@@ -79,73 +79,79 @@ contract PaymentSettlement {
      * @notice Importer bank authorizes payment after goods received.
      *         Transitions trade to PAYMENT_AUTHORIZED.
      */
-    function authorizePayment(uint256 _tradeId) external onlyIssuingBank(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    function authorizePayment(uint256 tradeId) external onlyIssuingBank(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(
             trade.status == TradeRegistry.TradeStatus.GOODS_RECEIVED,
             "Importer must confirm goods received first"
         );
 
-        Settlement storage s = settlements[_tradeId];
+        Settlement storage s = settlements[tradeId];
         require(!s.paymentAuthorized, "Payment already authorized");
 
-        s.tradeId           = _tradeId;
+        s.tradeId           = tradeId;
         s.amount            = trade.amount;
         s.paymentAuthorized = true;
         s.authorizedAt      = block.timestamp;
 
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.PAYMENT_AUTHORIZED);
-        emit PaymentAuthorized(_tradeId, trade.amount, msg.sender);
+        // Move event before external call
+        emit PaymentAuthorized(tradeId, trade.amount, msg.sender);
+
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.PAYMENT_AUTHORIZED);
     }
 
     /**
      * @notice Exporter bank confirms off-chain settlement completed.
      *         Transitions trade to SETTLEMENT_CONFIRMED → COMPLETED.
      */
-    function confirmSettlement(uint256 _tradeId) external onlyAdvisingBank(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    function confirmSettlement(uint256 tradeId) external onlyAdvisingBank(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(
             trade.status == TradeRegistry.TradeStatus.PAYMENT_AUTHORIZED,
             "Payment not yet authorized"
         );
 
-        Settlement storage s = settlements[_tradeId];
+        Settlement storage s = settlements[tradeId];
         require(s.paymentAuthorized, "Payment not authorized on record");
         require(!s.settlementConfirmed, "Settlement already confirmed");
 
         s.settlementConfirmed = true;
         s.confirmedAt         = block.timestamp;
 
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.SETTLEMENT_CONFIRMED);
-        emit SettlementConfirmed(_tradeId, msg.sender);
+        // Move event before external call
+        emit SettlementConfirmed(tradeId, msg.sender);
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.SETTLEMENT_CONFIRMED);
 
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.COMPLETED);
-        emit TradeCompleted(_tradeId);
+        // Move event before external call
+        emit TradeCompleted(tradeId);
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.COMPLETED);
     }
 
     /**
      * @notice Importer's Bank deposits the trade amount into the contract vault (Escrow).
      */
-    function depositEscrow(uint256 _tradeId) external payable onlyIssuingBank(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    function depositEscrow(uint256 tradeId) external payable onlyIssuingBank(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(msg.value == trade.amount, "Incorrect amount sent");
         require(trade.status == TradeRegistry.TradeStatus.LOC_APPROVED, "LoC not approved yet");
 
-        settlements[_tradeId].fundsLocked = true;
-        settlements[_tradeId].amount = msg.value;
+        settlements[tradeId].fundsLocked = true;
+        settlements[tradeId].amount = msg.value;
 
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.FUNDS_LOCKED);
-        emit FundsLocked(_tradeId, msg.value);
+        // Move event before external call
+        emit FundsLocked(tradeId, msg.value);
+
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.FUNDS_LOCKED);
     }
 
     /**
      * @notice Refund locked escrow back to the Importer Bank on consensus revert.
      */
-    function refundImporter(uint256 _tradeId) external {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    function refundImporter(uint256 tradeId) external {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(trade.status == TradeRegistry.TradeStatus.TRADE_REVERTED_BY_CONSENSUS, "Not in reverted status");
 
-        Settlement storage s = settlements[_tradeId];
+        Settlement storage s = settlements[tradeId];
         require(s.fundsLocked, "No funds locked");
         require(!s.refunded, "Already refunded");
 
@@ -153,7 +159,7 @@ contract PaymentSettlement {
         uint256 amount = s.amount;
         s.amount = 0;
 
-        emit FundsRefunded(_tradeId, trade.issuingBank, amount);
+        emit FundsRefunded(tradeId, trade.issuingBank, amount);
         payable(trade.issuingBank).transfer(amount);
     }
 
@@ -161,11 +167,11 @@ contract PaymentSettlement {
      * @notice Payout insurance to Exporter if consensus approves insurance claim.
      *         This is triggered when Inspector marks cargo as damaged.
      */
-    function payoutInsurance(uint256 _tradeId) external {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    function payoutInsurance(uint256 tradeId) external {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(trade.status == TradeRegistry.TradeStatus.CLAIM_PAYOUT_APPROVED, "Claim not approved");
 
-        Settlement storage s = settlements[_tradeId];
+        Settlement storage s = settlements[tradeId];
         require(s.fundsLocked, "No funds locked");
         require(!s.refunded, "Already processed");
 
@@ -173,14 +179,14 @@ contract PaymentSettlement {
         uint256 amount = s.amount;
         s.amount = 0;
 
-        emit InsurancePayout(_tradeId, trade.exporter, amount);
+        emit InsurancePayout(tradeId, trade.exporter, amount);
         payable(trade.exporter).transfer(amount);
     }
 
     /**
      * @notice Read the settlement record for a trade.
      */
-    function getSettlement(uint256 _tradeId) external view returns (Settlement memory) {
-        return settlements[_tradeId];
+    function getSettlement(uint256 tradeId) external view returns (Settlement memory) {
+        return settlements[tradeId];
     }
 }

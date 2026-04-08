@@ -107,8 +107,8 @@ contract TradeRegistry {
         _;
     }
 
-    modifier onlyParticipant(uint256 _tradeId) {
-        Trade storage trade = trades[_tradeId];
+    modifier onlyParticipant(uint256 tradeId) {
+        Trade storage trade = trades[tradeId];
         require(
             msg.sender == trade.importer ||
             msg.sender == trade.exporter ||
@@ -131,39 +131,39 @@ contract TradeRegistry {
      *         confirmTrade() to move to TRADE_INITIATED.
      */
     function createTrade(
-        address _exporter,
-        address _issuingBank,
-        address _advisingBank,
-        address _inspector,
-        address _customsAuthority,
-        address _insuranceNode,
-        uint256 _amount,
-        uint256 _shippingDeadline,
-        uint256 _clearanceDeadline
+        address exporter,
+        address issuingBank,
+        address advisingBank,
+        address inspector,
+        address customsAuthority,
+        address insuranceNode,
+        uint256 amount,
+        uint256 shippingDeadline,
+        uint256 clearanceDeadline
     ) external returns (uint256) {
         uint256 tradeId = nextTradeId;
         ++nextTradeId;
         trades[tradeId] = Trade({
             tradeId:           tradeId,
             importer:          msg.sender,
-            exporter:          _exporter,
-            issuingBank:       _issuingBank,
-            advisingBank:      _advisingBank,
+            exporter:          exporter,
+            issuingBank:       issuingBank,
+            advisingBank:      advisingBank,
             shippingCompany:   address(0),
-            inspector:         _inspector,
-            customsAuthority:  _customsAuthority,
-            insuranceNode:     _insuranceNode,
+            inspector:         inspector,
+            customsAuthority:  customsAuthority,
+            insuranceNode:     insuranceNode,
             status:            TradeStatus.OFFER_ACCEPTED,
             createdAt:         block.timestamp,
-            amount:            _amount,
-            shippingDeadline:  _shippingDeadline,
-            clearanceDeadline: _clearanceDeadline,
+            amount:            amount,
+            shippingDeadline:  shippingDeadline,
+            clearanceDeadline: clearanceDeadline,
             votingDeadline:    0,
             importerConfirmed: false,
             exporterConfirmed: false
         });
 
-        emit TradeCreated(tradeId, msg.sender, _exporter, _amount);
+        emit TradeCreated(tradeId, msg.sender, exporter, amount);
         return tradeId;
     }
 
@@ -171,8 +171,8 @@ contract TradeRegistry {
      * @notice Importer or exporter confirms the final trade agreement.
      *         When both confirm, status advances to TRADE_INITIATED.
      */
-    function confirmTrade(uint256 _tradeId) external {
-        Trade storage trade = trades[_tradeId];
+    function confirmTrade(uint256 tradeId) external {
+        Trade storage trade = trades[tradeId];
         require(trade.status == TradeStatus.OFFER_ACCEPTED, "Trade not in OFFER_ACCEPTED status");
         require(
             msg.sender == trade.importer || msg.sender == trade.exporter,
@@ -187,21 +187,21 @@ contract TradeRegistry {
             trade.exporterConfirmed = true;
         }
 
-        emit TradeConfirmed(_tradeId, msg.sender);
+        emit TradeConfirmed(tradeId, msg.sender);
 
         if (trade.importerConfirmed && trade.exporterConfirmed) {
             TradeStatus old = trade.status;
             trade.status = TradeStatus.TRADE_INITIATED;
-            emit TradeInitiated(_tradeId);
-            emit TradeStatusUpdated(_tradeId, old, TradeStatus.TRADE_INITIATED);
+            emit TradeInitiated(tradeId);
+            emit TradeStatusUpdated(tradeId, old, TradeStatus.TRADE_INITIATED);
         }
     }
 
     /**
      * @notice Importer requests a Letter of Credit → LOC_INITIATED.
      */
-    function requestLetterOfCredit(uint256 _tradeId) external {
-        Trade storage trade = trades[_tradeId];
+    function requestLetterOfCredit(uint256 tradeId) external {
+        Trade storage trade = trades[tradeId];
         require(msg.sender == trade.importer, "Only importer");
         require(
             trade.status == TradeStatus.TRADE_INITIATED || trade.status == TradeStatus.OFFER_ACCEPTED,
@@ -210,7 +210,7 @@ contract TradeRegistry {
 
         TradeStatus old = trade.status;
         trade.status = TradeStatus.LOC_INITIATED;
-        emit TradeStatusUpdated(_tradeId, old, TradeStatus.LOC_INITIATED);
+        emit TradeStatusUpdated(tradeId, old, TradeStatus.LOC_INITIATED);
     }
 
     /**

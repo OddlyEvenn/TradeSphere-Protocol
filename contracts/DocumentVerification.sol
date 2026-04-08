@@ -49,14 +49,14 @@ contract DocumentVerification {
     }
 
     // ── Modifiers ──────────────────────────────────────────────────────────
-    modifier onlyShippingCompany(uint256 _tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    modifier onlyShippingCompany(uint256 tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(msg.sender == trade.shippingCompany, "Only assigned shipping company");
         _;
     }
 
-    modifier onlyCustomsAuthority(uint256 _tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    modifier onlyCustomsAuthority(uint256 tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(msg.sender == trade.customsAuthority, "Only Custom & Tax Authority");
         _;
     }
@@ -68,22 +68,24 @@ contract DocumentVerification {
      *         Stores BoL IPFS CID on-chain → GOODS_SHIPPED.
      */
     function issueBillOfLading(
-        uint256 _tradeId,
-        string calldata _ipfsHash
-    ) external onlyShippingCompany(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        uint256 tradeId,
+        string calldata ipfsHash
+    ) external onlyShippingCompany(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(
             trade.status == TradeRegistry.TradeStatus.SHIPPING_ASSIGNED,
             "Trade must be in SHIPPING_ASSIGNED status"
         );
-        require(bytes(_ipfsHash).length > 0, "IPFS hash required");
-        require(!verifications[_tradeId].bolIssued, "BoL already issued");
+        require(bytes(ipfsHash).length > 0, "IPFS hash required");
+        require(!verifications[tradeId].bolIssued, "BoL already issued");
 
-        verifications[_tradeId].bolIpfsHash = _ipfsHash;
-        verifications[_tradeId].bolIssued = true;
+        verifications[tradeId].bolIpfsHash = ipfsHash;
+        verifications[tradeId].bolIssued = true;
 
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.GOODS_SHIPPED);
-        emit BillOfLadingIssued(_tradeId, _ipfsHash, msg.sender);
+        // Move event before external call
+        emit BillOfLadingIssued(tradeId, ipfsHash, msg.sender);
+
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.GOODS_SHIPPED);
     }
 
     /**
@@ -92,44 +94,45 @@ contract DocumentVerification {
      *         Decision 1 (FLAGS):  Tax required → CUSTOMS_FLAGGED (with taxAmount)
      *         Decision 2 (REJECT): Entry rejected → ENTRY_REJECTED (triggers voting)
      *
-     * @param _tradeId       On-chain trade ID
-     * @param _decision      0: Clear, 1: Flags (add tax), 2: Entry Rejection
-     * @param _taxAmount     Tax amount in wei (only relevant for decision 1)
-     * @param _certIpfsHash  Optional: IPFS CID of customs certificate
+     * @param tradeId       On-chain trade ID
+     * @param decision      0: Clear, 1: Flags (add tax), 2: Entry Rejection
+     * @param taxAmount     Tax amount in wei (only relevant for decision 1)
+     * @param certIpfsHash  Optional: IPFS CID of customs certificate
      */
     function verifyAsCustoms(
-        uint256 _tradeId,
-        uint8 _decision,
-        uint256 _taxAmount,
-        string calldata _certIpfsHash
-    ) external onlyCustomsAuthority(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        uint256 tradeId,
+        uint8 decision,
+        uint256 taxAmount,
+        string calldata certIpfsHash
+    ) external onlyCustomsAuthority(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(trade.status == TradeRegistry.TradeStatus.GOODS_SHIPPED, "Goods not yet shipped");
 
-        VerificationState storage state = verifications[_tradeId];
-        state.customsDecision = _decision;
+        VerificationState storage state = verifications[tradeId];
+        state.customsDecision = decision;
 
-        if (bytes(_certIpfsHash).length > 0) {
-            state.customsCertIpfsHash = _certIpfsHash;
+        if (bytes(certIpfsHash).length > 0) {
+            state.customsCertIpfsHash = certIpfsHash;
         }
 
-        if (_decision == 0) {
+        // Move event before external calling logic
+        emit CustomsDecisionMade(tradeId, decision, taxAmount, msg.sender);
+
+        if (decision == 0) {
             // CLEAR — no tax, customs cleared
             state.customsCleared = true;
-            tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.CUSTOMS_CLEARED);
-        } else if (_decision == 1) {
+            tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.CUSTOMS_CLEARED);
+        } else if (decision == 1) {
             // FLAGS — set tax amount, goods held
-            require(_taxAmount > 0, "Tax amount must be > 0 for flagged goods");
-            state.taxAmount = _taxAmount;
-            tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.CUSTOMS_FLAGGED);
-        } else if (_decision == 2) {
+            require(taxAmount > 0, "Tax amount must be > 0 for flagged goods");
+            state.taxAmount = taxAmount;
+            tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.CUSTOMS_FLAGGED);
+        } else if (decision == 2) {
             // ENTRY REJECTION — trade goes to dispute/voting
-            tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.ENTRY_REJECTED);
+            tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.ENTRY_REJECTED);
         } else {
             revert("Invalid decision code");
         }
-
-        emit CustomsDecisionMade(_tradeId, _decision, _taxAmount, msg.sender);
     }
 
     /**
@@ -137,32 +140,34 @@ contract DocumentVerification {
      *         tax externally and releases the goods → CUSTOMS_CLEARED.
      *         Only callable when trade is in CUSTOMS_FLAGGED status.
      */
-    function payTaxAndRelease(uint256 _tradeId) external onlyCustomsAuthority(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    function payTaxAndRelease(uint256 tradeId) external onlyCustomsAuthority(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(trade.status == TradeRegistry.TradeStatus.CUSTOMS_FLAGGED, "Trade not flagged");
 
-        VerificationState storage state = verifications[_tradeId];
+        VerificationState storage state = verifications[tradeId];
         require(state.taxAmount > 0, "No tax was assessed");
         require(!state.taxPaid, "Tax already paid");
 
         state.taxPaid = true;
         state.customsCleared = true;
 
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.CUSTOMS_CLEARED);
-        emit TaxPaidAndGoodsReleased(_tradeId, state.taxAmount, msg.sender);
+        // Move event before external call
+        emit TaxPaidAndGoodsReleased(tradeId, state.taxAmount, msg.sender);
+
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.CUSTOMS_CLEARED);
     }
 
     /**
      * @notice Read the full verification state for a trade.
      */
-    function getVerification(uint256 _tradeId) external view returns (VerificationState memory) {
-        return verifications[_tradeId];
+    function getVerification(uint256 tradeId) external view returns (VerificationState memory) {
+        return verifications[tradeId];
     }
 
     /**
      * @notice Read just the IPFS hash of the Bill of Lading for a trade.
      */
-    function getBolIpfsHash(uint256 _tradeId) external view returns (string memory) {
-        return verifications[_tradeId].bolIpfsHash;
+    function getBolIpfsHash(uint256 tradeId) external view returns (string memory) {
+        return verifications[tradeId].bolIpfsHash;
     }
 }

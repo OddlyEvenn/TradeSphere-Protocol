@@ -85,13 +85,13 @@ contract ConsensusDispute {
      * @notice Activate voting after ENTRY_REJECTED. Sets a 24-hour voting window.
      *         Can be called by any participant. Transitions trade to VOTING_ACTIVE.
      */
-    function activateVoting(uint256 _tradeId, string calldata _evidenceIpfsHash) external {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    function activateVoting(uint256 tradeId, string calldata evidenceIpfsHash) external {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(
             trade.status == TradeRegistry.TradeStatus.ENTRY_REJECTED,
             "Trade must be in ENTRY_REJECTED status"
         );
-        require(!disputes[_tradeId].active, "Voting already active");
+        require(!disputes[tradeId].active, "Voting already active");
 
         // Verify caller is a participant
         require(
@@ -107,32 +107,33 @@ contract ConsensusDispute {
 
         uint256 deadline = block.timestamp + VOTING_DURATION;
 
-        Dispute storage d = disputes[_tradeId];
-        d.tradeId = _tradeId;
-        d.evidenceIpfsHash = _evidenceIpfsHash;
+        Dispute storage d = disputes[tradeId];
+        d.tradeId = tradeId;
+        d.evidenceIpfsHash = evidenceIpfsHash;
         d.active = true;
         d.votingDeadline = deadline;
 
-        // Update trade status to VOTING_ACTIVE and set deadline on TradeRegistry
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.VOTING_ACTIVE);
-        tradeRegistry.setVotingDeadline(_tradeId, deadline);
+        // Move event before external calls
+        emit DisputeActivated(tradeId, deadline, msg.sender);
 
-        emit DisputeActivated(_tradeId, deadline, msg.sender);
+        // Update trade status to VOTING_ACTIVE and set deadline on TradeRegistry
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.VOTING_ACTIVE);
+        tradeRegistry.setVotingDeadline(tradeId, deadline);
     }
 
     /**
      * @notice Cast a vote on an active dispute. Each of the 7 nodes gets 1 vote.
      *         Voting is only allowed within the 24-hour window.
      */
-    function castVote(uint256 _tradeId, Vote _vote) external {
-        Dispute storage d = disputes[_tradeId];
+    function castVote(uint256 tradeId, Vote vote) external {
+        Dispute storage d = disputes[tradeId];
         require(d.active, "No active dispute");
         require(!d.finalized, "Voting already finalized");
         require(block.timestamp <= d.votingDeadline, "Voting period expired - call finalizeVoting");
         require(!d.hasVoted[msg.sender], "Already voted");
-        require(_vote == Vote.REVERT || _vote == Vote.NO_REVERT, "Invalid vote");
+        require(vote == Vote.REVERT || vote == Vote.NO_REVERT, "Invalid vote");
 
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
 
         // Verify caller is one of the 7 voting nodes
         require(
@@ -149,19 +150,19 @@ contract ConsensusDispute {
         d.hasVoted[msg.sender] = true;
         ++d.totalVotesCast;
 
-        if (_vote == Vote.REVERT) {
+        if (vote == Vote.REVERT) {
             ++d.totalRevertVotes;
         } else {
             ++d.totalNoRevertVotes;
         }
 
-        emit VoteCast(_tradeId, msg.sender, _vote);
+        emit VoteCast(tradeId, msg.sender, vote);
 
         // Auto-finalize if threshold reached or all votes are in
         if (d.totalRevertVotes >= VOTE_THRESHOLD) {
-            _finalizeVoting(_tradeId);
+            _finalizeVoting(tradeId);
         } else if (d.totalVotesCast == 7) {
-            _finalizeVoting(_tradeId);
+            _finalizeVoting(tradeId);
         }
     }
 
@@ -172,56 +173,56 @@ contract ConsensusDispute {
      *         Can only be called by the Inspector during active voting.
      */
     function submitInspectorDecision(
-        uint256 _tradeId,
-        bool _decision,
-        CargoStatus _cargoStatus,
-        string calldata _notes
+        uint256 tradeId,
+        bool decision,
+        CargoStatus cargoStatus,
+        string calldata notes
     ) external {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(msg.sender == trade.inspector, "Only Inspector");
 
-        Dispute storage d = disputes[_tradeId];
+        Dispute storage d = disputes[tradeId];
         require(d.active, "No active dispute");
         require(!d.finalized, "Voting already finalized");
 
-        InspectorDecision storage insp = inspectorDecisions[_tradeId];
+        InspectorDecision storage insp = inspectorDecisions[tradeId];
         require(!insp.submitted, "Inspector decision already submitted");
 
         insp.submitted = true;
-        insp.decision = _decision;
-        insp.cargoStatus = _cargoStatus;
-        insp.notes = _notes;
+        insp.decision = decision;
+        insp.cargoStatus = cargoStatus;
+        insp.notes = notes;
 
-        emit InspectorDecisionSubmitted(_tradeId, _decision, _cargoStatus);
+        emit InspectorDecisionSubmitted(tradeId, decision, cargoStatus);
     }
 
     /**
      * @notice Finalize voting after the 24-hour deadline has passed.
      *         Anyone can call this after the deadline to resolve the dispute.
      */
-    function finalizeVoting(uint256 _tradeId) external {
-        Dispute storage d = disputes[_tradeId];
+    function finalizeVoting(uint256 tradeId) external {
+        Dispute storage d = disputes[tradeId];
         require(d.active, "No active dispute");
         require(!d.finalized, "Already finalized");
         require(block.timestamp > d.votingDeadline, "Voting period not yet expired");
 
-        _finalizeVoting(_tradeId);
+        _finalizeVoting(tradeId);
     }
 
     /**
      * @notice Check if the voting deadline has been breached (SLA auto-breach).
      *         Marks the dispute as having an SLA breach event.
      */
-    function triggerVotingSLABreach(uint256 _tradeId) external {
-        Dispute storage d = disputes[_tradeId];
+    function triggerVotingSLABreach(uint256 tradeId) external {
+        Dispute storage d = disputes[tradeId];
         require(d.active, "No active dispute");
         require(!d.finalized, "Already finalized");
         require(block.timestamp > d.votingDeadline, "Voting deadline not breached");
 
-        emit SLABreachTriggered(_tradeId);
+        emit SLABreachTriggered(tradeId);
 
         // Auto-finalize on SLA breach
-        _finalizeVoting(_tradeId);
+        _finalizeVoting(tradeId);
     }
 
     // ── View Functions ─────────────────────────────────────────────────────
@@ -229,20 +230,20 @@ contract ConsensusDispute {
     /**
      * @notice Get the Inspector's field decision for a trade dispute.
      */
-    function getInspectorDecision(uint256 _tradeId) external view returns (
+    function getInspectorDecision(uint256 tradeId) external view returns (
         bool submitted,
         bool decision,
         CargoStatus cargoStatus,
         string memory notes
     ) {
-        InspectorDecision storage insp = inspectorDecisions[_tradeId];
+        InspectorDecision storage insp = inspectorDecisions[tradeId];
         return (insp.submitted, insp.decision, insp.cargoStatus, insp.notes);
     }
 
     /**
      * @notice Get voting summary for a dispute.
      */
-    function getVotingSummary(uint256 _tradeId) external view returns (
+    function getVotingSummary(uint256 tradeId) external view returns (
         bool active,
         bool finalized,
         uint256 votingDeadline,
@@ -250,21 +251,21 @@ contract ConsensusDispute {
         uint256 noRevertVotes,
         uint256 totalVotesCast
     ) {
-        Dispute storage d = disputes[_tradeId];
+        Dispute storage d = disputes[tradeId];
         return (d.active, d.finalized, d.votingDeadline, d.totalRevertVotes, d.totalNoRevertVotes, d.totalVotesCast);
     }
 
     // ── Internal ───────────────────────────────────────────────────────────
 
-    function _finalizeVoting(uint256 _tradeId) internal {
-        Dispute storage d = disputes[_tradeId];
+    function _finalizeVoting(uint256 tradeId) internal {
+        Dispute storage d = disputes[tradeId];
         d.active = false;
         d.finalized = true;
 
         TradeRegistry.TradeStatus outcome;
 
         // Check if Inspector found cargo damaged → enable insurance claim for exporter
-        InspectorDecision storage insp = inspectorDecisions[_tradeId];
+        InspectorDecision storage insp = inspectorDecisions[tradeId];
         bool cargoDamaged = insp.submitted && insp.cargoStatus == CargoStatus.DAMAGED;
 
         if (d.totalRevertVotes >= VOTE_THRESHOLD) {
@@ -278,7 +279,9 @@ contract ConsensusDispute {
             outcome = TradeRegistry.TradeStatus.DISPUTE_RESOLVED_NO_REVERT;
         }
 
-        tradeRegistry.updateStatus(_tradeId, outcome);
-        emit VotingFinalized(_tradeId, d.totalRevertVotes, d.totalNoRevertVotes, outcome);
+        // Move event before external call
+        emit VotingFinalized(tradeId, d.totalRevertVotes, d.totalNoRevertVotes, outcome);
+
+        tradeRegistry.updateStatus(tradeId, outcome);
     }
 }

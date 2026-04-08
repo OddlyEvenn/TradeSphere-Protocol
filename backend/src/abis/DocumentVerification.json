@@ -95,7 +95,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
@@ -114,7 +114,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
@@ -170,12 +170,12 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       },
       {
         "internalType": "string",
-        "name": "_ipfsHash",
+        "name": "ipfsHash",
         "type": "string"
       }
     ],
@@ -188,7 +188,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
@@ -263,22 +263,22 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       },
       {
         "internalType": "uint8",
-        "name": "_decision",
+        "name": "decision",
         "type": "uint8"
       },
       {
         "internalType": "uint256",
-        "name": "_taxAmount",
+        "name": "taxAmount",
         "type": "uint256"
       },
       {
         "internalType": "string",
-        "name": "_certIpfsHash",
+        "name": "certIpfsHash",
         "type": "string"
       }
     ],

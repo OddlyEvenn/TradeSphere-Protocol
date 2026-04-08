@@ -159,12 +159,12 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       },
       {
         "internalType": "string",
-        "name": "_evidenceIpfsHash",
+        "name": "evidenceIpfsHash",
         "type": "string"
       }
     ],
@@ -177,12 +177,12 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       },
       {
         "internalType": "enum ConsensusDispute.Vote",
-        "name": "_vote",
+        "name": "vote",
         "type": "uint8"
       }
     ],
@@ -249,7 +249,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
@@ -262,7 +262,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
@@ -296,7 +296,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
@@ -374,22 +374,22 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       },
       {
         "internalType": "bool",
-        "name": "_decision",
+        "name": "decision",
         "type": "bool"
       },
       {
         "internalType": "enum ConsensusDispute.CargoStatus",
-        "name": "_cargoStatus",
+        "name": "cargoStatus",
         "type": "uint8"
       },
       {
         "internalType": "string",
-        "name": "_notes",
+        "name": "notes",
         "type": "string"
       }
     ],
@@ -415,7 +415,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],

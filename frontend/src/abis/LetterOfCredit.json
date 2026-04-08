@@ -77,7 +77,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
@@ -90,7 +90,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
@@ -146,7 +146,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
@@ -221,17 +221,17 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "_expiry",
+        "name": "expiry",
         "type": "uint256"
       },
       {
         "internalType": "string",
-        "name": "_ipfsHash",
+        "name": "ipfsHash",
         "type": "string"
       }
     ],

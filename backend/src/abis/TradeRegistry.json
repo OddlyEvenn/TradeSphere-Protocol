@@ -240,7 +240,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
@@ -253,47 +253,47 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_exporter",
+        "name": "exporter",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_issuingBank",
+        "name": "issuingBank",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_advisingBank",
+        "name": "advisingBank",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_inspector",
+        "name": "inspector",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_customsAuthority",
+        "name": "customsAuthority",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_insuranceNode",
+        "name": "insuranceNode",
         "type": "address"
       },
       {
         "internalType": "uint256",
-        "name": "_amount",
+        "name": "amount",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "_shippingDeadline",
+        "name": "shippingDeadline",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "_clearanceDeadline",
+        "name": "clearanceDeadline",
         "type": "uint256"
       }
     ],
@@ -457,7 +457,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_tradeId",
+        "name": "tradeId",
         "type": "uint256"
       }
     ],
