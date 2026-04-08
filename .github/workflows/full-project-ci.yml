@@ -2,9 +2,9 @@ name: Full Project CI (Contracts, Backend, Frontend)
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev", "Even" ]
   pull_request:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev", "Even" ]
 
 jobs:
   # --- Smart Contracts ---
