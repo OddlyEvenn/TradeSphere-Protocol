@@ -28,7 +28,7 @@ jobs:
       - name: Slither Security Scan
         uses: crytic/slither-action@v0.4.0
         with:
-          target: 'contracts/'
+          target: '.'
           fail-on: 'high'
 
   # --- Backend ---
