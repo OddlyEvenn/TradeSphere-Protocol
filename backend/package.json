@@ -6,7 +6,8 @@
     "scripts": {
         "start": "node dist/app.js",
         "dev": "nodemon src/app.ts",
-        "build": "tsc"
+        "build": "tsc",
+        "lint": "eslint src/**/*.ts"
     },
     "dependencies": {
         "@pinata/sdk": "^2.1.0",
@@ -38,6 +39,9 @@
         "nodemon": "^3.1.9",
         "prisma": "^5.10.2",
         "ts-node": "^10.9.2",
-        "typescript": "^5.7.3"
+        "typescript": "^5.7.3",
+        "eslint": "^8.57.0",
+        "@typescript-eslint/parser": "^7.0.0",
+        "@typescript-eslint/eslint-plugin": "^7.0.0"
     }
 }

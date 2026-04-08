@@ -43,7 +43,7 @@ export class WalletService {
             const accounts = await (window as any).ethereum.request({ method: "eth_requestAccounts" });
 
             // Create a temporary provider to check the current network
-            let tempProvider = new ethers.BrowserProvider((window as any).ethereum);
+            const tempProvider = new ethers.BrowserProvider((window as any).ethereum);
             const network = await tempProvider.getNetwork();
 
             // Switch to Sepolia if not already on it

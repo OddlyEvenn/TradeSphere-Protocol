@@ -1,4 +1,4 @@
-// @ts-ignore
+// @ts-expect-error: Pinata SDK lacks official TypeScript type definitions
 import pinataSDK from '@pinata/sdk';
 import fs from 'fs';
 import path from 'path';

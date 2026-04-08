@@ -49,7 +49,6 @@ export const createTrade = async (req: Request, res: Response) => {
             destination,
             priceRange,
             shippingDeadline,
-            clearanceDeadline,
             insuranceRequired,
             qualityStandards,
             additionalConditions,
@@ -298,7 +297,7 @@ export const updateTradeState = async (req: Request, res: Response) => {
     try {
         const authReq = req as AuthRequest;
         const id = getStringParam(req.params.id);
-        const { status, txHash, ipfsHash, eventName, taxAmount } = req.body;
+        const { status, txHash, ipfsHash, eventName } = req.body;
 
         const userId = authReq.user.userId;
         const role = authReq.user.role;
