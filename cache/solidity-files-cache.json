@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\ConsensusDispute.sol": {
-      "lastModificationDate": 1775671992916,
-      "contentHash": "722212b637b1edaa6669d034b3dc262d",
+      "lastModificationDate": 1775672971538,
+      "contentHash": "8fec034bb84793410eb12ce8340b35f8",
       "sourceName": "contracts/ConsensusDispute.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -41,8 +41,8 @@
       ]
     },
     "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\TradeRegistry.sol": {
-      "lastModificationDate": 1775671968741,
-      "contentHash": "3d32fcf2bdd7d44bb64e45bfcde167cb",
+      "lastModificationDate": 1775672948226,
+      "contentHash": "6fc2c4581dc48a550da6b6c0cca92eb3",
       "sourceName": "contracts/TradeRegistry.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -78,8 +78,8 @@
       ]
     },
     "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\PaymentSettlement.sol": {
-      "lastModificationDate": 1775672039611,
-      "contentHash": "ee0050ccb0745ea848413f4612b1004e",
+      "lastModificationDate": 1775672895078,
+      "contentHash": "16cc6ac58620ce4477a13917a36d3b7c",
       "sourceName": "contracts/PaymentSettlement.sol",
       "solcConfig": {
         "version": "0.8.24",

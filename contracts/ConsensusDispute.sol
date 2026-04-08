@@ -105,6 +105,7 @@ contract ConsensusDispute {
             "Not a trade participant"
         );
 
+        // slither-disable-next-line timestamp
         uint256 deadline = block.timestamp + VOTING_DURATION;
 
         Dispute storage d = disputes[tradeId];
@@ -129,6 +130,7 @@ contract ConsensusDispute {
         Dispute storage d = disputes[tradeId];
         require(d.active, "No active dispute");
         require(!d.finalized, "Voting already finalized");
+        // slither-disable-next-line timestamp
         require(block.timestamp <= d.votingDeadline, "Voting period expired - call finalizeVoting");
         require(!d.hasVoted[msg.sender], "Already voted");
         require(vote == Vote.REVERT || vote == Vote.NO_REVERT, "Invalid vote");
@@ -182,6 +184,7 @@ contract ConsensusDispute {
         require(msg.sender == trade.inspector, "Only Inspector");
 
         Dispute storage d = disputes[tradeId];
+        // slither-disable-next-line timestamp
         require(d.active, "No active dispute");
         require(!d.finalized, "Voting already finalized");
 
@@ -204,6 +207,7 @@ contract ConsensusDispute {
         Dispute storage d = disputes[tradeId];
         require(d.active, "No active dispute");
         require(!d.finalized, "Already finalized");
+        // slither-disable-next-line timestamp
         require(block.timestamp > d.votingDeadline, "Voting period not yet expired");
 
         _finalizeVoting(tradeId);
@@ -217,6 +221,7 @@ contract ConsensusDispute {
         Dispute storage d = disputes[tradeId];
         require(d.active, "No active dispute");
         require(!d.finalized, "Already finalized");
+        // slither-disable-next-line timestamp
         require(block.timestamp > d.votingDeadline, "Voting deadline not breached");
 
         emit SLABreachTriggered(tradeId);

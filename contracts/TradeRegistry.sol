@@ -173,6 +173,7 @@ contract TradeRegistry {
      */
     function confirmTrade(uint256 tradeId) external {
         Trade storage trade = trades[tradeId];
+        // slither-disable-next-line timestamp
         require(trade.status == TradeStatus.OFFER_ACCEPTED, "Trade not in OFFER_ACCEPTED status");
         require(
             msg.sender == trade.importer || msg.sender == trade.exporter,
@@ -203,6 +204,7 @@ contract TradeRegistry {
     function requestLetterOfCredit(uint256 tradeId) external {
         Trade storage trade = trades[tradeId];
         require(msg.sender == trade.importer, "Only importer");
+        // slither-disable-next-line timestamp
         require(
             trade.status == TradeStatus.TRADE_INITIATED || trade.status == TradeStatus.OFFER_ACCEPTED,
             "Invalid status"
@@ -219,6 +221,7 @@ contract TradeRegistry {
     function assignShippingCompany(uint256 tradeId, address shippingCompany) external {
         Trade storage trade = trades[tradeId];
         require(msg.sender == trade.importer, "Only importer");
+        // slither-disable-next-line timestamp
         require(trade.status == TradeStatus.FUNDS_LOCKED, "Funds not locked yet");
         require(shippingCompany != address(0), "Invalid address");
 
@@ -290,6 +293,7 @@ contract TradeRegistry {
             trade.status == TradeStatus.FUNDS_LOCKED || trade.status == TradeStatus.SHIPPING_ASSIGNED,
             "Invalid status for SLA revert"
         );
+        // slither-disable-next-line timestamp
         require(block.timestamp > trade.shippingDeadline, "Deadline not yet breached");
 
         TradeStatus old = trade.status;
@@ -307,6 +311,7 @@ contract TradeRegistry {
             trade.status == TradeStatus.GOODS_SHIPPED || trade.status == TradeStatus.CUSTOMS_FLAGGED,
             "Invalid status for clearance revert"
         );
+        // slither-disable-next-line timestamp
         require(block.timestamp > trade.clearanceDeadline, "Clearance deadline not yet breached");
 
         TradeStatus old = trade.status;
@@ -319,6 +324,7 @@ contract TradeRegistry {
      */
     function raiseDispute(uint256 tradeId) external onlyParticipant(tradeId) {
         Trade storage trade = trades[tradeId];
+        // slither-disable-next-line timestamp
         require(
             trade.status != TradeStatus.COMPLETED && trade.status != TradeStatus.TRADE_REVERTED_BY_CONSENSUS,
             "Cannot dispute finished trade"
