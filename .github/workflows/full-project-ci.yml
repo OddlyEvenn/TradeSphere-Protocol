@@ -30,6 +30,8 @@ jobs:
         with:
           target: '.'
           fail-on: 'high'
+          slither-args: '--nocompile'
+
 
   # --- Backend ---
   backend:
