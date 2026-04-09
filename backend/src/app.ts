@@ -20,24 +20,26 @@ const PORT = process.env.PORT || 5000;
 app.use(morgan('dev')); // GET/POST/PUT logs
 // CORS Configuration
 const rawOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',') : ['http://localhost:5173'];
-const allowedOrigins = rawOrigins.map(origin => origin.trim().replace(/\/$/, "")).filter(origin => origin !== "");
+// Strip potential quotes and trailing slashes
+const allowedOrigins = rawOrigins.map(origin => 
+    origin.trim().replace(/^["'](.+)["']$/, '$1').replace(/\/$/, "")
+).filter(origin => origin !== "");
 
-logger.info(`CORS Whitelist: ${allowedOrigins.join(', ')}`);
+logger.info(`CORS Whitelist: [${allowedOrigins.join('], [')}]`);
 
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         
-        // Normalize the incoming origin by removing trailing slash
+        // Normalize the incoming origin
         const normalizedOrigin = origin.trim().replace(/\/$/, "");
+        const isAllowed = allowedOrigins.includes(normalizedOrigin) || allowedOrigins.includes('*');
         
-        if (allowedOrigins.includes(normalizedOrigin) || allowedOrigins.includes('*')) {
+        if (isAllowed) {
             callback(null, true);
         } else {
-            logger.warn(`CORS blocked request from origin: "${origin}" (Normalized: "${normalizedOrigin}"). Allowed: [${allowedOrigins.join(', ')}]`);
-            // We pass null, false to omit the header instead of throwing an error, 
-            // which is more compatible with some browser behaviors.
+            logger.warn(`CORS BLOCKED! Incoming: "${normalizedOrigin}" | Whitelist: [${allowedOrigins.join(', ')}]`);
             callback(null, false);
         }
     },
