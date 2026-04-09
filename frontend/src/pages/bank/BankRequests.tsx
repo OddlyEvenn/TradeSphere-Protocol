@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ethers } from 'ethers';
 import api from '../../services/api';
-import { walletService } from '../../services/WalletService';
+import { walletService, PROTOCOL_USD_TO_ETH_RATE } from '../../services/WalletService';
 import {
     ClipboardCheck,
     ShieldCheck,
@@ -133,12 +133,13 @@ const BankRequests: React.FC = () => {
             } else if (action === 'LOCK_FUNDS') {
                 toast.info("Depositing escrow funds to blockchain vault...");
                 const contract = walletService.getPaymentSettlement();
-                // ARCHITECTURE: Convert USD amount to ETH (fixed rate 2000 USD/ETH)
+                // ARCHITECTURE: Convert USD amount to ETH (using scaled protocol rate)
                 // This must match the amount registered on-chain in TradeRegistry
-                const amountInEth = (trade.amount / 2000).toFixed(4);
+                const amountInEth = (trade.amount / PROTOCOL_USD_TO_ETH_RATE).toFixed(8);
                 const valueInWei = ethers.parseEther(amountInEth);
                 
                 tx = await contract.depositEscrow(trade.blockchainId, { value: valueInWei });
+
             } else if (action === 'AUTHORIZE_PAYMENT') {
                 toast.info("Authorizing payment on blockchain...");
                 const contract = walletService.getPaymentSettlement();

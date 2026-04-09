@@ -258,98 +258,100 @@ const CustomsDashboard: React.FC = () => {
         }
         if (trade.status === 'ENTRY_REJECTED') {
             return (
-                <div className="flex items-center justify-end gap-1 text-rose-600 font-bold text-xs uppercase bg-rose-50 px-3 py-1 rounded-full border border-rose-100">
-                    <XOctagon size={14} /> Entry Rejected — Dispute Pending
-                </div>
+                <div className="flex justify-end">
+    <div className="inline-flex items-center gap-1 text-rose-700 font-semibold text-xs uppercase bg-rose-100 px-3 py-1 rounded-full border border-rose-200">
+        <XOctagon size={14} /> Entry Rejected — Dispute Pending
+    </div>
+</div>
             );
         }
         if (trade.status === 'VOTING_ACTIVE') {
             return (
                 <div className="flex items-center justify-end gap-1 text-purple-600 font-bold text-xs uppercase bg-purple-50 px-3 py-1 rounded-full border border-purple-100">
-                    <AlertCircle size={14} /> 7-Node Voting Active
-                </div>
+                < AlertCircle size = { 14} /> 7 - Node Voting Active
+                </div >
             );
         }
-        return (
-            <div className="flex items-center justify-end gap-1 text-emerald-600 font-bold text-xs uppercase">
-                <CheckCircle2 size={14} /> {trade.status.replace(/_/g, ' ')}
-            </div>
-        );
+return (
+    <div className="flex items-center justify-end gap-1 text-emerald-600 font-bold text-xs uppercase">
+        <CheckCircle2 size={14} /> {trade.status.replace(/_/g, ' ')}
+    </div>
+);
     };
 
-    return (
-        <div className="space-y-10">
-            <div>
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Customs & Tax Authority</h1>
-                <p className="text-slate-500 font-medium mt-1">Audit import documents and submit unified customs decisions on-chain.</p>
-            </div>
+return (
+    <div className="space-y-10">
+        <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Customs & Tax Authority</h1>
+            <p className="text-slate-500 font-medium mt-1">Audit import documents and submit unified customs decisions on-chain.</p>
+        </div>
 
-            {!account && (
-                <div className="flex items-center gap-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
-                    <AlertTriangle className="text-amber-600 flex-shrink-0" size={20} />
-                    <p className="text-sm font-bold text-amber-800">
-                        MetaMask not connected. You must connect your wallet to submit customs decisions.
-                    </p>
+        {!account && (
+            <div className="flex items-center gap-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                <AlertTriangle className="text-amber-600 flex-shrink-0" size={20} />
+                <p className="text-sm font-bold text-amber-800">
+                    MetaMask not connected. You must connect your wallet to submit customs decisions.
+                </p>
+            </div>
+        )}
+
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm glass">
+            {loading ? (
+                <div className="flex justify-center py-20"><div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div></div>
+            ) : (
+                <table className="w-full text-left">
+                    <thead className="bg-slate-50">
+                        <tr>
+                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase">Product / Origin</th>
+                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-center">Status</th>
+                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-center">Documents</th>
+                            <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {trades.map(trade => (
+                            <tr key={trade.id}>
+                                <td className="px-8 py-6">
+                                    <p className="font-black text-slate-900">{trade.productName}</p>
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                        {trade.blockchainId !== null && trade.blockchainId !== undefined ? `BC #${trade.blockchainId}` : `ID: ${trade.id.slice(0, 8)}`}
+                                    </p>
+                                    {(trade.blockchainId === null || trade.blockchainId === undefined) && (
+                                        <p className="text-[10px] text-amber-600 font-bold mt-1">⚠ Not on-chain</p>
+                                    )}
+                                </td>
+                                <td className="px-8 py-6 text-center">
+                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusBadge(trade.status)}`}>
+                                        <ShieldCheck size={12} />
+                                        {trade.status.replace(/_/g, ' ')}
+                                    </span>
+                                </td>
+                                <td className="px-8 py-6 text-center">
+                                    <button
+                                        onClick={() => handleViewDocument(trade)}
+                                        className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-blue-100"
+                                    >
+                                        <FileText size={14} /> View BoL
+                                    </button>
+                                </td>
+                                <td className="px-8 py-6 text-right">
+                                    {renderActions(trade)}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
+            {trades.length === 0 && !loading && (
+                <div className="p-20 text-center">
+                    <Search className="mx-auto text-slate-200 mb-4" size={48} />
+                    <h3 className="text-xl font-bold text-slate-900">Queue Empty</h3>
+                    <p className="text-slate-400">No goods currently awaiting customs inspection.</p>
                 </div>
             )}
-
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm glass">
-                {loading ? (
-                    <div className="flex justify-center py-20"><div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div></div>
-                ) : (
-                    <table className="w-full text-left">
-                        <thead className="bg-slate-50">
-                            <tr>
-                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase">Product / Origin</th>
-                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-center">Status</th>
-                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-center">Documents</th>
-                                <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                            {trades.map(trade => (
-                                <tr key={trade.id}>
-                                    <td className="px-8 py-6">
-                                        <p className="font-black text-slate-900">{trade.productName}</p>
-                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                                            {trade.blockchainId !== null && trade.blockchainId !== undefined ? `BC #${trade.blockchainId}` : `ID: ${trade.id.slice(0, 8)}`}
-                                        </p>
-                                        {(trade.blockchainId === null || trade.blockchainId === undefined) && (
-                                            <p className="text-[10px] text-amber-600 font-bold mt-1">⚠ Not on-chain</p>
-                                        )}
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusBadge(trade.status)}`}>
-                                            <ShieldCheck size={12} />
-                                            {trade.status.replace(/_/g, ' ')}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-6 text-center">
-                                        <button
-                                            onClick={() => handleViewDocument(trade)}
-                                            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-blue-100"
-                                        >
-                                            <FileText size={14} /> View BoL
-                                        </button>
-                                    </td>
-                                    <td className="px-8 py-6 text-right">
-                                        {renderActions(trade)}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-                {trades.length === 0 && !loading && (
-                    <div className="p-20 text-center">
-                        <Search className="mx-auto text-slate-200 mb-4" size={48} />
-                        <h3 className="text-xl font-bold text-slate-900">Queue Empty</h3>
-                        <p className="text-slate-400">No goods currently awaiting customs inspection.</p>
-                    </div>
-                )}
-            </div>
         </div>
-    );
+    </div>
+);
 };
 
 export default CustomsDashboard;

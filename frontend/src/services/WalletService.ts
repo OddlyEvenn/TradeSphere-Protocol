@@ -1,5 +1,8 @@
 import { ethers } from "ethers";
 
+export const PROTOCOL_USD_TO_ETH_RATE = 1000000; // 1 ETH = $1,000,000 for simulation scaling
+
+
 // Import ABIs
 import TradeRegistryABI from "../abis/TradeRegistry.json";
 import LetterOfCreditABI from "../abis/LetterOfCredit.json";
