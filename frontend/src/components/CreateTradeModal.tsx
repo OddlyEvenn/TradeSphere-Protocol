@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
-import { X } from 'lucide-react';
+import { X, ShieldAlert } from 'lucide-react';
+import { ethers } from 'ethers';
 
 interface CreateTradeModalProps {
     isOpen: boolean;
@@ -13,19 +14,50 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
     const [importerBankId, setImporterBankId] = useState('');
     const [exporterBankId, setExporterBankId] = useState('');
     const [amount, setAmount] = useState('');
+    const [shippingDeadline, setShippingDeadline] = useState('72'); // Default 72 hours
+    const [clearanceDeadline, setClearanceDeadline] = useState('48'); // Default 48 hours
+    const [inspectorId, setInspectorId] = useState('');
+    const [insuranceId, setInsuranceId] = useState('');
+    const [customsOfficerId, setCustomsOfficerId] = useState('');
+    const [customsAuthorities, setCustomsAuthorities] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+
+    React.useEffect(() => {
+        const fetchAuthorities = async () => {
+            try {
+                const res = await api.get('/users?role=CUSTOMS');
+                // Only show nodes that HAVE a wallet synced
+                const activeNodes = res.data.filter((node: any) => node.walletAddress && node.walletAddress !== ethers.ZeroAddress);
+                setCustomsAuthorities(activeNodes);
+                if (activeNodes.length > 0) setCustomsOfficerId(activeNodes[0].id);
+            } catch (err) {
+                console.error("Failed to fetch customs authorities", err);
+            }
+        };
+        fetchAuthorities();
+    }, []);
 
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
+        const selectedCustoms = customsAuthorities.find(node => node.id === customsOfficerId);
+        if (!selectedCustoms?.walletAddress) {
+            alert("The selected Customs node has not linked their wallet yet. Please choose a different node or ask them to Sync their wallet.");
+            setLoading(false);
+            return;
+        }
+
         try {
             await api.post('/trades', {
                 exporterId,
                 amount,
                 importerBankId,
-                exporterBankId
+                exporterBankId,
+                inspectorId,
+                insuranceId,
+                customsOfficerId,
+                shippingDeadline: parseInt(shippingDeadline),
+                clearanceDeadline: parseInt(clearanceDeadline)
             });
             onTradeCreated();
             onClose();
@@ -62,28 +94,78 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="group">
-                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Importer Bank ID</label>
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1 text-[10px] uppercase tracking-widest text-slate-400">Importer Bank ID</label>
                             <input
                                 type="text"
                                 required
-                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all"
-                                placeholder="Bank ID"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all text-sm"
+                                placeholder="Bank Node ID"
                                 value={importerBankId}
                                 onChange={(e) => setImporterBankId(e.target.value)}
                             />
                         </div>
                         <div className="group">
-                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Exporter Bank ID</label>
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1 text-[10px] uppercase tracking-widest text-slate-400">Exporter Bank ID</label>
                             <input
                                 type="text"
                                 required
-                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all"
-                                placeholder="Bank ID"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all text-sm"
+                                placeholder="Bank Node ID"
                                 value={exporterBankId}
                                 onChange={(e) => setExporterBankId(e.target.value)}
                             />
                         </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="group">
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1 text-[10px] uppercase tracking-widest text-slate-400">Inspector ID (Optional)</label>
+                            <input
+                                type="text"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all text-sm"
+                                placeholder="Audit Node ID"
+                                value={inspectorId}
+                                onChange={(e) => setInspectorId(e.target.value)}
+                            />
+                        </div>
+                        <div className="group">
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1 text-[10px] uppercase tracking-widest text-slate-400">Insurance ID (Optional)</label>
+                            <input
+                                type="text"
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all text-sm"
+                                placeholder="Underwriter Node ID"
+                                value={insuranceId}
+                                onChange={(e) => setInsuranceId(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div className="group">
+                        <label className="block text-sm font-bold text-slate-700 mb-2 ml-1 text-[10px] uppercase tracking-widest text-slate-400">Customs & Tax Authority</label>
+                        <select
+                            required
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white transition-all text-sm appearance-none cursor-pointer"
+                            value={customsOfficerId}
+                            onChange={(e) => setCustomsOfficerId(e.target.value)}
+                        >
+                            {customsAuthorities.length === 0 ? (
+                                <option value="">No Customs Authorities found in system</option>
+                            ) : (
+                                <>
+                                    <option value="">Select Authority Node...</option>
+                                    {customsAuthorities.map(node => (
+                                        <option key={node.id} value={node.id}>
+                                            {node.name} {node.walletAddress ? `(${node.walletAddress.slice(0, 6)}...${node.walletAddress.slice(-4)})` : '(Sync Required)'}
+                                        </option>
+                                    ))}
+                                </>
+                            )}
+                        </select>
+                        {customsAuthorities.length === 0 && (
+                            <p className="mt-2 text-[10px] font-bold text-amber-600 uppercase tracking-widest ml-1 animate-pulse">
+                                Warning: Register a Customs entity first to enable clearance
+                            </p>
+                        )}
+                    </div>
+
                     <div className="group">
                         <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Settlement Amount (USD)</label>
                         <div className="relative">
@@ -95,6 +177,30 @@ const CreateTradeModal: React.FC<CreateTradeModalProps> = ({ isOpen, onClose, on
                                 placeholder="50,000"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="group">
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Shipping SLA (Hours)</label>
+                            <input
+                                type="number"
+                                required
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all"
+                                placeholder="72"
+                                value={shippingDeadline}
+                                onChange={(e) => setShippingDeadline(e.target.value)}
+                            />
+                        </div>
+                        <div className="group">
+                            <label className="block text-sm font-bold text-slate-700 mb-2 ml-1">Clearance SLA (Hours)</label>
+                            <input
+                                type="number"
+                                required
+                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 px-5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                                placeholder="48"
+                                value={clearanceDeadline}
+                                onChange={(e) => setClearanceDeadline(e.target.value)}
                             />
                         </div>
                     </div>

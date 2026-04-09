@@ -1,17 +1,22 @@
 import { ethers } from "ethers";
 
+export const PROTOCOL_USD_TO_ETH_RATE = 1000000; // 1 ETH = $1,000,000 for simulation scaling
+
+
 // Import ABIs
 import TradeRegistryABI from "../abis/TradeRegistry.json";
 import LetterOfCreditABI from "../abis/LetterOfCredit.json";
 import DocumentVerificationABI from "../abis/DocumentVerification.json";
 import PaymentSettlementABI from "../abis/PaymentSettlement.json";
+import ConsensusDisputeABI from "../abis/ConsensusDispute.json";
 
 // Contract Addresses (Should match backend .env)
 const ADDRESSES = {
-    TradeRegistry: "0xf76d952C4181c692CA250450De2921a1c36D51DB",
-    LetterOfCredit: "0xF717Dfe4069232336B9A52de2324e6afbB1837a7",
-    DocumentVerification: "0xC31B3940D04A6D90d3Bd94EA1E4f1d866E92B2CA",
-    PaymentSettlement: "0xb295F9fA5881D5870985061beA83FC2D3d203e00",
+    TradeRegistry: import.meta.env.VITE_TRADE_REGISTRY_ADDRESS,
+    LetterOfCredit: import.meta.env.VITE_LETTER_OF_CREDIT_ADDRESS,
+    DocumentVerification: import.meta.env.VITE_DOCUMENT_VERIFICATION_ADDRESS,
+    PaymentSettlement: import.meta.env.VITE_PAYMENT_SETTLEMENT_ADDRESS,
+    ConsensusDispute: import.meta.env.VITE_CONSENSUS_DISPUTE_ADDRESS,
 };
 
 const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111
@@ -41,7 +46,7 @@ export class WalletService {
             const accounts = await (window as any).ethereum.request({ method: "eth_requestAccounts" });
 
             // Create a temporary provider to check the current network
-            let tempProvider = new ethers.BrowserProvider((window as any).ethereum);
+            const tempProvider = new ethers.BrowserProvider((window as any).ethereum);
             const network = await tempProvider.getNetwork();
 
             // Switch to Sepolia if not already on it
@@ -106,6 +111,11 @@ export class WalletService {
     public getPaymentSettlement() {
         if (!this.signer) throw new Error("Wallet not connected");
         return new ethers.Contract(ADDRESSES.PaymentSettlement, ((PaymentSettlementABI as any).abi || PaymentSettlementABI) as any, this.signer);
+    }
+
+    public getConsensusDispute() {
+        if (!this.signer) throw new Error("Wallet not connected");
+        return new ethers.Contract(ADDRESSES.ConsensusDispute, ((ConsensusDisputeABI as any).abi || ConsensusDisputeABI) as any, this.signer);
     }
 }
 

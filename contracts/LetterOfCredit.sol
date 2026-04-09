@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TradeRegistry.sol";
+import {TradeRegistry} from "./TradeRegistry.sol";
 
 /**
  * @title LetterOfCredit
@@ -17,7 +17,7 @@ import "./TradeRegistry.sol";
  * ─────────────────────────────────────────────────────────────────────────────
  */
 contract LetterOfCredit {
-    TradeRegistry public tradeRegistry;
+    TradeRegistry public immutable tradeRegistry;
 
     // ── Structs ────────────────────────────────────────────────────────────
     struct LoC {
@@ -34,9 +34,9 @@ contract LetterOfCredit {
     mapping(uint256 => LoC) public locs;
 
     // ── Events ─────────────────────────────────────────────────────────────
-    event LoCDocumentUploaded(uint256 indexed tradeId, string ipfsHash, address uploadedBy);
-    event LoCApproved(uint256 indexed tradeId, address approvedBy);
-    event FundsLocked(uint256 indexed tradeId, uint256 amount);
+    event LoCDocumentUploaded(uint256 indexed tradeId, string ipfsHash, address indexed uploadedBy);
+    event LoCApproved(uint256 indexed tradeId, address indexed approvedBy);
+    event FundsLocked(uint256 indexed tradeId, uint256 indexed amount);
 
     // ── Constructor ────────────────────────────────────────────────────────
     constructor(address _tradeRegistry) {
@@ -44,14 +44,14 @@ contract LetterOfCredit {
     }
 
     // ── Modifiers ──────────────────────────────────────────────────────────
-    modifier onlyIssuingBank(uint256 _tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    modifier onlyIssuingBank(uint256 tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(msg.sender == trade.issuingBank, "Only issuing bank (importer bank)");
         _;
     }
 
-    modifier onlyAdvisingBank(uint256 _tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    modifier onlyAdvisingBank(uint256 tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(msg.sender == trade.advisingBank, "Only advising bank (exporter bank)");
         _;
     }
@@ -61,73 +61,81 @@ contract LetterOfCredit {
     /**
      * @notice Importer bank uploads the LoC document (stored on IPFS).
      *         Initialises the LoC record and transitions to LOC_UPLOADED.
-     * @param _tradeId   On-chain trade ID
-     * @param _expiry    Unix timestamp for LoC expiry
-     * @param _ipfsHash  IPFS CID of the uploaded LoC PDF/document
+     * @param tradeId   On-chain trade ID
+     * @param expiry    Unix timestamp for LoC expiry
+     * @param ipfsHash  IPFS CID of the uploaded LoC PDF/document
      */
     function uploadLocDocument(
-        uint256 _tradeId,
-        uint256 _expiry,
-        string calldata _ipfsHash
-    ) external onlyIssuingBank(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        uint256 tradeId,
+        uint256 expiry,
+        string calldata ipfsHash
+    ) external onlyIssuingBank(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(
             trade.status == TradeRegistry.TradeStatus.LOC_INITIATED,
             "Trade must be in LOC_INITIATED status"
         );
-        require(bytes(_ipfsHash).length > 0, "IPFS hash required");
+        require(bytes(ipfsHash).length > 0, "IPFS hash required");
 
-        locs[_tradeId] = LoC({
-            tradeId:         _tradeId,
+        locs[tradeId] = LoC({
+            tradeId:         tradeId,
             amount:          trade.amount,
-            expiry:          _expiry,
-            locDocIpfsHash:  _ipfsHash,
+            expiry:          expiry,
+            locDocIpfsHash:  ipfsHash,
             isUploaded:      true,
             isApproved:      false,
             fundsLocked:     false
         });
 
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.LOC_UPLOADED);
-        emit LoCDocumentUploaded(_tradeId, _ipfsHash, msg.sender);
+        // Move event before external call
+        emit LoCDocumentUploaded(tradeId, ipfsHash, msg.sender);
+
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.LOC_UPLOADED);
     }
 
     /**
      * @notice Exporter bank reviews and approves the uploaded LoC.
      *         Transitions trade to LOC_APPROVED.
      */
-    function approveLoC(uint256 _tradeId) external onlyAdvisingBank(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    function approveLoC(uint256 tradeId) external onlyAdvisingBank(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(trade.status == TradeRegistry.TradeStatus.LOC_UPLOADED, "LoC not yet uploaded");
 
-        LoC storage loc = locs[_tradeId];
+        LoC storage loc = locs[tradeId];
         require(loc.isUploaded, "LoC document not uploaded");
         require(!loc.isApproved, "LoC already approved");
 
         loc.isApproved = true;
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.LOC_APPROVED);
-        emit LoCApproved(_tradeId, msg.sender);
+
+        // Move event before external call
+        emit LoCApproved(tradeId, msg.sender);
+
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.LOC_APPROVED);
     }
 
     /**
      * @notice Importer bank locks funds in escrow after LoC approval.
      *         Transitions trade to FUNDS_LOCKED.
      */
-    function lockFunds(uint256 _tradeId) external onlyIssuingBank(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    function lockFunds(uint256 tradeId) external onlyIssuingBank(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(trade.status == TradeRegistry.TradeStatus.LOC_APPROVED, "LoC not approved yet");
 
-        LoC storage loc = locs[_tradeId];
+        LoC storage loc = locs[tradeId];
         require(!loc.fundsLocked, "Funds already locked");
 
         loc.fundsLocked = true;
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.FUNDS_LOCKED);
-        emit FundsLocked(_tradeId, loc.amount);
+
+        // Move event before external call
+        emit FundsLocked(tradeId, loc.amount);
+
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.FUNDS_LOCKED);
     }
 
     /**
      * @notice Read the LoC record and its IPFS document hash for a trade.
      */
-    function getLoC(uint256 _tradeId) external view returns (LoC memory) {
-        return locs[_tradeId];
+    function getLoC(uint256 tradeId) external view returns (LoC memory) {
+        return locs[tradeId];
     }
 }

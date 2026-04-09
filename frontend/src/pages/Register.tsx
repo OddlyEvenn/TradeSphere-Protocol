@@ -18,6 +18,7 @@ const Register: React.FC = () => {
         try {
             const res = await api.post('/auth/register', formData);
             localStorage.setItem('user', JSON.stringify(res.data.user));
+            if (res.data.token) localStorage.setItem('token', res.data.token);
             navigate('/dashboard');
         } catch (err: any) {
             setError(err.response?.data?.message || 'Registration failed');
@@ -93,9 +94,8 @@ const Register: React.FC = () => {
                                     <option value="EXPORTER_BANK">Exporter Bank</option>
                                     <option value="SHIPPING">Shipping</option>
                                     <option value="INSURANCE">Insurance</option>
-                                    <option value="TAX_AUTHORITY">Tax Authority</option>
-                                    <option value="REGULATORS">Regulators</option>
-                                    <option value="CUSTOMS">Customs Authority</option>
+                                    <option value="CUSTOMS">Customs & Tax Authority</option>
+                                    <option value="INSPECTOR">Inspector Node</option>
                                 </select>
                             </div>
                         </div>

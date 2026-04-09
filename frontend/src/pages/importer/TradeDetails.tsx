@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import TradeTimeline, { TradeEvent } from '../../components/TradeTimeline';
+import DisputePanel from '../../components/DisputePanel';
 import api from '../../services/api';
 import {
     ArrowLeft,
@@ -18,8 +19,9 @@ import {
     Eye,
     Shield
 } from 'lucide-react';
-import { walletService } from '../../services/WalletService';
+import { walletService, PROTOCOL_USD_TO_ETH_RATE } from '../../services/WalletService';
 import { useToast } from '../../contexts/ToastContext';
+
 
 const TradeDetails: React.FC = () => {
     const { id } = useParams();
@@ -38,6 +40,7 @@ const TradeDetails: React.FC = () => {
     const [carriers, setCarriers] = useState<any[]>([]);
     const [selectedCarrierId, setSelectedCarrierId] = useState('');
     const [nominatingCarrier, setNominatingCarrier] = useState(false);
+    const [customsAuthorities, setCustomsAuthorities] = useState<any[]>([]);
     const toast = useToast();
 
     /**
@@ -65,18 +68,21 @@ const TradeDetails: React.FC = () => {
 
     const fetchTradeData = async () => {
         try {
-            const [tradeRes, offersRes, banksRes, carriersRes, eventsRes] = await Promise.all([
+            const [tradeRes, offersRes, banksRes, carriersRes, eventsRes, customsRes] = await Promise.all([
                 api.get(`/trades/${id}`),
                 api.get(`/marketplace/trades/${id}/offers`),
                 api.get('/users?role=IMPORTER_BANK'),
                 api.get('/users?role=SHIPPING'),
-                api.get(`/trades/${id}/events`)
+                api.get(`/trades/${id}/events`),
+                api.get('/users?role=CUSTOMS')
             ]);
             setTrade(tradeRes.data);
             setOffers(offersRes.data);
             setBanks(banksRes.data);
             setCarriers(carriersRes.data);
             setEvents(eventsRes.data);
+            setCustomsAuthorities(customsRes.data);
+
             if (tradeRes.data.importerBankId) setSelectedBankId(tradeRes.data.importerBankId);
             if (tradeRes.data.shippingId) setSelectedCarrierId(tradeRes.data.shippingId);
         } catch (err) {
@@ -117,8 +123,15 @@ const TradeDetails: React.FC = () => {
             toast.success("Trade Finalized! The workflow has transitioned to the official trade state.");
             await waitForStatusUpdate('OFFER_ACCEPTED');
         } catch (err: any) {
-            console.error('Finalization failed', err);
-            toast.error("Failed to finalize trade: " + (err.response?.data?.message || err.message));
+            console.error('Registration failed', err);
+
+            // SMART CONTRACT ERROR HANDLING
+            if (err.message.includes("Only Custom & Tax Authority")) {
+                toast.error("Blockchain Error: The assigned Customs node is not authorized on the network. They MUST sync their wallet or be added to the whitelist.");
+            } else {
+                toast.error("Failed to register trade on blockchain: " + (err.response?.data?.message || err.message));
+            }
+            return null;
         } finally {
             setFinalizing(false);
         }
@@ -139,14 +152,56 @@ const TradeDetails: React.FC = () => {
         setActionLoading('CREATE_ON_CHAIN');
         try {
             const registry = walletService.getTradeRegistry();
-            const amountInEth = (trade.amount / 2000).toFixed(4);
+            const amountInEth = (trade.amount / PROTOCOL_USD_TO_ETH_RATE).toFixed(8);
+
 
             toast.info("Registering trade on the blockchain...");
+            // ARCHITECTURE: Use ZeroAddress for any node that hasn't synced yet.
+            // This prevents UI blocking during the LoC request flow.
+            const exporterWallet = trade.exporter?.walletAddress ? ethers.getAddress(trade.exporter.walletAddress) : ethers.ZeroAddress;
+            // CRITICAL: Always fetch the latest node wallets from API right now,
+            // because nodes may have synced their wallet after this page loaded.
+            let finalCustomsWallet = ethers.ZeroAddress;
+            let inspectorWallet = ethers.ZeroAddress;
+            let insuranceWallet = ethers.ZeroAddress;
+
+            try {
+                const [cRes, iRes, insRes] = await Promise.all([
+                    api.get('/users?role=CUSTOMS'),
+                    api.get('/users?role=INSPECTOR'),
+                    api.get('/users?role=INSURANCE')
+                ]);
+
+                const syncedCustoms = cRes.data.find((c: any) => c.walletAddress && c.walletAddress !== ethers.ZeroAddress);
+                const syncedInspector = iRes.data.find((i: any) => i.walletAddress && i.walletAddress !== ethers.ZeroAddress);
+                const syncedInsurance = insRes.data.find((ins: any) => ins.walletAddress && ins.walletAddress !== ethers.ZeroAddress);
+
+                finalCustomsWallet = trade.customs?.walletAddress ? ethers.getAddress(trade.customs.walletAddress) : (syncedCustoms ? ethers.getAddress(syncedCustoms.walletAddress) : ethers.ZeroAddress);
+                inspectorWallet = trade.inspector?.walletAddress ? ethers.getAddress(trade.inspector.walletAddress) : (syncedInspector ? ethers.getAddress(syncedInspector.walletAddress) : ethers.ZeroAddress);
+                insuranceWallet = trade.insurance?.walletAddress ? ethers.getAddress(trade.insurance.walletAddress) : (syncedInsurance ? ethers.getAddress(syncedInsurance.walletAddress) : ethers.ZeroAddress);
+
+            } catch (e) {
+                console.warn("Could not fetch fresh nodes, falling back to trade data", e);
+                finalCustomsWallet = trade.customs?.walletAddress ? ethers.getAddress(trade.customs.walletAddress) : ethers.ZeroAddress;
+                inspectorWallet = trade.inspector?.walletAddress ? ethers.getAddress(trade.inspector.walletAddress) : ethers.ZeroAddress;
+                insuranceWallet = trade.insurance?.walletAddress ? ethers.getAddress(trade.insurance.walletAddress) : ethers.ZeroAddress;
+            }
+
+            // Convert deadlines (assumed hours from now or standard timestamp format)
+            // If they are not set, pass 0
+            const shippingDeadline = trade.shippingDeadline ? Math.floor(new Date(trade.shippingDeadline).getTime() / 1000) : 0;
+            const clearanceDeadline = trade.clearanceDeadline ? Math.floor(new Date(trade.clearanceDeadline).getTime() / 1000) : 0;
+
             const tx = await registry.createTrade(
-                trade.exporter.walletAddress,
+                exporterWallet,
                 bankWalletAddress,
-                ethers.ZeroAddress,
-                ethers.parseEther(amountInEth)
+                ethers.ZeroAddress, // Exporter Bank (Optional in this flow)
+                inspectorWallet,
+                finalCustomsWallet,
+                insuranceWallet,
+                Math.floor(Number(amountInEth) * 1e18).toString(), // Wei
+                shippingDeadline,
+                clearanceDeadline
             );
 
             toast.info("Transaction sent — awaiting confirmation...");
@@ -166,9 +221,18 @@ const TradeDetails: React.FC = () => {
 
             // Manual push as backup to event listener (idempotent)
             try {
-                await api.patch(`/trades/${trade.id}`, { blockchainId });
+                const patchData: any = { blockchainId };
+                // Also try to assign the customs user in DB if not already assigned
+                if (!trade.customs) {
+                    try {
+                        const cRes = await api.get('/users?role=CUSTOMS');
+                        const firstCustoms = cRes.data[0];
+                        if (firstCustoms) patchData.customsOfficerId = firstCustoms.id;
+                    } catch (_) { /* non-critical */ }
+                }
+                await api.patch(`/trades/${trade.id}`, patchData);
             } catch (e) {
-                console.warn("Manual blockchainId push failed (might be already synced)", e);
+                console.warn("Manual blockchainId/customs push failed", e);
             }
 
             toast.success(`Trade registered on-chain! (ID: ${blockchainId})`);
@@ -271,6 +335,27 @@ const TradeDetails: React.FC = () => {
         }
     };
 
+    const handleCheckSLABreach = async () => {
+        if (!trade?.blockchainId) return;
+        const walletAddr = await ensureWalletConnected();
+        if (!walletAddr) return;
+
+        setActionLoading('CHECK_SLA');
+        try {
+            toast.info("Checking SLA deadlines on-chain...");
+            const registry = walletService.getTradeRegistry();
+            const tx = await registry.triggerSLABreachRevert(trade.blockchainId);
+            await tx.wait();
+            toast.success("SLA Check complete! If a breach occurred, the trade has been reverted.");
+            await fetchTradeData();
+        } catch (err: any) {
+            console.error('SLA Check failed', err);
+            toast.error("SLA breach not met or error: " + (err.reason || err.message));
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
     const handleViewDocument = (ipfsHash: string) => {
         if (!ipfsHash) return;
         const url = ipfsHash.startsWith('http')
@@ -338,6 +423,50 @@ const TradeDetails: React.FC = () => {
                                     {trade?.additionalConditions || "No specific conditions provided."}
                                 </p>
                             </div>
+
+                            {/* Enterprise SLA Section */}
+                            {(trade?.shippingDeadline || trade?.clearanceDeadline) && (
+                                <div className="mt-6 pt-6 border-t border-slate-100">
+                                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Service Level Agreements (SLAs)</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {trade.shippingDeadline && (
+                                            <div className="bg-amber-50/60 px-4 py-5 rounded-2xl border border-amber-100 w-[180px]">
+
+                                                <p className="text-[9px] font-extrabold text-amber-600 uppercase tracking-[0.2em] mb-2">
+                                                    Max Shipping Time
+                                                </p>
+
+                                                <p className="font-bold text-amber-900 text-lg leading-tight break-words">
+                                                    {trade.shippingDeadline}
+                                                </p>
+
+                                                <p className="font-bold text-amber-900 text-sm mt-1">
+                                                    Hrs
+                                                </p>
+
+                                                <p className="text-[9px] text-amber-500 mt-2 leading-tight">
+                                                    From Lock Funds
+                                                </p>
+
+                                            </div>
+                                        )}
+                                        {trade.clearanceDeadline && (
+                                            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/50">
+                                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Max Clearance Time</p>
+                                                <p className="font-bold text-blue-900">{trade.clearanceDeadline} Hrs</p>
+                                                <p className="text-[10px] text-blue-500 mt-1">From Arrival</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={handleCheckSLABreach}
+                                        disabled={actionLoading === 'CHECK_SLA'}
+                                        className="mt-4 w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-widest rounded-xl transition-all"
+                                    >
+                                        {actionLoading === 'CHECK_SLA' ? 'Checking...' : 'Check SLA Breach'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -438,33 +567,38 @@ const TradeDetails: React.FC = () => {
 
 
                     {/* Phase 3 & 4: Settlement & Customs */}
-                    {['DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED'].includes(trade.status) && (
+                    {['CUSTOMS_FLAGGED', 'GOODS_RECEIVED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'ENTRY_REJECTED', 'VOTING_ACTIVE'].includes(trade.status) && (
                         <div className="card-premium border-emerald-100 bg-emerald-50/20">
                             <h2 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">
                                 <CheckCircle2 className="text-emerald-600" />
                                 Customs & Settlement
                             </h2>
-                            {trade.status === 'DUTY_PENDING' && trade.dutyAmount ? (
+                            {trade.status === 'CUSTOMS_FLAGGED' && trade.customs?.taxAmount ? (
                                 <>
-                                    <p className="text-sm font-medium text-slate-500 mb-6">Customs requires duty payment before clearance.</p>
+                                    <p className="text-sm font-medium text-slate-500 mb-6">Customs flagged this trade for tax. Payment is required before clearance.</p>
                                     <div className="bg-white rounded-2xl p-4 mb-6 border border-emerald-100/50 space-y-3">
                                         <div className="flex justify-between items-center text-sm font-bold text-slate-600">
                                             <span>Base Trade Value</span>
                                             <span>${trade.amount?.toLocaleString()}</span>
                                         </div>
                                         <div className="border-t border-slate-100 pt-3 flex justify-between items-center font-black text-rose-600">
-                                            <span>Assessed Customs Duty</span>
-                                            <span>${trade.dutyAmount?.toLocaleString()}</span>
+                                            <span>Assessed Tax Amount</span>
+                                            <span>${trade.customs?.taxAmount?.toLocaleString()}</span>
                                         </div>
                                     </div>
                                     <div className="bg-white rounded-2xl p-4 mb-6 border border-emerald-100/50 space-y-3 font-black text-center">
-                                        <p className="text-amber-600 uppercase text-[10px] tracking-widest">Protocol Action: Instruct your Bank to pay ${trade.dutyAmount?.toLocaleString()}</p>
+                                        <p className="text-amber-600 uppercase text-[10px] tracking-widest">Protocol Action: Pay the assessed tax amount to proceed</p>
                                     </div>
                                 </>
-                            ) : trade.status === 'DUTY_PAID' ? (
-                                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">
-                                    <CheckCircle2 size={20} className="flex-shrink-0" />
-                                    <p className="text-[10px] font-black uppercase tracking-tight">Duty Paid — Bank Confirmed. Awaiting Tax Authority to release goods.</p>
+                            ) : trade.status === 'ENTRY_REJECTED' ? (
+                                <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-700">
+                                    <XCircle size={20} className="flex-shrink-0" />
+                                    <p className="text-[10px] font-black uppercase tracking-tight">Entry Rejected — Dispute voting will be activated.</p>
+                                </div>
+                            ) : trade.status === 'VOTING_ACTIVE' ? (
+                                <div className="p-4 bg-purple-50 border border-purple-100 rounded-2xl flex items-center gap-3 text-purple-700">
+                                    <Clock size={20} className="flex-shrink-0" />
+                                    <p className="text-[10px] font-black uppercase tracking-tight">7-Node Voting Active — Awaiting consensus resolution.</p>
                                 </div>
                             ) : (
                                 <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3 text-emerald-700">
@@ -484,16 +618,16 @@ const TradeDetails: React.FC = () => {
                             </h2>
                             <div className="space-y-4">
                                 {[
-                                    { label: 'Offer Accepted', done: ['OFFER_ACCEPTED', 'TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Trade Initiated', done: ['TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'LoC Issued', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Customs Under Review', done: ['CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Duty Pending', done: ['DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Duty Paid', done: ['DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Customs Cleared', done: ['CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Receive Goods', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Offer Accepted', done: ['OFFER_ACCEPTED', 'TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED', 'DISPUTE_RESOLVED_NO_REVERT', 'CLAIM_PAYOUT_APPROVED', 'TRADE_REVERTED_BY_CONSENSUS'].includes(trade.status) },
+                                    { label: 'Trade Initiated', done: ['TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'LoC Requested', done: ['LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'LoC Uploaded', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'LoC Approved', done: ['LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Carrier Assigned', done: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Customs Cleared', done: ['CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Goods Received', done: ['GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Payment Authorized', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Settlement Confirmed', done: ['SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Completed', done: trade.status === 'COMPLETED' }
@@ -531,7 +665,7 @@ const TradeDetails: React.FC = () => {
 
                 <div className="lg:col-span-2 space-y-10">
                     {/* Protocol Documents Section */}
-                    {['LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'DUTY_PENDING', 'DUTY_PAID', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(trade.status) && (
+                    {['LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_FLAGGED', 'CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(trade.status) && (
                         <div className="card-premium space-y-6">
                             <h2 className="text-xl font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
                                 <Shield className="text-blue-600" />
@@ -644,6 +778,16 @@ const TradeDetails: React.FC = () => {
                         <div className="mt-12">
                             <TradeTimeline events={events} />
                         </div>
+                    )}
+
+                    {/* Add Dispute Panel at the very bottom right column */}
+                    {trade && user && (
+                        <DisputePanel
+                            trade={trade}
+                            currentUserRole={user.role}
+                            currentUserWallet={account || ""}
+                            onUpdate={fetchTradeData}
+                        />
                     )}
                 </div>
             </div>

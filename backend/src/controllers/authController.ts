@@ -33,7 +33,10 @@ export const register = async (req: Request, res: Response) => {
             maxAge: 86400000 // 1 day
         });
 
-        res.status(201).json({ user: { id: user.id, email: user.email, role: user.role, name: user.name } });
+        res.status(201).json({
+            user: { id: user.id, email: user.email, role: user.role, name: user.name },
+            token
+        });
     } catch (error: any) {
         console.error('Registration error:', error);
         res.status(500).json({ message: error.message });
@@ -57,7 +60,10 @@ export const login = async (req: Request, res: Response) => {
             maxAge: 86400000
         });
 
-        res.status(200).json({ user: { id: user.id, email: user.email, role: user.role, name: user.name, walletAddress: (user as any).walletAddress } });
+        res.status(200).json({
+            user: { id: user.id, email: user.email, role: user.role, name: user.name, walletAddress: (user as any).walletAddress },
+            token
+        });
     } catch (error: any) {
         console.error('Login error:', error);
         res.status(500).json({ message: error.message });
@@ -67,11 +73,29 @@ export const login = async (req: Request, res: Response) => {
 export const updateWalletAddress = async (req: Request, res: Response) => {
     try {
         const { userId, walletAddress } = req.body;
+        const normalizedWallet = walletAddress.toLowerCase();
+
+        // 1. Find if ANY user already has this wallet address
+        const existingUser = await (prisma.user as any).findFirst({
+            where: { walletAddress: normalizedWallet }
+        });
+
+        if (existingUser && existingUser.id !== userId) {
+            // Unlink from the old account to allow the new one to claim it
+            console.log(`Unlinking wallet ${normalizedWallet} from user ${existingUser.id} to move to ${userId}`);
+            await (prisma.user as any).update({
+                where: { id: existingUser.id },
+                data: { walletAddress: null }
+            });
+        }
+
+        // 2. Perform the update (or re-update if it was already synced)
         const user = await (prisma.user as any).update({
             where: { id: userId },
-            data: { walletAddress: walletAddress.toLowerCase() }
+            data: { walletAddress: normalizedWallet }
         });
-        res.status(200).json({ message: 'Wallet address updated', user });
+
+        res.status(200).json({ message: 'Wallet address synchronized', user });
     } catch (error: any) {
         console.error('Update wallet error:', error);
         res.status(500).json({ message: error.message });
@@ -95,6 +119,29 @@ export const getUsers = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Get users error:', error);
         res.status(500).json({ message: error.message });
+    }
+};
+
+export const clearDatabase = async (req: Request, res: Response) => {
+    try {
+        console.log('--- DB CLEANUP INITIATED ---');
+        // Delete in order to avoid FK issues
+        await prisma.tradeEvent.deleteMany({});
+        await prisma.document.deleteMany({});
+        await prisma.customsVerification.deleteMany({});
+        await prisma.billOfLading.deleteMany({});
+        await prisma.letterOfCredit.deleteMany({});
+        await prisma.marketplaceOffer.deleteMany({});
+        await prisma.marketplaceListing.deleteMany({});
+        await prisma.trade.deleteMany({});
+        await prisma.product.deleteMany({});
+        await prisma.category.deleteMany({});
+
+        const userCount = await prisma.user.count();
+        res.json({ message: "Database cleared successfully", userCount });
+    } catch (error: any) {
+        console.error('Cleanup error:', error);
+        res.status(500).json({ error: error.message });
     }
 };
 

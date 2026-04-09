@@ -1,58 +1,47 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TradeRegistry.sol";
+import {TradeRegistry} from "./TradeRegistry.sol";
 
 /**
  * @title DocumentVerification
- * @dev Handles shipping (Bill of Lading), customs verification, and tax duty flow.
+ * @dev Handles shipping (Bill of Lading) and the unified Custom & Tax Authority flow.
  *
  * ── Document Flow ────────────────────────────────────────────────────────────
- *  1. Shipping company calls issueBillOfLading(tradeId, ipfsHash)
- *     → Stores BoL IPFS CID on-chain → status: GOODS_SHIPPED
+ *  1. Shipping company issues Bill of Lading → GOODS_SHIPPED
  *
- *  2. Customs authority verifies goods:
- *     - If cleared: verifyAsCustoms(tradeId, true) → CUSTOMS_CLEARED
- *     - If not:     verifyAsCustoms(tradeId, false) → DUTY_PENDING
+ *  2. Custom & Tax Authority evaluates goods (3 decisions):
+ *     Decision 0 (CLEAR)  → CUSTOMS_CLEARED, no tax
+ *     Decision 1 (FLAGS)  → CUSTOMS_FLAGGED, taxAmount set
+ *     Decision 2 (REJECT) → ENTRY_REJECTED, triggers voting
  *
- *  3. [If DUTY_PENDING] Tax authority assesses duty amount (off-chain DB update).
- *     System notifies Importer. Importer instructs their bank off-chain to pay.
+ *  3. [If FLAGGED] Exporter pays tax externally; Custom & Tax Authority
+ *     calls payTaxAndRelease() → CUSTOMS_CLEARED
  *
- *  4. Importer Bank confirms payment on-chain:
- *     confirmDutyPayment(tradeId) → DUTY_PAID + dutyFeeAuthorized
- *
- *  5. Tax authority records the receipt (only after Importer Bank confirmed):
- *     recordTaxReceipt(tradeId) → receiptRecorded = true
- *
- *  6. Tax authority releases goods:
- *     releaseFromDuty(tradeId) → CUSTOMS_CLEARED (requires receiptRecorded)
- *
+ *  4. [If REJECTED] ConsensusDispute handles 7-node voting
  * ─────────────────────────────────────────────────────────────────────────────
  */
 contract DocumentVerification {
-    TradeRegistry public tradeRegistry;
+    TradeRegistry public immutable tradeRegistry;
 
     // ── Structs ────────────────────────────────────────────────────────────
     struct VerificationState {
-        string bolIpfsHash;        // IPFS CID of the Bill of Lading
-        string customsCertIpfsHash;// IPFS CID of customs clearance certificate (optional)
-        bool   bolIssued;
-        bool   customsCleared;
-        bool   dutyRequired;
-        bool   dutyPaid;
-        bool   dutyFeeAuthorized;  // NEW: Importer Bank has authorized the duty fee
-        bool   receiptRecorded;    // NEW: Tax Authority has recorded the receipt
+        string  bolIpfsHash;            // IPFS CID of the Bill of Lading
+        string  customsCertIpfsHash;    // IPFS CID of customs clearance certificate
+        uint256 taxAmount;              // Tax amount set by Custom & Tax Authority (decision 1)
+        bool    bolIssued;
+        bool    customsCleared;
+        uint8   customsDecision;        // 0=clear, 1=flags, 2=reject
+        bool    taxPaid;                // Exporter has paid the required tax
     }
 
     // ── Storage ────────────────────────────────────────────────────────────
     mapping(uint256 => VerificationState) public verifications;
 
     // ── Events ─────────────────────────────────────────────────────────────
-    event BillOfLadingIssued(uint256 indexed tradeId, string ipfsHash, address issuedBy);
-    event CustomsDecision(uint256 indexed tradeId, bool cleared, address decidedBy);
-    event DutyPaymentConfirmed(uint256 indexed tradeId, address confirmedBy);
-    event TaxReceiptRecorded(uint256 indexed tradeId, address recordedBy);
-    event GoodsReleasedFromDuty(uint256 indexed tradeId, address releasedBy);
+    event BillOfLadingIssued(uint256 indexed tradeId, string ipfsHash, address indexed issuedBy);
+    event CustomsDecisionMade(uint256 indexed tradeId, uint8 indexed decision, uint256 taxAmount, address indexed decidedBy);
+    event TaxPaidAndGoodsReleased(uint256 indexed tradeId, uint256 indexed taxAmount, address indexed releasedBy);
 
     // ── Constructor ────────────────────────────────────────────────────────
     constructor(address _tradeRegistry) {
@@ -60,15 +49,15 @@ contract DocumentVerification {
     }
 
     // ── Modifiers ──────────────────────────────────────────────────────────
-    modifier onlyShippingCompany(uint256 _tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+    modifier onlyShippingCompany(uint256 tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(msg.sender == trade.shippingCompany, "Only assigned shipping company");
         _;
     }
 
-    modifier onlyIssuingBank(uint256 _tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
-        require(msg.sender == trade.issuingBank, "Only issuing bank (importer bank)");
+    modifier onlyCustomsAuthority(uint256 tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
+        require(msg.sender == trade.customsAuthority, "Only Custom & Tax Authority");
         _;
     }
 
@@ -76,131 +65,109 @@ contract DocumentVerification {
 
     /**
      * @notice Shipping company accepts goods and issues the Bill of Lading.
-     *         Stores the BoL IPFS CID on-chain and transitions to GOODS_SHIPPED.
-     * @param _tradeId   On-chain trade ID
-     * @param _ipfsHash  IPFS CID of the signed Bill of Lading document
+     *         Stores BoL IPFS CID on-chain → GOODS_SHIPPED.
      */
     function issueBillOfLading(
-        uint256 _tradeId,
-        string calldata _ipfsHash
-    ) external onlyShippingCompany(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        uint256 tradeId,
+        string calldata ipfsHash
+    ) external onlyShippingCompany(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(
             trade.status == TradeRegistry.TradeStatus.SHIPPING_ASSIGNED,
             "Trade must be in SHIPPING_ASSIGNED status"
         );
-        require(bytes(_ipfsHash).length > 0, "IPFS hash required");
-        require(!verifications[_tradeId].bolIssued, "BoL already issued");
+        require(bytes(ipfsHash).length > 0, "IPFS hash required");
+        require(!verifications[tradeId].bolIssued, "BoL already issued");
 
-        verifications[_tradeId].bolIpfsHash = _ipfsHash;
-        verifications[_tradeId].bolIssued = true;
+        verifications[tradeId].bolIpfsHash = ipfsHash;
+        verifications[tradeId].bolIssued = true;
 
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.GOODS_SHIPPED);
-        emit BillOfLadingIssued(_tradeId, _ipfsHash, msg.sender);
+        // Move event before external call
+        emit BillOfLadingIssued(tradeId, ipfsHash, msg.sender);
+
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.GOODS_SHIPPED);
     }
 
     /**
-     * @notice Customs authority verifies goods and makes a clearance decision.
-     *         - cleared = true  → CUSTOMS_CLEARED (payment flow begins)
-     *         - cleared = false → DUTY_PENDING (tax authority must calculate duty)
-     * @param _tradeId           On-chain trade ID
-     * @param _cleared           Whether goods are cleared (true) or held (false)
-     * @param _certIpfsHash      Optional: IPFS CID of customs certificate (pass "" if none)
+     * @notice Custom & Tax Authority evaluates goods at destination.
+     *         Decision 0 (CLEAR):  No tax → CUSTOMS_CLEARED
+     *         Decision 1 (FLAGS):  Tax required → CUSTOMS_FLAGGED (with taxAmount)
+     *         Decision 2 (REJECT): Entry rejected → ENTRY_REJECTED (triggers voting)
+     *
+     * @param tradeId       On-chain trade ID
+     * @param decision      0: Clear, 1: Flags (add tax), 2: Entry Rejection
+     * @param taxAmount     Tax amount in wei (only relevant for decision 1)
+     * @param certIpfsHash  Optional: IPFS CID of customs certificate
      */
     function verifyAsCustoms(
-        uint256 _tradeId,
-        bool _cleared,
-        string calldata _certIpfsHash
-    ) external {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
+        uint256 tradeId,
+        uint8 decision,
+        uint256 taxAmount,
+        string calldata certIpfsHash
+    ) external onlyCustomsAuthority(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
         require(trade.status == TradeRegistry.TradeStatus.GOODS_SHIPPED, "Goods not yet shipped");
 
-        VerificationState storage state = verifications[_tradeId];
+        VerificationState storage state = verifications[tradeId];
+        state.customsDecision = decision;
 
-        if (bytes(_certIpfsHash).length > 0) {
-            state.customsCertIpfsHash = _certIpfsHash;
+        if (bytes(certIpfsHash).length > 0) {
+            state.customsCertIpfsHash = certIpfsHash;
         }
 
-        if (_cleared) {
+        // Move event before external calling logic
+        emit CustomsDecisionMade(tradeId, decision, taxAmount, msg.sender);
+
+        if (decision == 0) {
+            // CLEAR — no tax, customs cleared
             state.customsCleared = true;
-            tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.CUSTOMS_CLEARED);
+            tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.CUSTOMS_CLEARED);
+        } else if (decision == 1) {
+            // FLAGS — set tax amount, goods held
+            require(taxAmount > 0, "Tax amount must be > 0 for flagged goods");
+            state.taxAmount = taxAmount;
+            tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.CUSTOMS_FLAGGED);
+        } else if (decision == 2) {
+            // ENTRY REJECTION — trade goes to dispute/voting
+            tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.ENTRY_REJECTED);
         } else {
-            state.dutyRequired = true;
-            tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.DUTY_PENDING);
+            revert("Invalid decision code");
         }
-
-        emit CustomsDecision(_tradeId, _cleared, msg.sender);
     }
 
     /**
-     * @notice Importer Bank confirms that the duty fee has been paid off-chain.
-     *         Marks the duty as "Duty Paid" and "Duty Fee Authorized" on-chain.
-     *         Transitions status to DUTY_PAID.
-     *         Only the Importer's Bank (issuingBank) can call this.
+     * @notice Custom & Tax Authority confirms that the Exporter has paid the required
+     *         tax externally and releases the goods → CUSTOMS_CLEARED.
+     *         Only callable when trade is in CUSTOMS_FLAGGED status.
      */
-    function confirmDutyPayment(uint256 _tradeId) external onlyIssuingBank(_tradeId) {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
-        require(trade.status == TradeRegistry.TradeStatus.DUTY_PENDING, "No pending duty");
+    function payTaxAndRelease(uint256 tradeId) external onlyCustomsAuthority(tradeId) {
+        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(tradeId);
+        require(trade.status == TradeRegistry.TradeStatus.CUSTOMS_FLAGGED, "Trade not flagged");
 
-        VerificationState storage state = verifications[_tradeId];
-        require(state.dutyRequired, "Duty was not required");
-        require(!state.dutyPaid, "Duty already recorded as paid");
+        VerificationState storage state = verifications[tradeId];
+        require(state.taxAmount > 0, "No tax was assessed");
+        require(!state.taxPaid, "Tax already paid");
 
-        state.dutyPaid = true;
-        state.dutyFeeAuthorized = true;
-
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.DUTY_PAID);
-        emit DutyPaymentConfirmed(_tradeId, msg.sender);
-    }
-
-    /**
-     * @notice Tax authority records the official tax receipt after the Importer Bank
-     *         has confirmed the duty payment on-chain.
-     *         VALIDATION: Receipt cannot be recorded unless dutyPaid == true
-     *         (i.e., the Importer Bank has already confirmed payment).
-     */
-    function recordTaxReceipt(uint256 _tradeId) external {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
-        require(trade.status == TradeRegistry.TradeStatus.DUTY_PAID, "Duty not paid yet");
-
-        VerificationState storage state = verifications[_tradeId];
-        require(state.dutyPaid, "Importer Bank has not confirmed duty payment");
-        require(state.dutyFeeAuthorized, "Duty fee not authorized by Importer Bank");
-        require(!state.receiptRecorded, "Receipt already recorded");
-
-        state.receiptRecorded = true;
-        emit TaxReceiptRecorded(_tradeId, msg.sender);
-    }
-
-    /**
-     * @notice Tax authority releases goods from customs after recording the receipt.
-     *         Transitions status to CUSTOMS_CLEARED so payment flow can proceed.
-     *         VALIDATION: Requires receiptRecorded == true.
-     */
-    function releaseFromDuty(uint256 _tradeId) external {
-        TradeRegistry.Trade memory trade = tradeRegistry.getTrade(_tradeId);
-        require(trade.status == TradeRegistry.TradeStatus.DUTY_PAID, "Duty not paid yet");
-
-        VerificationState storage state = verifications[_tradeId];
-        require(state.dutyPaid, "Duty not recorded as paid");
-        require(state.receiptRecorded, "Tax receipt must be recorded before releasing goods");
-
+        state.taxPaid = true;
         state.customsCleared = true;
-        tradeRegistry.updateStatus(_tradeId, TradeRegistry.TradeStatus.CUSTOMS_CLEARED);
-        emit GoodsReleasedFromDuty(_tradeId, msg.sender);
+
+        // Move event before external call
+        emit TaxPaidAndGoodsReleased(tradeId, state.taxAmount, msg.sender);
+
+        tradeRegistry.updateStatus(tradeId, TradeRegistry.TradeStatus.CUSTOMS_CLEARED);
     }
 
     /**
      * @notice Read the full verification state for a trade.
      */
-    function getVerification(uint256 _tradeId) external view returns (VerificationState memory) {
-        return verifications[_tradeId];
+    function getVerification(uint256 tradeId) external view returns (VerificationState memory) {
+        return verifications[tradeId];
     }
 
     /**
      * @notice Read just the IPFS hash of the Bill of Lading for a trade.
      */
-    function getBolIpfsHash(uint256 _tradeId) external view returns (string memory) {
-        return verifications[_tradeId].bolIpfsHash;
+    function getBolIpfsHash(uint256 tradeId) external view returns (string memory) {
+        return verifications[tradeId].bolIpfsHash;
     }
 }

@@ -22,7 +22,7 @@ const ShippingDashboard: React.FC = () => {
         try {
             const res = await api.get('/trades');
             setTrades(res.data.filter((t: any) =>
-                ['SHIPPING_ASSIGNED', 'FUNDS_LOCKED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(t.status)
+                ['SHIPPING_ASSIGNED', 'FUNDS_LOCKED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'COMPLETED'].includes(t.status)
             ));
         } catch (err) {
             console.error(err);

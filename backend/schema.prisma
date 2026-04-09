@@ -21,9 +21,8 @@ enum Role {
   EXPORTER_BANK
   SHIPPING
   CUSTOMS
-  TAX_AUTHORITY
-  REGULATORS
   INSURANCE
+  INSPECTOR
 }
 
 enum TradeStatus {
@@ -38,13 +37,22 @@ enum TradeStatus {
   GOODS_SHIPPED
   CUSTOMS_UNDER_REVIEW
   CUSTOMS_CLEARED
+  CUSTOMS_FLAGGED
   DUTY_PENDING
   DUTY_PAID
+  ENTRY_REJECTED
+  VOTING_ACTIVE
+  GOODS_RECEIVED
   PAYMENT_AUTHORIZED
   SETTLEMENT_CONFIRMED
   COMPLETED
   DISPUTED
+  DISPUTE_RESOLVED_NO_REVERT
+  CLAIM_PAYOUT_APPROVED
+  TRADE_REVERTED_BY_CONSENSUS
+  TRADE_REFUNDED
   EXPIRED
+  QUEUED
 }
 
 enum OfferStatus {
@@ -61,11 +69,7 @@ enum LoCStatus {
   EXPIRED
 }
 
-enum DutyStatus {
-  ASSESSED
-  NOTIFIED
-  PAID
-}
+
 
 enum DocumentType {
   LETTER_OF_CREDIT
@@ -99,7 +103,8 @@ model User {
   tradesAsExporterBank Trade[] @relation("ExporterBankTrades")
   tradesAsShipping     Trade[] @relation("ShippingTrades")
   tradesAsCustoms      Trade[] @relation("CustomsTrades")
-  tradesAsTaxAuthority Trade[] @relation("TaxAuthorityTrades")
+  tradesAsInspector    Trade[] @relation("InspectorTrades")
+  tradesAsInsurance    Trade[] @relation("InsuranceTrades")
 
   // Other relations
   offers               MarketplaceOffer[]
@@ -110,7 +115,6 @@ model User {
   locAsExporterBank    LetterOfCredit[]      @relation("LoCExporterBank")
   bolAsShipping        BillOfLading[]
   customsVerifications CustomsVerification[]
-  dutyAssessments      DutyAssessment[]
 }
 
 // ─── Trade ────────────────────────────────────────────────────
@@ -138,11 +142,14 @@ model Trade {
   exporterBankId   String?
   shippingId       String?
   customsOfficerId String?
-  taxAuthorityId   String?
+  inspectorId      String?
+  insuranceId      String?
 
   // Financials
   amount     Float
   dutyAmount Float?
+  priority   Int    @default(0)
+  votingDeadline DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -154,13 +161,13 @@ model Trade {
   exporterBank User? @relation("ExporterBankTrades", fields: [exporterBankId], references: [id])
   shipping     User? @relation("ShippingTrades", fields: [shippingId], references: [id])
   customs      User? @relation("CustomsTrades", fields: [customsOfficerId], references: [id])
-  taxAuthority User? @relation("TaxAuthorityTrades", fields: [taxAuthorityId], references: [id])
+  inspector    User? @relation("InspectorTrades", fields: [inspectorId], references: [id])
+  insurance    User? @relation("InsuranceTrades", fields: [insuranceId], references: [id])
 
   offers              MarketplaceOffer[]
   letterOfCredit      LetterOfCredit?
   billOfLading        BillOfLading?
   customsVerification CustomsVerification?
-  dutyAssessment      DutyAssessment?
   documents           Document[]
   events              TradeEvent[]
 }
@@ -237,7 +244,9 @@ model CustomsVerification {
   id               String    @id @default(uuid())
   tradeId          String    @unique
   customsOfficerId String
-  isCleared        Boolean?
+  decision         Int?      // 0=clear, 1=flags, 2=reject
+  taxAmount        Float?
+  taxPaid          Boolean   @default(false)
   remarks          String?
   ipfsHash         String?
   documentTxHash   String?
@@ -249,26 +258,9 @@ model CustomsVerification {
   customsOfficer User  @relation(fields: [customsOfficerId], references: [id])
 }
 
-// ─── DutyAssessment ───────────────────────────────────────────
 
-model DutyAssessment {
-  id             String     @id @default(uuid())
-  tradeId        String     @unique
-  taxAuthorityId String
-  dutyAmount     Float
-  tariffRate     Float?
-  taxType        String?
-  description    String?
-  status         DutyStatus @default(ASSESSED)
-  notifiedAt     DateTime?
-  paidAt         DateTime?
-  paymentTxHash  String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
 
-  trade        Trade @relation(fields: [tradeId], references: [id])
-  taxAuthority User  @relation(fields: [taxAuthorityId], references: [id])
-}
+
 
 // ─── Document ─────────────────────────────────────────────────
 

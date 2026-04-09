@@ -45,7 +45,7 @@ const DocumentsPage: React.FC = () => {
                         ipfsHash: trade.letterOfCredit?.ipfsHash
                     });
                 }
-                if (['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status)) {
+                if (['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status)) {
                     docs.push({
                         id: `doc-bol-${trade.id.slice(0, 8)}`,
                         tradeId: trade.id,

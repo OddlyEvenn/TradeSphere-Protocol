@@ -1,13 +1,25 @@
-import { Request, Response } from 'express';
 import { prisma } from '../services/PrismaService';
 import { logger } from '../utils/logger';
+import { Request, Response } from 'express';
+import { getStringParam } from '../utils/request';
+
+interface AuthUser {
+    userId: string;
+    role: string;
+}
+
+interface AuthRequest extends Request {
+    user: AuthUser;
+}
 
 export const createListing = async (req: Request, res: Response) => {
     try {
-        const { productId, price, quantity } = req.body;
-        const exporterId = (req as any).user.userId;
+        const authReq = req as AuthRequest;
 
-        const listing = await (prisma.marketplaceListing as any).create({
+        const { productId, price, quantity } = req.body;
+        const exporterId = authReq.user.userId;
+
+        const listing = await prisma.marketplaceListing.create({
             data: {
                 productId,
                 exporterId,
@@ -17,6 +29,7 @@ export const createListing = async (req: Request, res: Response) => {
             }
         });
 
+
         res.status(201).json(listing);
     } catch (error: any) {
         res.status(500).json({ message: error.message });
@@ -25,7 +38,7 @@ export const createListing = async (req: Request, res: Response) => {
 
 export const getAllListings = async (req: Request, res: Response) => {
     try {
-        const listings = await (prisma.marketplaceListing as any).findMany({
+        const listings = await prisma.marketplaceListing.findMany({
             where: { status: 'ACTIVE' },
             include: {
                 product: true,
@@ -40,8 +53,10 @@ export const getAllListings = async (req: Request, res: Response) => {
 
 export const submitOffer = async (req: Request, res: Response) => {
     try {
-        const { tradeId, amount, shippingTimeline, termsAndConditions, deliveryTerms, message, validUntil } = req.body;
-        const exporterId = (req as any).user.userId;
+        const authReq = req as AuthRequest;
+        const { amount, shippingTimeline, termsAndConditions, deliveryTerms, message, validUntil } = req.body;
+        const tradeId = getStringParam(req.body.tradeId);
+        const exporterId = authReq.user.userId;
 
         // Validate required fields
         if (!tradeId || !amount || !shippingTimeline || !termsAndConditions) {
@@ -51,7 +66,7 @@ export const submitOffer = async (req: Request, res: Response) => {
         }
 
         // Check trade exists and is open for offers
-        const trade = await (prisma.trade as any).findUnique({
+        const trade = await prisma.trade.findUnique({
             where: { id: tradeId }
         });
 
@@ -64,7 +79,7 @@ export const submitOffer = async (req: Request, res: Response) => {
         }
 
         // Check exporter hasn't already submitted an offer for this trade
-        const existingOffer = await (prisma.marketplaceOffer as any).findFirst({
+        const existingOffer = await prisma.marketplaceOffer.findFirst({
             where: { tradeId, exporterId }
         });
 
@@ -72,7 +87,7 @@ export const submitOffer = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'You have already submitted an offer for this trade' });
         }
 
-        const offer = await (prisma.marketplaceOffer as any).create({
+        const offer = await prisma.marketplaceOffer.create({
             data: {
                 tradeId,
                 exporterId,
@@ -87,16 +102,17 @@ export const submitOffer = async (req: Request, res: Response) => {
         });
 
         // Log event
-        await (prisma.tradeEvent as any).create({
+        await prisma.tradeEvent.create({
             data: {
                 tradeId,
                 actorId: exporterId,
                 actorRole: 'EXPORTER',
                 event: 'OFFER_SUBMITTED',
                 toStatus: 'OPEN_FOR_OFFERS',
-                metadata: { offerId: offer.id, amount: offer.amount } as any
+                metadata: { offerId: offer.id, amount: offer.amount }
             }
         });
+
 
         logger.info(`New offer submitted by exporter ${exporterId} for trade ${tradeId}. Amount: ${amount}`);
 
@@ -109,8 +125,8 @@ export const submitOffer = async (req: Request, res: Response) => {
 
 export const getOffersForTrade = async (req: Request, res: Response) => {
     try {
-        const { tradeId } = req.params;
-        const offers = await (prisma.marketplaceOffer as any).findMany({
+        const tradeId = getStringParam(req.params.tradeId);
+        const offers = await prisma.marketplaceOffer.findMany({
             where: { tradeId },
             include: {
                 exporter: { select: { id: true, name: true, email: true, organizationName: true, country: true } }
@@ -126,11 +142,12 @@ export const getOffersForTrade = async (req: Request, res: Response) => {
 
 export const finalizeOffer = async (req: Request, res: Response) => {
     try {
-        const { offerId } = req.params;
-        const importerId = (req as any).user.userId;
+        const authReq = req as AuthRequest;
+        const offerId = getStringParam(req.params.offerId);
+        const importerId = authReq.user.userId;
 
         // 1. Get the offer and verify the importer owns the trade
-        const offer = await (prisma.marketplaceOffer as any).findUnique({
+        const offer = await prisma.marketplaceOffer.findUnique({
             where: { id: offerId },
             include: { trade: true }
         });
@@ -152,19 +169,19 @@ export const finalizeOffer = async (req: Request, res: Response) => {
         }
 
         // 2. Transact: Accept this offer, decline others, update trade
-        await (prisma as any).$transaction([
+        await prisma.$transaction([
             // Accept this offer
-            (prisma.marketplaceOffer as any).update({
+            prisma.marketplaceOffer.update({
                 where: { id: offerId },
                 data: { status: 'ACCEPTED' }
             }),
             // Decline all other pending offers for this trade
-            (prisma.marketplaceOffer as any).updateMany({
+            prisma.marketplaceOffer.updateMany({
                 where: { tradeId: offer.tradeId, id: { not: offerId }, status: 'PENDING' },
                 data: { status: 'DECLINED' }
             }),
             // Update the trade: set exporter, amount, and transition to OFFER_ACCEPTED
-            (prisma.trade as any).update({
+            prisma.trade.update({
                 where: { id: offer.tradeId },
                 data: {
                     status: 'OFFER_ACCEPTED',
@@ -173,7 +190,7 @@ export const finalizeOffer = async (req: Request, res: Response) => {
                 }
             }),
             // Log event
-            (prisma.tradeEvent as any).create({
+            prisma.tradeEvent.create({
                 data: {
                     tradeId: offer.tradeId,
                     actorId: importerId,
@@ -181,7 +198,7 @@ export const finalizeOffer = async (req: Request, res: Response) => {
                     event: 'OFFER_ACCEPTED',
                     fromStatus: 'OPEN_FOR_OFFERS',
                     toStatus: 'OFFER_ACCEPTED',
-                    metadata: { offerId: offer.id, exporterId: offer.exporterId, amount: offer.amount } as any
+                    metadata: { offerId: offer.id, exporterId: offer.exporterId, amount: offer.amount }
                 }
             })
         ]);
@@ -197,10 +214,11 @@ export const finalizeOffer = async (req: Request, res: Response) => {
 
 export const declineOffer = async (req: Request, res: Response) => {
     try {
-        const { offerId } = req.params;
-        const importerId = (req as any).user.userId;
+        const authReq = req as AuthRequest;
+        const offerId = getStringParam(req.params.offerId);
+        const importerId = authReq.user.userId;
 
-        const offer = await (prisma.marketplaceOffer as any).findUnique({
+        const offer = await prisma.marketplaceOffer.findUnique({
             where: { id: offerId },
             include: { trade: true }
         });
@@ -217,19 +235,19 @@ export const declineOffer = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "This offer is not in PENDING status" });
         }
 
-        await (prisma.marketplaceOffer as any).update({
+        await prisma.marketplaceOffer.update({
             where: { id: offerId },
             data: { status: 'DECLINED' }
         });
 
         // Log event
-        await (prisma.tradeEvent as any).create({
+        await prisma.tradeEvent.create({
             data: {
                 tradeId: offer.tradeId,
                 actorId: importerId,
                 actorRole: 'IMPORTER',
                 event: 'OFFER_DECLINED',
-                metadata: { offerId: offer.id, exporterId: offer.exporterId } as any
+                metadata: { offerId: offer.id, exporterId: offer.exporterId }
             }
         });
 

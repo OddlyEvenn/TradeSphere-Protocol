@@ -1,18 +1,19 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\DocumentVerification.sol": {
-      "lastModificationDate": 1773046730757,
-      "contentHash": "e02cd75abd2ae4acf6dbd020f49b6424",
-      "sourceName": "contracts/DocumentVerification.sol",
+    "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\ConsensusDispute.sol": {
+      "lastModificationDate": 1775672971538,
+      "contentHash": "8fec034bb84793410eb12ce8340b35f8",
+      "sourceName": "contracts/ConsensusDispute.sol",
       "solcConfig": {
         "version": "0.8.24",
         "settings": {
-          "evmVersion": "paris",
           "optimizer": {
-            "enabled": false,
+            "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -36,21 +37,22 @@
         "^0.8.24"
       ],
       "artifacts": [
-        "DocumentVerification"
+        "ConsensusDispute"
       ]
     },
     "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\TradeRegistry.sol": {
-      "lastModificationDate": 1772899175297,
-      "contentHash": "7c6ecfeb78a4e34ce3f5ea7a4fd205ed",
+      "lastModificationDate": 1775672948226,
+      "contentHash": "6fc2c4581dc48a550da6b6c0cca92eb3",
       "sourceName": "contracts/TradeRegistry.sol",
       "solcConfig": {
         "version": "0.8.24",
         "settings": {
-          "evmVersion": "paris",
           "optimizer": {
-            "enabled": false,
+            "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -76,17 +78,18 @@
       ]
     },
     "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\PaymentSettlement.sol": {
-      "lastModificationDate": 1772816964671,
-      "contentHash": "9d28eef5b1fcdd62117d37e91ffdcb79",
+      "lastModificationDate": 1775672895078,
+      "contentHash": "16cc6ac58620ce4477a13917a36d3b7c",
       "sourceName": "contracts/PaymentSettlement.sol",
       "solcConfig": {
         "version": "0.8.24",
         "settings": {
-          "evmVersion": "paris",
           "optimizer": {
-            "enabled": false,
+            "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -114,17 +117,18 @@
       ]
     },
     "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\LetterOfCredit.sol": {
-      "lastModificationDate": 1772816964669,
-      "contentHash": "60c4bbcaa8f2a8d071e70d65a4518171",
+      "lastModificationDate": 1775672343873,
+      "contentHash": "dd7d41156533edddc390e633303e93be",
       "sourceName": "contracts/LetterOfCredit.sol",
       "solcConfig": {
         "version": "0.8.24",
         "settings": {
-          "evmVersion": "paris",
           "optimizer": {
-            "enabled": false,
+            "enabled": true,
             "runs": 200
           },
+          "viaIR": true,
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -149,6 +153,45 @@
       ],
       "artifacts": [
         "LetterOfCredit"
+      ]
+    },
+    "C:\\Users\\evanc\\Desktop\\BLOCKCHAIN-TRADE_FINANCE\\contracts\\DocumentVerification.sol": {
+      "lastModificationDate": 1775672335981,
+      "contentHash": "45531799d54fb567f7bf587e168aff7d",
+      "sourceName": "contracts/DocumentVerification.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./TradeRegistry.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "DocumentVerification"
       ]
     }
   }

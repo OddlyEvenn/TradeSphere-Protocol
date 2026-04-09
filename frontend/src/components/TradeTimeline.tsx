@@ -21,10 +21,15 @@ const getEventIcon = (eventName: string) => {
     const name = eventName.toUpperCase();
     if (name.includes('CREATED') || name.includes('INITIATED')) return <Clock size={16} className="text-blue-500" />;
     if (name.includes('UPLOADED') || name.includes('ISSUED')) return <FileText size={16} className="text-amber-500" />;
-    if (name.includes('APPROVED') || name.includes('CLEARED') || name.includes('AUTHORIZED')) return <ShieldCheck size={16} className="text-emerald-500" />;
+    if (name.includes('FLAGGED')) return <DollarSign size={16} className="text-amber-600" />;
+    if (name.includes('ENTRY_REJECTED') || name.includes('REJECT')) return <XCircle size={16} className="text-rose-600" />;
+    if (name.includes('VOTING') || name.includes('VOTE_CAST') || name.includes('DISPUTE_ACTIVATED')) return <ShieldCheck size={16} className="text-purple-500" />;
+    if (name.includes('FINALIZED')) return <CheckCircle2 size={16} className="text-purple-600" />;
+    if (name.includes('INSPECTOR')) return <User size={16} className="text-indigo-500" />;
+    if (name.includes('APPROVED') || name.includes('CLEARED') || name.includes('AUTHORIZED') || name.includes('GOODS_RECEIVED')) return <ShieldCheck size={16} className="text-emerald-500" />;
     if (name.includes('COMPLETED') || name.includes('CONFIRMED') || name.includes('SETTLEMENT')) return <CheckCircle2 size={16} className="text-indigo-500" />;
-    if (name.includes('PAID')) return <DollarSign size={16} className="text-emerald-500" />;
-    if (name.includes('DISPUTED')) return <XCircle size={16} className="text-rose-500" />;
+    if (name.includes('PAID') || name.includes('PAYOUT') || name.includes('REFUND')) return <DollarSign size={16} className="text-emerald-500" />;
+    if (name.includes('DISPUTED') || name.includes('REVERTED')) return <XCircle size={16} className="text-rose-500" />;
     return <Clock size={16} className="text-slate-400" />;
 };
 

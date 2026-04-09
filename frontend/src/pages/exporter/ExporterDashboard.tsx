@@ -47,9 +47,9 @@ const ExporterDashboard: React.FC = () => {
 
     const stats = [
         { label: 'Active Shipments', value: trades.filter(t => t.status === 'GOODS_SHIPPED').length.toString(), icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'Pending Docs', value: trades.filter(t => t.status === 'LOC_ISSUED').length.toString(), icon: FileCheck, color: 'text-amber-600', bg: 'bg-amber-50' },
-        { label: 'Verified', value: trades.filter(t => t.status === 'DOCS_VERIFIED').length.toString(), icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        { label: 'Payments Awaiting', value: trades.filter(t => t.status === 'PAYMENT_AUTHORIZED').length.toString(), icon: Clock, color: 'text-slate-600', bg: 'bg-slate-50' },
+        { label: 'Pending LoCs', value: trades.filter(t => ['LOC_INITIATED', 'LOC_UPLOADED'].includes(t.status)).length.toString(), icon: FileCheck, color: 'text-amber-600', bg: 'bg-amber-50' },
+        { label: 'LoC Approved', value: trades.filter(t => ['LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED'].includes(t.status)).length.toString(), icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        { label: 'Payments Awaiting', value: trades.filter(t => ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED'].includes(t.status)).length.toString(), icon: Clock, color: 'text-slate-600', bg: 'bg-slate-50' },
     ];
 
     return (
@@ -123,13 +123,18 @@ const ExporterDashboard: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between w-full md:w-auto md:flex-col md:items-end gap-2">
-                                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] ${trade.status === 'LOC_ISSUED' ? 'bg-amber-100 text-amber-700' :
+                                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] ${['LOC_INITIATED', 'LOC_UPLOADED'].includes(trade.status) ? 'bg-amber-100 text-amber-700' :
                                                 trade.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' :
-                                                    'bg-blue-100 text-blue-700'
+                                                    ['LOC_APPROVED', 'FUNDS_LOCKED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'CUSTOMS_CLEARED'].includes(trade.status) ? 'bg-emerald-50 text-emerald-600' :
+                                                        'bg-blue-100 text-blue-700'
                                                 }`}>
-                                                {trade.status.replace('_', ' ')}
+                                                {trade.status.replace(/_/g, ' ')}
                                             </span>
-                                            <p className="text-[10px] font-bold text-slate-400 italic uppercase tracking-widest">Action Required: Submit Docs</p>
+                                            <p className="text-[10px] font-bold text-slate-400 italic uppercase tracking-widest">
+                                                {['LOC_INITIATED'].includes(trade.status) ? 'Action Required: Upload Docs' : 
+                                                 ['PAYMENT_AUTHORIZED'].includes(trade.status) ? 'Action Required: Confirm Settlement' :
+                                                 'Awaiting Next Step'}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>

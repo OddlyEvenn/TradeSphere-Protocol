@@ -1,0 +1,427 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_tradeRegistry",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "votingDeadline",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "activatedBy",
+        "type": "address"
+      }
+    ],
+    "name": "DisputeActivated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "decision",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum ConsensusDispute.CargoStatus",
+        "name": "cargoStatus",
+        "type": "uint8"
+      }
+    ],
+    "name": "InspectorDecisionSubmitted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      }
+    ],
+    "name": "SLABreachTriggered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "voter",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum ConsensusDispute.Vote",
+        "name": "vote",
+        "type": "uint8"
+      }
+    ],
+    "name": "VoteCast",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "revertVotes",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "noRevertVotes",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum TradeRegistry.TradeStatus",
+        "name": "outcome",
+        "type": "uint8"
+      }
+    ],
+    "name": "VotingFinalized",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "VOTE_THRESHOLD",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "VOTING_DURATION",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "evidenceIpfsHash",
+        "type": "string"
+      }
+    ],
+    "name": "activateVoting",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "enum ConsensusDispute.Vote",
+        "name": "vote",
+        "type": "uint8"
+      }
+    ],
+    "name": "castVote",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "disputes",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "evidenceIpfsHash",
+        "type": "string"
+      },
+      {
+        "internalType": "bool",
+        "name": "active",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "finalized",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "votingDeadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalRevertVotes",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalNoRevertVotes",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalVotesCast",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      }
+    ],
+    "name": "finalizeVoting",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getInspectorDecision",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "submitted",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "decision",
+        "type": "bool"
+      },
+      {
+        "internalType": "enum ConsensusDispute.CargoStatus",
+        "name": "cargoStatus",
+        "type": "uint8"
+      },
+      {
+        "internalType": "string",
+        "name": "notes",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getVotingSummary",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "active",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "finalized",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "votingDeadline",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "revertVotes",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "noRevertVotes",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalVotesCast",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "inspectorDecisions",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "submitted",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "decision",
+        "type": "bool"
+      },
+      {
+        "internalType": "enum ConsensusDispute.CargoStatus",
+        "name": "cargoStatus",
+        "type": "uint8"
+      },
+      {
+        "internalType": "string",
+        "name": "notes",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "decision",
+        "type": "bool"
+      },
+      {
+        "internalType": "enum ConsensusDispute.CargoStatus",
+        "name": "cargoStatus",
+        "type": "uint8"
+      },
+      {
+        "internalType": "string",
+        "name": "notes",
+        "type": "string"
+      }
+    ],
+    "name": "submitInspectorDecision",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "tradeRegistry",
+    "outputs": [
+      {
+        "internalType": "contract TradeRegistry",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tradeId",
+        "type": "uint256"
+      }
+    ],
+    "name": "triggerVotingSLABreach",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
