@@ -1,648 +1,657 @@
-[
-  {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "advisingBank",
-        "type": "address"
-      }
-    ],
-    "name": "AdvisingBankAssigned",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "contractAddress",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "bool",
-        "name": "authorized",
-        "type": "bool"
-      }
-    ],
-    "name": "ContractAuthorized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "shippingCompany",
-        "type": "address"
-      }
-    ],
-    "name": "ShippingCompanyAssigned",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "confirmedBy",
-        "type": "address"
-      }
-    ],
-    "name": "TradeConfirmed",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "importer",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "exporter",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "TradeCreated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      }
-    ],
-    "name": "TradeInitiated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum TradeRegistry.TradeStatus",
-        "name": "oldStatus",
-        "type": "uint8"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum TradeRegistry.TradeStatus",
-        "name": "newStatus",
-        "type": "uint8"
-      }
-    ],
-    "name": "TradeStatusUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "deadline",
-        "type": "uint256"
-      }
-    ],
-    "name": "VotingDeadlineSet",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "advisingBank",
-        "type": "address"
-      }
-    ],
-    "name": "assignAdvisingBank",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "shippingCompany",
-        "type": "address"
-      }
-    ],
-    "name": "assignShippingCompany",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "authorizedContracts",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      }
-    ],
-    "name": "confirmGoodsReceived",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      }
-    ],
-    "name": "confirmTrade",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "exporter",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "issuingBank",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "advisingBank",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "inspector",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "customsAuthority",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "insuranceNode",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "shippingDeadline",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "clearanceDeadline",
-        "type": "uint256"
-      }
-    ],
-    "name": "createTrade",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getTrade",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "tradeId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "amount",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "createdAt",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "shippingDeadline",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "clearanceDeadline",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "votingDeadline",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "importer",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "exporter",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "issuingBank",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "advisingBank",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "shippingCompany",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "inspector",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "customsAuthority",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "insuranceNode",
-            "type": "address"
-          },
-          {
-            "internalType": "enum TradeRegistry.TradeStatus",
-            "name": "status",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bool",
-            "name": "importerConfirmed",
-            "type": "bool"
-          },
-          {
-            "internalType": "bool",
-            "name": "exporterConfirmed",
-            "type": "bool"
-          }
-        ],
-        "internalType": "struct TradeRegistry.Trade",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "nextTradeId",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      }
-    ],
-    "name": "raiseDispute",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      }
-    ],
-    "name": "requestLetterOfCredit",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "contractAddress",
-        "type": "address"
-      },
-      {
-        "internalType": "bool",
-        "name": "authorized",
-        "type": "bool"
-      }
-    ],
-    "name": "setAuthorizedContract",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "deadline",
-        "type": "uint256"
-      }
-    ],
-    "name": "setVotingDeadline",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "trades",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "createdAt",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "shippingDeadline",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "clearanceDeadline",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "votingDeadline",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "importer",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "exporter",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "issuingBank",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "advisingBank",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "shippingCompany",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "inspector",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "customsAuthority",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "insuranceNode",
-        "type": "address"
-      },
-      {
-        "internalType": "enum TradeRegistry.TradeStatus",
-        "name": "status",
-        "type": "uint8"
-      },
-      {
-        "internalType": "bool",
-        "name": "importerConfirmed",
-        "type": "bool"
-      },
-      {
-        "internalType": "bool",
-        "name": "exporterConfirmed",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      }
-    ],
-    "name": "triggerClearanceSLABreachRevert",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      }
-    ],
-    "name": "triggerSLABreachRevert",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tradeId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "enum TradeRegistry.TradeStatus",
-        "name": "newStatus",
-        "type": "uint8"
-      }
-    ],
-    "name": "updateStatus",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-]
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "TradeRegistry",
+  "sourceName": "contracts/TradeRegistry.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "advisingBank",
+          "type": "address"
+        }
+      ],
+      "name": "AdvisingBankAssigned",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "contractAddress",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "bool",
+          "name": "authorized",
+          "type": "bool"
+        }
+      ],
+      "name": "ContractAuthorized",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "shippingCompany",
+          "type": "address"
+        }
+      ],
+      "name": "ShippingCompanyAssigned",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "confirmedBy",
+          "type": "address"
+        }
+      ],
+      "name": "TradeConfirmed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "importer",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "exporter",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "TradeCreated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "TradeInitiated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum TradeRegistry.TradeStatus",
+          "name": "oldStatus",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum TradeRegistry.TradeStatus",
+          "name": "newStatus",
+          "type": "uint8"
+        }
+      ],
+      "name": "TradeStatusUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "deadline",
+          "type": "uint256"
+        }
+      ],
+      "name": "VotingDeadlineSet",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "advisingBank",
+          "type": "address"
+        }
+      ],
+      "name": "assignAdvisingBank",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "shippingCompany",
+          "type": "address"
+        }
+      ],
+      "name": "assignShippingCompany",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "authorizedContracts",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "confirmGoodsReceived",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "confirmTrade",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "exporter",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "issuingBank",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "advisingBank",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "inspector",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "customsAuthority",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "insuranceNode",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "shippingDeadline",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "clearanceDeadline",
+          "type": "uint256"
+        }
+      ],
+      "name": "createTrade",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getTrade",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "tradeId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "createdAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "shippingDeadline",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "clearanceDeadline",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "votingDeadline",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "importer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "exporter",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "issuingBank",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "advisingBank",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "shippingCompany",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "inspector",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "customsAuthority",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "insuranceNode",
+              "type": "address"
+            },
+            {
+              "internalType": "enum TradeRegistry.TradeStatus",
+              "name": "status",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bool",
+              "name": "importerConfirmed",
+              "type": "bool"
+            },
+            {
+              "internalType": "bool",
+              "name": "exporterConfirmed",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct TradeRegistry.Trade",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "nextTradeId",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "raiseDispute",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "requestLetterOfCredit",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "contractAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "bool",
+          "name": "authorized",
+          "type": "bool"
+        }
+      ],
+      "name": "setAuthorizedContract",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "deadline",
+          "type": "uint256"
+        }
+      ],
+      "name": "setVotingDeadline",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "trades",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "createdAt",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "shippingDeadline",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "clearanceDeadline",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "votingDeadline",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "importer",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "exporter",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "issuingBank",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "advisingBank",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "shippingCompany",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "inspector",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "customsAuthority",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "insuranceNode",
+          "type": "address"
+        },
+        {
+          "internalType": "enum TradeRegistry.TradeStatus",
+          "name": "status",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bool",
+          "name": "importerConfirmed",
+          "type": "bool"
+        },
+        {
+          "internalType": "bool",
+          "name": "exporterConfirmed",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "triggerClearanceSLABreachRevert",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "triggerSLABreachRevert",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tradeId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "enum TradeRegistry.TradeStatus",
+          "name": "newStatus",
+          "type": "uint8"
+        }
+      ],
+      "name": "updateStatus",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60a0806040523461003857336080526116bb908161003e82396080518181816101090152818161022201528181610aa60152610b890152f35b600080fdfe6080604052600436101561001257600080fd5b60003560e01c80630a09ef381461144357806314feba52146113255780631e6c598e1461120a5780632db25e0514610f7d578063388c106214610eb157806338ccdb8914610bb75780633a1b3d3114610af3578063813ad08314610ad55780638da5cb5b14610a905780639ec0507f14610819578063a5c1674e14610643578063d16cc3a9146104d5578063d19cd4ca1461034c578063d5b9221b1461030d578063d5ddd89014610250578063eaf4c3bb146101aa5763f2fa7392146100d757600080fd5b346101a55760403660031901126101a5576100f0611530565b602435908115158092036101a5576001600160a01b03907f0000000000000000000000000000000000000000000000000000000000000000821633036101735716806000526001602052604060002060ff1981541660ff84161790557f3213ab8ec2ed122402f038736b41878b69ae9f61f49a7edd0666bce891d29fc9600080a3005b60405162461bcd60e51b815260206004820152600a60248201526927b7363c9037bbb732b960b11b6044820152606490fd5b600080fd5b346101a55760403660031901126101a5576004356024359033600052600160205260ff60406000205416801561021e575b6101e490611628565b806000526000602052816005604060002001557f679e547a135eb81b5aeb690cff99f977414bf222f65b8f36e301aa1ec3d89f4e600080a3005b50337f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316146101db565b346101a55760403660031901126101a55760043561026c61151a565b9080600052600060205260406000209160018060a01b038060078501541633036102d85760099116926102a08415156115b3565b0180546001600160a01b031916831790557ff6b6464c10c5a10fce3b6565f729a9efba6c35ed895010e0a1d31d18713dec70600080a3005b60405162461bcd60e51b815260206004820152600d60248201526c27b7363c9032bc3837b93a32b960991b6044820152606490fd5b346101a55760203660031901126101a5576001600160a01b0361032e611530565b166000526001602052602060ff604060002054166040519015158152f35b346101a5576020806003193601126101a5576004356000818152808352604090206008810154919290916001600160a01b0316330361049d57600d8201805460ff8160a01c169360158510156104875760058514801561047d575b1561043857600301544211156103f35760ff60a01b1916600960a11b179055604080516000805160206116668339815191529391929091601291906103ed908490611546565b820152a2005b60405162461bcd60e51b815260048101849052601960248201527f446561646c696e65206e6f7420796574206272656163686564000000000000006044820152606490fd5b60405162461bcd60e51b815260048101859052601d60248201527f496e76616c69642073746174757320666f7220534c41207265766572740000006044820152606490fd5b50600685146103a7565b634e487b7160e01b600052602160045260246000fd5b6064906040519062461bcd60e51b8252600482015260116024820152704f6e6c792069737375696e672062616e6b60781b6044820152fd5b346101a55760203660031901126101a557600435806000526000602052604060002061051860018060a01b03806008840154163314908115610633575b50611628565b600d81019081549060ff8260a01c1690601582101561048757600782148015610629575b156105d857600401544211156105875760ff60a01b19909116600960a11b17909155604080516000805160206116668339815191529261057d908290611546565b60126020820152a2005b60405162461bcd60e51b815260206004820152602360248201527f436c656172616e636520646561646c696e65206e6f74207965742062726561636044820152621a195960ea1b6064820152608490fd5b60405162461bcd60e51b815260206004820152602360248201527f496e76616c69642073746174757320666f7220636c656172616e636520726576604482015262195c9d60ea1b6064820152608490fd5b506009821461053c565b9050600683015416331484610512565b346101a5576020806003193601126101a557600435908160005260008152604060002060018060a01b03806006830154163314918215610808575b82156107f7575b82156107e6575b82156107d5575b82156107c4575b82156107b3575b82156107a2575b50501561076a578160005260008152600d6040600020019081549160ff8360a01c1692601584101561048757600f8414158061075f575b1561071a5760ff60a01b1916600160a41b179055604080516000805160206116668339815191529391929091601091906103ed908490611546565b60405162461bcd60e51b815260048101849052601d60248201527f43616e6e6f7420646973707574652066696e69736865642074726164650000006044820152606490fd5b5060128414156106df565b6064906040519062461bcd60e51b825260048201526011602482015270139bdd0818481c185c9d1a58da5c185b9d607a1b6044820152fd5b600d919250015416331483806106a8565b915080600c830154163314916106a1565b915080600b8301541633149161069a565b915080600a83015416331491610693565b91508060098301541633149161068c565b915080600883015416331491610685565b91508060078301541633149161067e565b346101a5576020806003193601126101a5576004359081600052600081526040600020600d810190815460ff91828260a01c16601581101561048757610a40576006810154336001600160a01b0391821614918291908215610a2f575b5050156109ea571561098757508154818160a81c166109425760ff60a81b1916600160a81b1782555b33847f4886270d3c681c8373359d1cfafb1a549453e43e452ce59a9eae87f8a23e50be600080a38154818160a81c1680610936575b6108da57005b600080516020611666833981519152936103ed6001926040958460a01b60ff60a01b1983161790558551948591897fc40a4f74d715da2ee96119fbf8d8da1df0f5b79e92c3fd855f1ddc102d51d047600080a260a01c16611546565b50818160b01c166108d4565b60405162461bcd60e51b815260048101859052601a60248201527f496d706f7274657220616c726561647920636f6e6669726d65640000000000006044820152606490fd5b818160b01c166109a55760ff60b01b1916600160b01b17825561089f565b60405162461bcd60e51b815260048101859052601a60248201527f4578706f7274657220616c726561647920636f6e6669726d65640000000000006044820152606490fd5b60405162461bcd60e51b815260048101869052601960248201527f4f6e6c7920696d706f72746572206f72206578706f72746572000000000000006044820152606490fd5b600791925001541633148780610876565b60405162461bcd60e51b815260048101869052602260248201527f5472616465206e6f7420696e204f464645525f41434345505445442073746174604482015261757360f01b6064820152608490fd5b346101a55760003660031901126101a5576040517f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b346101a55760003660031901126101a5576020600254604051908152f35b346101a55760403660031901126101a55760043560243560158110156101a55760406000805160206116668339815191529133600052600160205260ff8260002054168015610b85575b610b4690611628565b836000526000602052610b82600d836000200191610b6c8160ff855460a01c169461158f565b610b7884518094611546565b6020830190611546565ba2005b50337f00000000000000000000000000000000000000000000000000000000000000006001600160a01b031614610b3d565b346101a5576101203660031901126101a557610bd1611530565b610bd961151a565b90604435906001600160a01b03821682036101a5576064356001600160a01b03811681036101a5576084356001600160a01b03811681036101a55760a435916001600160a01b03831683036101a557600254946000198614610e9b5760018601600255610c446115f1565b9686885260c435602089015242604089015260e4356060890152610104356080890152600060a08901523360c089015260018060a01b03861660e089015260018060a01b031661010088015260018060a01b0316610120870152600061014087015260018060a01b031661016086015260018060a01b031661018085015260018060a01b03166101a084015260006101c084015260006101e084015260006102008401528160005260006020526040600020835181556020840151600182015560408401516002820155606084015160038201556080840151600482015560a08401516005820155600d600682019160018060a01b0360c087015116926bffffffffffffffffffffffff60a01b93848254161790556007810160018060a01b0360e088015116848254161790556008810160018060a01b0361010088015116848254161790556009810160018060a01b036101208801511684825416179055600a810160018060a01b036101408801511684825416179055600b810160018060a01b036101608801511684825416179055600c810160018060a01b036101808801511684825416179055019060018060a01b036101a086015116908254161781556101c084015193601585101561048757610e216020958361158f565b6101e081015182546102009092015161ffff60a81b1990921690151560a81b60ff60a81b161790151560b01b60ff60b01b1617905560405160c43581526001600160a01b0390911690339083907f7db1856a9087992b8c7c25a7f1622a9b144ff325953aee6bbb6d38d762c189f6908690a4604051908152f35b634e487b7160e01b600052601160045260246000fd5b346101a55760203660031901126101a557600435806000526000602052600d6040600020610eec60018060a01b036006830154163314611553565b01805460ff8160a01c1660158110156104875760088103610f425760ff60a01b19909116600360a21b179091556040805160008051602061166683398151915292610f38908290611546565b600c6020820152a2005b60405162461bcd60e51b815260206004820152601360248201527210dd5cdd1bdb5cc81b9bdd0818db19585c9959606a1b6044820152606490fd5b346101a55760203660031901126101a5576000610200610f9b6115f1565b8281528260208201528260408201528260608201528260808201528260a08201528260c08201528260e08201528261010082015282610120820152826101408201528261016082015282610180820152826101a0820152826101c0820152826101e0820152015260043560005260006020526040600020600d61101c6115f1565b8254815260018301546020820152600283015460408201526003830154606082015260048301546080820152600583015460a08083019190915260068401546001600160a01b0390811660c08401526007850154811660e08401526008850154811661010084015260098501548116610120840152600a8501548116610140840152600b8501548116610160840152600c850154811661018084015292909301549182166101a0820152909160159083901c60ff1610156104875760ff82816102209460a01c166101c0840152818160a81c1615156101e084015260b01c16151561020082015261020060405191805183526020810151602084015260408101516040840152606081015160608401526080810151608084015260a081015160a084015260018060a01b0360c08201511660c084015260018060a01b0360e08201511660e084015260018060a01b036101008201511661010084015260018060a01b036101208201511661012084015260018060a01b036101408201511661014084015260018060a01b036101608201511661016084015260018060a01b036101808201511661018084015260018060a01b036101a0820151166101a08401526111f06101c08201516101c0850190611546565b6101e081015115156101e084015201511515610200820152f35b346101a55760203660031901126101a557600480356000908152602081815260409182902080546001820154600283015460038401549684015460058501546006860154600787015460088801546009890154600a8a0154600b8b0154600c8c0154600d909c01548e519b8c529c8b01999099529b890196909652606088019b909b52608087019390935260a0808701929092526001600160a01b0390811660c087015291821660e086015297811661010085015290811661012084015294851661014083015284166101608201529083166101808201529181166101a08301529091611302906101c084019083901c60ff16611546565b8060a81c60ff1615156101e083015260b01c60ff16151561020082015261022090f35b346101a55760403660031901126101a55760043561134161151a565b816000526000602052604060002060018060a01b0390611368826006830154163314611553565b600d8101805460ff8160a01c16926015841015610487576005840361140757600a6040956000805160206116668339815191529716916113a98315156115b3565b0180546001600160a01b03191682179055867f2c66f56eae5b05d816c95cd687f6688b9df61f75e38f75cb9cc3a190358c5b64600080a360ff60a01b1916600360a11b1790558151906113fd908290611546565b60066020820152a2005b60405162461bcd60e51b8152602060048201526014602482015273119d5b991cc81b9bdd081b1bd8dad959081e595d60621b6044820152606490fd5b346101a55760203660031901126101a557600435806000526000602052600d604060002061147e60018060a01b036006830154163314611553565b01805460ff8160a01c16601581101561048757600181148015611512575b156114dc5760ff60a01b19909116600160a11b1790915560408051600080516020611666833981519152926114d2908290611546565b60026020820152a2005b60405162461bcd60e51b815260206004820152600e60248201526d496e76616c69642073746174757360901b6044820152606490fd5b50801561149c565b602435906001600160a01b03821682036101a557565b600435906001600160a01b03821682036101a557565b9060158210156104875752565b1561155a57565b60405162461bcd60e51b815260206004820152600d60248201526c27b7363c9034b6b837b93a32b960991b6044820152606490fd5b90601581101561048757815460ff60a01b191660a09190911b60ff60a01b16179055565b156115ba57565b60405162461bcd60e51b815260206004820152600f60248201526e496e76616c6964206164647265737360881b6044820152606490fd5b60405190610220820182811067ffffffffffffffff82111761161257604052565b634e487b7160e01b600052604160045260246000fd5b1561162f57565b60405162461bcd60e51b815260206004820152600e60248201526d139bdd08185d5d1a1bdc9a5e995960921b6044820152606490fdfefcb82c5664d9b8ca92b30878bddea2bb0fc8804c7ac6dc8f781a1cd8b94e8effa2646970667358221220cc5d7cc01602ef8dc117c63f0db5d4da895992f8b52fe6aa1292ec4bf95856b864736f6c63430008180033",
+  "deployedBytecode": "0x6080604052600436101561001257600080fd5b60003560e01c80630a09ef381461144357806314feba52146113255780631e6c598e1461120a5780632db25e0514610f7d578063388c106214610eb157806338ccdb8914610bb75780633a1b3d3114610af3578063813ad08314610ad55780638da5cb5b14610a905780639ec0507f14610819578063a5c1674e14610643578063d16cc3a9146104d5578063d19cd4ca1461034c578063d5b9221b1461030d578063d5ddd89014610250578063eaf4c3bb146101aa5763f2fa7392146100d757600080fd5b346101a55760403660031901126101a5576100f0611530565b602435908115158092036101a5576001600160a01b03907f0000000000000000000000000000000000000000000000000000000000000000821633036101735716806000526001602052604060002060ff1981541660ff84161790557f3213ab8ec2ed122402f038736b41878b69ae9f61f49a7edd0666bce891d29fc9600080a3005b60405162461bcd60e51b815260206004820152600a60248201526927b7363c9037bbb732b960b11b6044820152606490fd5b600080fd5b346101a55760403660031901126101a5576004356024359033600052600160205260ff60406000205416801561021e575b6101e490611628565b806000526000602052816005604060002001557f679e547a135eb81b5aeb690cff99f977414bf222f65b8f36e301aa1ec3d89f4e600080a3005b50337f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316146101db565b346101a55760403660031901126101a55760043561026c61151a565b9080600052600060205260406000209160018060a01b038060078501541633036102d85760099116926102a08415156115b3565b0180546001600160a01b031916831790557ff6b6464c10c5a10fce3b6565f729a9efba6c35ed895010e0a1d31d18713dec70600080a3005b60405162461bcd60e51b815260206004820152600d60248201526c27b7363c9032bc3837b93a32b960991b6044820152606490fd5b346101a55760203660031901126101a5576001600160a01b0361032e611530565b166000526001602052602060ff604060002054166040519015158152f35b346101a5576020806003193601126101a5576004356000818152808352604090206008810154919290916001600160a01b0316330361049d57600d8201805460ff8160a01c169360158510156104875760058514801561047d575b1561043857600301544211156103f35760ff60a01b1916600960a11b179055604080516000805160206116668339815191529391929091601291906103ed908490611546565b820152a2005b60405162461bcd60e51b815260048101849052601960248201527f446561646c696e65206e6f7420796574206272656163686564000000000000006044820152606490fd5b60405162461bcd60e51b815260048101859052601d60248201527f496e76616c69642073746174757320666f7220534c41207265766572740000006044820152606490fd5b50600685146103a7565b634e487b7160e01b600052602160045260246000fd5b6064906040519062461bcd60e51b8252600482015260116024820152704f6e6c792069737375696e672062616e6b60781b6044820152fd5b346101a55760203660031901126101a557600435806000526000602052604060002061051860018060a01b03806008840154163314908115610633575b50611628565b600d81019081549060ff8260a01c1690601582101561048757600782148015610629575b156105d857600401544211156105875760ff60a01b19909116600960a11b17909155604080516000805160206116668339815191529261057d908290611546565b60126020820152a2005b60405162461bcd60e51b815260206004820152602360248201527f436c656172616e636520646561646c696e65206e6f74207965742062726561636044820152621a195960ea1b6064820152608490fd5b60405162461bcd60e51b815260206004820152602360248201527f496e76616c69642073746174757320666f7220636c656172616e636520726576604482015262195c9d60ea1b6064820152608490fd5b506009821461053c565b9050600683015416331484610512565b346101a5576020806003193601126101a557600435908160005260008152604060002060018060a01b03806006830154163314918215610808575b82156107f7575b82156107e6575b82156107d5575b82156107c4575b82156107b3575b82156107a2575b50501561076a578160005260008152600d6040600020019081549160ff8360a01c1692601584101561048757600f8414158061075f575b1561071a5760ff60a01b1916600160a41b179055604080516000805160206116668339815191529391929091601091906103ed908490611546565b60405162461bcd60e51b815260048101849052601d60248201527f43616e6e6f7420646973707574652066696e69736865642074726164650000006044820152606490fd5b5060128414156106df565b6064906040519062461bcd60e51b825260048201526011602482015270139bdd0818481c185c9d1a58da5c185b9d607a1b6044820152fd5b600d919250015416331483806106a8565b915080600c830154163314916106a1565b915080600b8301541633149161069a565b915080600a83015416331491610693565b91508060098301541633149161068c565b915080600883015416331491610685565b91508060078301541633149161067e565b346101a5576020806003193601126101a5576004359081600052600081526040600020600d810190815460ff91828260a01c16601581101561048757610a40576006810154336001600160a01b0391821614918291908215610a2f575b5050156109ea571561098757508154818160a81c166109425760ff60a81b1916600160a81b1782555b33847f4886270d3c681c8373359d1cfafb1a549453e43e452ce59a9eae87f8a23e50be600080a38154818160a81c1680610936575b6108da57005b600080516020611666833981519152936103ed6001926040958460a01b60ff60a01b1983161790558551948591897fc40a4f74d715da2ee96119fbf8d8da1df0f5b79e92c3fd855f1ddc102d51d047600080a260a01c16611546565b50818160b01c166108d4565b60405162461bcd60e51b815260048101859052601a60248201527f496d706f7274657220616c726561647920636f6e6669726d65640000000000006044820152606490fd5b818160b01c166109a55760ff60b01b1916600160b01b17825561089f565b60405162461bcd60e51b815260048101859052601a60248201527f4578706f7274657220616c726561647920636f6e6669726d65640000000000006044820152606490fd5b60405162461bcd60e51b815260048101869052601960248201527f4f6e6c7920696d706f72746572206f72206578706f72746572000000000000006044820152606490fd5b600791925001541633148780610876565b60405162461bcd60e51b815260048101869052602260248201527f5472616465206e6f7420696e204f464645525f41434345505445442073746174604482015261757360f01b6064820152608490fd5b346101a55760003660031901126101a5576040517f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b346101a55760003660031901126101a5576020600254604051908152f35b346101a55760403660031901126101a55760043560243560158110156101a55760406000805160206116668339815191529133600052600160205260ff8260002054168015610b85575b610b4690611628565b836000526000602052610b82600d836000200191610b6c8160ff855460a01c169461158f565b610b7884518094611546565b6020830190611546565ba2005b50337f00000000000000000000000000000000000000000000000000000000000000006001600160a01b031614610b3d565b346101a5576101203660031901126101a557610bd1611530565b610bd961151a565b90604435906001600160a01b03821682036101a5576064356001600160a01b03811681036101a5576084356001600160a01b03811681036101a55760a435916001600160a01b03831683036101a557600254946000198614610e9b5760018601600255610c446115f1565b9686885260c435602089015242604089015260e4356060890152610104356080890152600060a08901523360c089015260018060a01b03861660e089015260018060a01b031661010088015260018060a01b0316610120870152600061014087015260018060a01b031661016086015260018060a01b031661018085015260018060a01b03166101a084015260006101c084015260006101e084015260006102008401528160005260006020526040600020835181556020840151600182015560408401516002820155606084015160038201556080840151600482015560a08401516005820155600d600682019160018060a01b0360c087015116926bffffffffffffffffffffffff60a01b93848254161790556007810160018060a01b0360e088015116848254161790556008810160018060a01b0361010088015116848254161790556009810160018060a01b036101208801511684825416179055600a810160018060a01b036101408801511684825416179055600b810160018060a01b036101608801511684825416179055600c810160018060a01b036101808801511684825416179055019060018060a01b036101a086015116908254161781556101c084015193601585101561048757610e216020958361158f565b6101e081015182546102009092015161ffff60a81b1990921690151560a81b60ff60a81b161790151560b01b60ff60b01b1617905560405160c43581526001600160a01b0390911690339083907f7db1856a9087992b8c7c25a7f1622a9b144ff325953aee6bbb6d38d762c189f6908690a4604051908152f35b634e487b7160e01b600052601160045260246000fd5b346101a55760203660031901126101a557600435806000526000602052600d6040600020610eec60018060a01b036006830154163314611553565b01805460ff8160a01c1660158110156104875760088103610f425760ff60a01b19909116600360a21b179091556040805160008051602061166683398151915292610f38908290611546565b600c6020820152a2005b60405162461bcd60e51b815260206004820152601360248201527210dd5cdd1bdb5cc81b9bdd0818db19585c9959606a1b6044820152606490fd5b346101a55760203660031901126101a5576000610200610f9b6115f1565b8281528260208201528260408201528260608201528260808201528260a08201528260c08201528260e08201528261010082015282610120820152826101408201528261016082015282610180820152826101a0820152826101c0820152826101e0820152015260043560005260006020526040600020600d61101c6115f1565b8254815260018301546020820152600283015460408201526003830154606082015260048301546080820152600583015460a08083019190915260068401546001600160a01b0390811660c08401526007850154811660e08401526008850154811661010084015260098501548116610120840152600a8501548116610140840152600b8501548116610160840152600c850154811661018084015292909301549182166101a0820152909160159083901c60ff1610156104875760ff82816102209460a01c166101c0840152818160a81c1615156101e084015260b01c16151561020082015261020060405191805183526020810151602084015260408101516040840152606081015160608401526080810151608084015260a081015160a084015260018060a01b0360c08201511660c084015260018060a01b0360e08201511660e084015260018060a01b036101008201511661010084015260018060a01b036101208201511661012084015260018060a01b036101408201511661014084015260018060a01b036101608201511661016084015260018060a01b036101808201511661018084015260018060a01b036101a0820151166101a08401526111f06101c08201516101c0850190611546565b6101e081015115156101e084015201511515610200820152f35b346101a55760203660031901126101a557600480356000908152602081815260409182902080546001820154600283015460038401549684015460058501546006860154600787015460088801546009890154600a8a0154600b8b0154600c8c0154600d909c01548e519b8c529c8b01999099529b890196909652606088019b909b52608087019390935260a0808701929092526001600160a01b0390811660c087015291821660e086015297811661010085015290811661012084015294851661014083015284166101608201529083166101808201529181166101a08301529091611302906101c084019083901c60ff16611546565b8060a81c60ff1615156101e083015260b01c60ff16151561020082015261022090f35b346101a55760403660031901126101a55760043561134161151a565b816000526000602052604060002060018060a01b0390611368826006830154163314611553565b600d8101805460ff8160a01c16926015841015610487576005840361140757600a6040956000805160206116668339815191529716916113a98315156115b3565b0180546001600160a01b03191682179055867f2c66f56eae5b05d816c95cd687f6688b9df61f75e38f75cb9cc3a190358c5b64600080a360ff60a01b1916600360a11b1790558151906113fd908290611546565b60066020820152a2005b60405162461bcd60e51b8152602060048201526014602482015273119d5b991cc81b9bdd081b1bd8dad959081e595d60621b6044820152606490fd5b346101a55760203660031901126101a557600435806000526000602052600d604060002061147e60018060a01b036006830154163314611553565b01805460ff8160a01c16601581101561048757600181148015611512575b156114dc5760ff60a01b19909116600160a11b1790915560408051600080516020611666833981519152926114d2908290611546565b60026020820152a2005b60405162461bcd60e51b815260206004820152600e60248201526d496e76616c69642073746174757360901b6044820152606490fd5b50801561149c565b602435906001600160a01b03821682036101a557565b600435906001600160a01b03821682036101a557565b9060158210156104875752565b1561155a57565b60405162461bcd60e51b815260206004820152600d60248201526c27b7363c9034b6b837b93a32b960991b6044820152606490fd5b90601581101561048757815460ff60a01b191660a09190911b60ff60a01b16179055565b156115ba57565b60405162461bcd60e51b815260206004820152600f60248201526e496e76616c6964206164647265737360881b6044820152606490fd5b60405190610220820182811067ffffffffffffffff82111761161257604052565b634e487b7160e01b600052604160045260246000fd5b1561162f57565b60405162461bcd60e51b815260206004820152600e60248201526d139bdd08185d5d1a1bdc9a5e995960921b6044820152606490fdfefcb82c5664d9b8ca92b30878bddea2bb0fc8804c7ac6dc8f781a1cd8b94e8effa2646970667358221220cc5d7cc01602ef8dc117c63f0db5d4da895992f8b52fe6aa1292ec4bf95856b864736f6c63430008180033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
