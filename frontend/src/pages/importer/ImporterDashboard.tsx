@@ -45,8 +45,8 @@ const ImporterDashboard: React.FC = () => {
 
     const stats = [
         { label: 'Active Trades', value: trades.filter(t => t.status !== 'COMPLETED').length.toString(), icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'Pending LoCs', value: trades.filter(t => t.status === 'LOC_REQUESTED').length.toString(), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-        { label: 'Payments Pending', value: trades.filter(t => t.status === 'DOCS_VERIFIED').length.toString(), icon: AlertCircle, color: 'text-rose-600', bg: 'bg-rose-50' },
+        { label: 'Pending LoCs', value: trades.filter(t => ['LOC_INITIATED', 'LOC_UPLOADED'].includes(t.status)).length.toString(), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+        { label: 'Clearing Customs', value: trades.filter(t => ['GOODS_SHIPPED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED'].includes(t.status)).length.toString(), icon: AlertCircle, color: 'text-rose-600', bg: 'bg-rose-50' },
         { label: 'Completed', value: trades.filter(t => t.status === 'COMPLETED').length.toString(), icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     ];
 
@@ -122,12 +122,12 @@ const ImporterDashboard: React.FC = () => {
                                         </div>
                                         <div className="flex items-center justify-between w-full md:w-auto md:flex-col md:items-end gap-2">
                                             <p className="text-2xl font-black text-blue-600">${trade.amount.toLocaleString()}</p>
-                                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] ${trade.status === 'CREATED' ? 'bg-amber-100 text-amber-700' :
+                                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.1em] ${trade.status === 'TRADE_INITIATED' ? 'bg-amber-100 text-amber-700' :
                                                 trade.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' :
-                                                    trade.status === 'PAYMENT_AUTHORIZED' ? 'bg-blue-100 text-blue-700' :
+                                                    ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'CUSTOMS_CLEARED'].includes(trade.status) ? 'bg-emerald-50 text-emerald-600' :
                                                         'bg-blue-50 text-blue-700'
                                                 }`}>
-                                                {trade.status.replace('_', ' ')}
+                                                {trade.status.replace(/_/g, ' ')}
                                             </span>
                                         </div>
                                     </div>

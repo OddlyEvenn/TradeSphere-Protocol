@@ -8,9 +8,9 @@ import DisputePanel from '../../components/DisputePanel';
 
 const getStatusColor = (status: string) => {
     if (status === 'COMPLETED') return 'bg-emerald-50 text-emerald-700';
-    if (['DOCS_VERIFIED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'DUTY_PAID', 'CLAIM_PAYOUT_APPROVED'].includes(status)) return 'bg-emerald-50 text-emerald-700';
-    if (['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'DOCS_SUBMITTED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'TRADE_INITIATED', 'OFFER_ACCEPTED'].includes(status)) return 'bg-blue-50 text-blue-700';
-    if (status === 'DISPUTED' || status === 'TRADE_REVERTED_BY_CONSENSUS') return 'bg-rose-50 text-rose-700';
+    if (['CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'DUTY_PAID', 'CLAIM_PAYOUT_APPROVED'].includes(status)) return 'bg-emerald-50 text-emerald-700';
+    if (['GOODS_SHIPPED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'TRADE_INITIATED', 'OFFER_ACCEPTED'].includes(status)) return 'bg-blue-50 text-blue-700';
+    if (['CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'TRADE_REVERTED_BY_CONSENSUS'].includes(status)) return 'bg-rose-50 text-rose-700';
     return 'bg-amber-50 text-amber-700';
 };
 
@@ -45,7 +45,7 @@ const InsuranceDashboard: React.FC = () => {
 
     const stats = [
         { label: 'Active Policies', value: trades.length, icon: Shield, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'Active Disputes', value: trades.filter(t => t.status === 'DISPUTED').length, icon: ShieldAlert, color: 'text-rose-600', bg: 'bg-rose-50' },
+        { label: 'Active Disputes', value: trades.filter(t => ['ENTRY_REJECTED', 'VOTING_ACTIVE'].includes(t.status)).length, icon: ShieldAlert, color: 'text-rose-600', bg: 'bg-rose-50' },
         { label: 'Settled Claims', value: trades.filter(t => t.status === 'CLAIM_PAYOUT_APPROVED').length, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     ];
 
@@ -139,7 +139,7 @@ const InsuranceDashboard: React.FC = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                        {trade.status === 'DISPUTED' && (
+                                        {(trade.status === 'VOTING_ACTIVE' || trade.status === 'ENTRY_REJECTED') && (
                                             <tr className="bg-rose-50/30">
                                                 <td colSpan={5} className="px-8 py-8 border-b border-rose-100">
                                                     <div className="flex gap-8 items-start">

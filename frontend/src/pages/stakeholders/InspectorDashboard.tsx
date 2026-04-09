@@ -8,9 +8,9 @@ import DisputePanel from '../../components/DisputePanel';
 
 const getStatusColor = (status: string) => {
     if (status === 'COMPLETED') return 'bg-emerald-50 text-emerald-700';
-    if (['DOCS_VERIFIED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED'].includes(status)) return 'bg-emerald-50 text-emerald-700';
-    if (['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'DOCS_SUBMITTED'].includes(status)) return 'bg-blue-50 text-blue-700';
-    if (status === 'DISPUTED') return 'bg-rose-50 text-rose-700';
+    if (['CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED'].includes(status)) return 'bg-emerald-50 text-emerald-700';
+    if (['GOODS_SHIPPED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'TRADE_INITIATED', 'OFFER_ACCEPTED'].includes(status)) return 'bg-blue-50 text-blue-700';
+    if (['CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE'].includes(status)) return 'bg-rose-50 text-rose-700';
     return 'bg-amber-50 text-amber-700';
 };
 
@@ -43,7 +43,7 @@ const InspectorDashboard: React.FC = () => {
 
     const stats = [
         { label: 'Pending Audits', value: trades.filter(t => t.status === 'GOODS_SHIPPED').length, icon: FileSearch, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { label: 'Active Disputes', value: trades.filter(t => t.status === 'DISPUTED').length, icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
+        { label: 'Active Disputes', value: trades.filter(t => ['ENTRY_REJECTED', 'VOTING_ACTIVE'].includes(t.status)).length, icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
         { label: 'Weight Score', value: '+2.0', icon: Gavel, color: 'text-primary-600', bg: 'bg-primary-50' },
     ];
 
@@ -142,21 +142,21 @@ const InspectorDashboard: React.FC = () => {
                                                 )}
                                             </td>
                                         </tr>
-                                        {(trade.status === 'DISPUTED' || trade.status === 'GOODS_SHIPPED') && (
+                                        {(trade.status === 'VOTING_ACTIVE' || trade.status === 'ENTRY_REJECTED' || trade.status === 'GOODS_SHIPPED') && (
                                             <tr className="bg-slate-50/30">
                                                 <td colSpan={5} className="px-8 py-8 border-b border-slate-100">
                                                     <div className="flex gap-8 items-start">
-                                                        <div className={`flex-shrink-0 w-12 h-12 ${trade.status === 'DISPUTED' ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'} rounded-full flex items-center justify-center`}>
-                                                            {trade.status === 'DISPUTED' ? <Gavel size={24} /> : <ClipboardCheck size={24} />}
+                                                        <div className={`flex-shrink-0 w-12 h-12 ${['VOTING_ACTIVE', 'ENTRY_REJECTED'].includes(trade.status) ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'} rounded-full flex items-center justify-center`}>
+                                                            {['VOTING_ACTIVE', 'ENTRY_REJECTED'].includes(trade.status) ? <Gavel size={24} /> : <ClipboardCheck size={24} />}
                                                         </div>
                                                         <div className="flex-1">
-                                                            <h3 className={`text-sm font-black ${trade.status === 'DISPUTED' ? 'text-rose-900' : 'text-blue-900'} uppercase tracking-widest mb-2 flex items-center gap-2`}>
-                                                                {trade.status === 'DISPUTED' ? 'Consensus Arbitration Required' : 'Inspection & Dispute Authority'}
-                                                                {trade.status === 'DISPUTED' && <span className="px-2 py-0.5 bg-rose-600 text-[8px] text-white rounded-full">Weight: 2.0</span>}
+                                                            <h3 className={`text-sm font-black ${['VOTING_ACTIVE', 'ENTRY_REJECTED'].includes(trade.status) ? 'text-rose-900' : 'text-blue-900'} uppercase tracking-widest mb-2 flex items-center gap-2`}>
+                                                                {['VOTING_ACTIVE', 'ENTRY_REJECTED'].includes(trade.status) ? 'Consensus Arbitration Required' : 'Inspection & Dispute Authority'}
+                                                                {['VOTING_ACTIVE', 'ENTRY_REJECTED'].includes(trade.status) && <span className="px-2 py-0.5 bg-rose-600 text-[8px] text-white rounded-full">Weight: 2.0</span>}
                                                             </h3>
                                                             <p className="text-xs font-medium text-slate-500 mb-6 max-w-2xl leading-relaxed">
-                                                                {trade.status === 'DISPUTED' 
-                                                                    ? "A dispute has been raised. Your independent audit vote carries a weight of 2 points. Review evidence hash on-chain before casting."
+                                                                {['VOTING_ACTIVE', 'ENTRY_REJECTED'].includes(trade.status) 
+                                                                    ? "A dispute has been raised across the network. Your independent audit vote carries a weight of 2 points. Review evidence hash on-chain before casting."
                                                                     : "As the designated inspector, you can raise an on-chain dispute if goods do not meet quality standards or SLA breaches are detected."}
                                                             </p>
                                                             <DisputePanel 

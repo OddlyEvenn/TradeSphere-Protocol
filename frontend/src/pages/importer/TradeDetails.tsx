@@ -81,7 +81,7 @@ const TradeDetails: React.FC = () => {
             setCarriers(carriersRes.data);
             setEvents(eventsRes.data);
             setCustomsAuthorities(customsRes.data);
-            
+
             if (tradeRes.data.importerBankId) setSelectedBankId(tradeRes.data.importerBankId);
             if (tradeRes.data.shippingId) setSelectedCarrierId(tradeRes.data.shippingId);
         } catch (err) {
@@ -123,7 +123,7 @@ const TradeDetails: React.FC = () => {
             await waitForStatusUpdate('OFFER_ACCEPTED');
         } catch (err: any) {
             console.error('Registration failed', err);
-            
+
             // SMART CONTRACT ERROR HANDLING
             if (err.message.includes("Only Custom & Tax Authority")) {
                 toast.error("Blockchain Error: The assigned Customs node is not authorized on the network. They MUST sync their wallet or be added to the whitelist.");
@@ -428,10 +428,24 @@ const TradeDetails: React.FC = () => {
                                     <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Service Level Agreements (SLAs)</h3>
                                     <div className="grid grid-cols-2 gap-4">
                                         {trade.shippingDeadline && (
-                                            <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100/50">
-                                                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Max Shipping Time</p>
-                                                <p className="font-bold text-amber-900">{trade.shippingDeadline} Hrs</p>
-                                                <p className="text-[10px] text-amber-500 mt-1">From Lock Funds</p>
+                                            <div className="bg-amber-50/60 px-4 py-5 rounded-2xl border border-amber-100 w-[180px]">
+
+                                                <p className="text-[9px] font-extrabold text-amber-600 uppercase tracking-[0.2em] mb-2">
+                                                    Max Shipping Time
+                                                </p>
+
+                                                <p className="font-bold text-amber-900 text-lg leading-tight break-words">
+                                                    {trade.shippingDeadline}
+                                                </p>
+
+                                                <p className="font-bold text-amber-900 text-sm mt-1">
+                                                    Hrs
+                                                </p>
+
+                                                <p className="text-[9px] text-amber-500 mt-2 leading-tight">
+                                                    From Lock Funds
+                                                </p>
+
                                             </div>
                                         )}
                                         {trade.clearanceDeadline && (
@@ -602,12 +616,14 @@ const TradeDetails: React.FC = () => {
                             </h2>
                             <div className="space-y-4">
                                 {[
-                                    { label: 'Offer Accepted', done: ['OFFER_ACCEPTED', 'TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED', 'DISPUTE_RESOLVED_NO_REVERT', 'CLAIM_PAYOUT_APPROVED', 'TRADE_REVERTED_BY_CONSENSUS'].includes(trade.status) },
-                                    { label: 'Trade Initiated', done: ['TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'LoC Issued', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'LOC_ISSUED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Offer Accepted', done: ['OFFER_ACCEPTED', 'TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED', 'DISPUTE_RESOLVED_NO_REVERT', 'CLAIM_PAYOUT_APPROVED', 'TRADE_REVERTED_BY_CONSENSUS'].includes(trade.status) },
+                                    { label: 'Trade Initiated', done: ['TRADE_INITIATED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'LoC Requested', done: ['LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'LoC Uploaded', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'LoC Approved', done: ['LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Funds Locked', done: ['FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                    { label: 'Customs Decision', done: ['CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                    { label: 'Carrier Assigned', done: ['SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Customs Cleared', done: ['CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Goods Received', done: ['GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                     { label: 'Payment Authorized', done: ['PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
@@ -761,14 +777,14 @@ const TradeDetails: React.FC = () => {
                             <TradeTimeline events={events} />
                         </div>
                     )}
-                    
+
                     {/* Add Dispute Panel at the very bottom right column */}
                     {trade && user && (
-                        <DisputePanel 
-                            trade={trade} 
-                            currentUserRole={user.role} 
-                            currentUserWallet={account || ""} 
-                            onUpdate={fetchTradeData} 
+                        <DisputePanel
+                            trade={trade}
+                            currentUserRole={user.role}
+                            currentUserWallet={account || ""}
+                            onUpdate={fetchTradeData}
                         />
                     )}
                 </div>

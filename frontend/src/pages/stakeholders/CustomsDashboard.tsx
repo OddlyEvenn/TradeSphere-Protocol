@@ -135,42 +135,30 @@ const CustomsDashboard: React.FC = () => {
 
     /**
      * Customs/Tax records receipt and releases goods after importer pays duty.
+     * Calls DocumentVerification.payTaxAndRelease(tradeId).
      */
     const handleRecordReceiptAndRelease = async (trade: any) => {
-        if (!account) return toast.error("Connect wallet to record receipt.");
+        if (!account) return toast.error("Connect wallet to record release.");
         if (trade.blockchainId === null || trade.blockchainId === undefined) return toast.error("No blockchain ID.");
 
         setActionLoading(`${trade.id}-RELEASE`);
         try {
+            toast.info("Recording tax receipt and releasing goods on blockchain...");
             const docContract = walletService.getDocumentVerification();
 
-            // Step 1: Record tax receipt on-chain
-            toast.info("Recording tax receipt on-chain...");
-            const tx1 = await docContract.recordTaxReceipt(trade.blockchainId);
-            toast.info("Receipt transaction sent. Waiting for confirmation...");
-            await tx1.wait();
+            const tx = await docContract.payTaxAndRelease(trade.blockchainId);
+            toast.info("Transaction sent. Waiting for confirmation...");
+            await tx.wait();
 
             await api.patch(`/trades/${trade.id}/state`, {
-                txHash: tx1.hash,
-                eventName: 'TAX_RECEIPT_RECORDED'
-            });
-            toast.success("Tax receipt recorded on-chain!");
-
-            // Step 2: Release goods from duty
-            toast.info("Releasing goods from duty on blockchain...");
-            const tx2 = await docContract.releaseFromDuty(trade.blockchainId);
-            toast.info("Release transaction sent. Waiting for confirmation...");
-            await tx2.wait();
-
-            await api.patch(`/trades/${trade.id}/state`, {
-                txHash: tx2.hash,
-                eventName: 'CUSTOMS_CLEARED'
+                txHash: tx.hash,
+                eventName: 'TAX_PAID_AND_RELEASED'
             });
             toast.success("Goods officially released on-chain! Status: CUSTOMS_CLEARED");
             setTimeout(fetchTrades, 3000);
         } catch (err: any) {
             console.error(err);
-            toast.error("Failed: " + (err.reason || err.message));
+            toast.error("Failed to release goods: " + (err.reason || err.message));
         } finally {
             setActionLoading(null);
         }
@@ -263,7 +251,7 @@ const CustomsDashboard: React.FC = () => {
                         {actionLoading === `${trade.id}-RELEASE` ? (
                             <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
                         ) : <ShieldCheck size={14} />}
-                        Record Receipt & Release
+                        Confirm Tax & Release
                     </button>
                 </div>
             );

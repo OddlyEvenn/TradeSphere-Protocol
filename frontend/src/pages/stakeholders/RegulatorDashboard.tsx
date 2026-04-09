@@ -9,9 +9,9 @@ import { walletService } from '../../services/WalletService';
 
 const getStatusColor = (status: string) => {
     if (status === 'COMPLETED') return 'bg-emerald-50 text-emerald-700';
-    if (['DOCS_VERIFIED', 'CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'DUTY_PAID'].includes(status)) return 'bg-emerald-50 text-emerald-700';
-    if (['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'DOCS_SUBMITTED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'TRADE_INITIATED', 'OFFER_ACCEPTED'].includes(status)) return 'bg-blue-50 text-blue-700';
-    if (status === 'DUTY_PENDING') return 'bg-rose-50 text-rose-700';
+    if (['CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'DUTY_PAID'].includes(status)) return 'bg-emerald-50 text-emerald-700';
+    if (['GOODS_SHIPPED', 'LOC_INITIATED', 'LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'TRADE_INITIATED', 'OFFER_ACCEPTED'].includes(status)) return 'bg-blue-50 text-blue-700';
+    if (['CUSTOMS_FLAGGED', 'ENTRY_REJECTED', 'VOTING_ACTIVE'].includes(status)) return 'bg-rose-50 text-rose-700';
     return 'bg-amber-50 text-amber-700';
 };
 
@@ -205,10 +205,10 @@ const RegulatorDashboard: React.FC = () => {
                                                                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Trade Lifecycle Stage</h4>
                                                                     <div className="space-y-3">
                                                                         {[
-                                                                            { label: 'LoC Issued', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                                                            { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_UNDER_REVIEW', 'CUSTOMS_CLEARED', 'DUTY_PENDING', 'DUTY_PAID', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                                                            { label: 'Customs Clear', done: ['CUSTOMS_CLEARED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
-                                                                            { label: 'Trade Settled', done: ['SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                                                            { label: 'LoC Issued', done: ['LOC_UPLOADED', 'LOC_APPROVED', 'FUNDS_LOCKED', 'SHIPPING_ASSIGNED', 'GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                                                            { label: 'Goods Shipped', done: ['GOODS_SHIPPED', 'CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                                                            { label: 'Customs Clear', done: ['CUSTOMS_CLEARED', 'GOODS_RECEIVED', 'PAYMENT_AUTHORIZED', 'SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
+                                                                            { label: 'Settlement confirmed', done: ['SETTLEMENT_CONFIRMED', 'COMPLETED'].includes(trade.status) },
                                                                         ].map((s, i, arr) => (
                                                                             <div key={i} className="flex items-center gap-3">
                                                                                 <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${s.done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-300'}`}>
