@@ -20,7 +20,7 @@ const PORT = process.env.PORT || 5000;
 app.use(morgan('dev')); // GET/POST/PUT logs
 // CORS Configuration
 const rawOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',') : ['http://localhost:5173'];
-const allowedOrigins = rawOrigins.map(origin => origin.trim()).filter(origin => origin !== "");
+const allowedOrigins = rawOrigins.map(origin => origin.trim().replace(/\/$/, "")).filter(origin => origin !== "");
 
 logger.info(`CORS Whitelist: ${allowedOrigins.join(', ')}`);
 
@@ -29,11 +29,16 @@ app.use(cors({
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+        // Normalize the incoming origin by removing trailing slash
+        const normalizedOrigin = origin.trim().replace(/\/$/, "");
+        
+        if (allowedOrigins.includes(normalizedOrigin) || allowedOrigins.includes('*')) {
             callback(null, true);
         } else {
-            logger.warn(`CORS blocked request from origin: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
+            logger.warn(`CORS blocked request from origin: "${origin}" (Normalized: "${normalizedOrigin}"). Allowed: [${allowedOrigins.join(', ')}]`);
+            // We pass null, false to omit the header instead of throwing an error, 
+            // which is more compatible with some browser behaviors.
+            callback(null, false);
         }
     },
     credentials: true,
