@@ -21,7 +21,7 @@ app.use(morgan('dev')); // GET/POST/PUT logs
 // CORS Configuration
 const rawOrigins = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',') : ['http://localhost:5173'];
 // Strip potential quotes and trailing slashes
-const allowedOrigins = rawOrigins.map(origin => 
+const allowedOrigins = rawOrigins.map(origin =>
     origin.trim().replace(/^["'](.+)["']$/, '$1').replace(/\/$/, "")
 ).filter(origin => origin !== "");
 
@@ -31,11 +31,11 @@ app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        
+
         // Normalize the incoming origin
         const normalizedOrigin = origin.trim().replace(/\/$/, "");
         const isAllowed = allowedOrigins.includes(normalizedOrigin) || allowedOrigins.includes('*');
-        
+
         if (isAllowed) {
             callback(null, true);
         } else {
@@ -44,7 +44,7 @@ app.use(cors({
         }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
