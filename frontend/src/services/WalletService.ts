@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 
-export const PROTOCOL_USD_TO_ETH_RATE = 1000000; // 1 ETH = $1,000,000 for simulation scaling
+export const PROTOCOL_USD_TO_ETH_RATE = 100000000; // 1 ETH = $100,000,000 for simulation scaling
 
 
 // Import ABIs

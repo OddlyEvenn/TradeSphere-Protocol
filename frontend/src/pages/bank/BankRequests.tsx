@@ -132,13 +132,15 @@ const BankRequests: React.FC = () => {
                 tx = await contract.approveLoC(trade.blockchainId);
             } else if (action === 'LOCK_FUNDS') {
                 toast.info("Depositing escrow funds to blockchain vault...");
-                const contract = walletService.getPaymentSettlement();
-                // ARCHITECTURE: Convert USD amount to ETH (using scaled protocol rate)
-                // This must match the amount registered on-chain in TradeRegistry
-                const amountInEth = (trade.amount / PROTOCOL_USD_TO_ETH_RATE).toFixed(8);
-                const valueInWei = ethers.parseEther(amountInEth);
+                const psContract = walletService.getPaymentSettlement();
+                const registry = walletService.getTradeRegistry();
+
+                // ARCHITECTURE: Fetch the EXACT amount registered on-chain
+                // This bypasses any precision-loss issues from the initial registration.
+                const tradeOnChain = await registry.getTrade(trade.blockchainId);
+                const valueInWei = tradeOnChain.amount;
                 
-                tx = await contract.depositEscrow(trade.blockchainId, { value: valueInWei });
+                tx = await psContract.depositEscrow(trade.blockchainId, { value: valueInWei });
 
             } else if (action === 'AUTHORIZE_PAYMENT') {
                 toast.info("Authorizing payment on blockchain...");

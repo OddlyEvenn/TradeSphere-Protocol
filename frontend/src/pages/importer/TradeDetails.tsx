@@ -199,7 +199,7 @@ const TradeDetails: React.FC = () => {
                 inspectorWallet,
                 finalCustomsWallet,
                 insuranceWallet,
-                Math.floor(Number(amountInEth) * 1e18).toString(), // Wei
+                ethers.parseEther(amountInEth), // precise BigInt Wei
                 shippingDeadline,
                 clearanceDeadline
             );

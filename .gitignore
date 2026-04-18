@@ -39,3 +39,6 @@ backend/dev.db-journal
 
 # Compiled Files
 *.tsbuildinfo
+artifacts/
+cache/
+typechain-types/

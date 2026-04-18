@@ -1,5 +1,5 @@
 @echo off
-set BACKEND_PORT=5000
+set BACKEND_PORT=5001
 set FRONTEND_PORT=5173
 set BASE_DIR=%~dp0
 

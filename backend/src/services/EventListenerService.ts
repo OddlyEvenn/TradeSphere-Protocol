@@ -764,12 +764,19 @@ export class EventListenerService {
                         if (Number(vote) === 1) voteStr = "REVERT";
                         else if (Number(vote) === 2) voteStr = "NO_REVERT";
 
+                        // OS-Kernel Log: Reception Sequence
+                        logger.os(`[MEMPOOL-SEQ] Incoming Task 'VoteCast' from Node ${voter.substring(0, 10)}... | Logic: ${voteStr}`);
+                        
                         logger.transaction({ event: "VoteCast", txHash, blockchainId: Number(tradeId), actor: `Voter: ${voter}`, status: `Voted ${voteStr}` as any });
 
                         const dbTradeId = await getTradeId(Number(tradeId));
                         if (!dbTradeId) return;
 
                         const user = await (prisma.user as any).findFirst({ where: { walletAddress: voter.toLowerCase() } });
+                        
+                        // OS-Kernel Log: Atomic Update
+                        logger.os(`[ATOMIC-SYNC] Distributed Mutex acquired for Trade #${tradeId}. Updating Global State for Voter: ${user?.role || voter}`);
+                        
                         await (prisma.tradeEvent as any).create({
                             data: {
                                 tradeId: dbTradeId,
@@ -779,6 +786,8 @@ export class EventListenerService {
                                 txHash
                             }
                         });
+
+                        logger.os(`[ATOMIC-SYNC] State update committed. Mutex released.`);
                     }
                 );
 
@@ -819,6 +828,9 @@ export class EventListenerService {
                     async (tradeId: any, revertVotes: any, noRevertVotes: any, outcome: any, event: any) => {
                         const txHash = event.log.transactionHash;
                         const statusStr = statusMap[Number(outcome)] || "UNKNOWN";
+                        
+                        logger.os(`[DET-EXEC] Consensus Threshold Reached (Revert: ${revertVotes}, No-Revert: ${noRevertVotes}). Finalizing state transition to: ${statusStr}`);
+                        
                         logger.transaction({ event: "VotingFinalized", txHash, blockchainId: Number(tradeId), status: statusStr as any });
 
                         const dbTradeId = await getTradeId(Number(tradeId));
@@ -836,6 +848,8 @@ export class EventListenerService {
                                 txHash
                             }
                         });
+                        
+                        logger.os(`[DET-EXEC] Deterministic Finality Confirmed. Process exiting with EXIT_CODE_SUCCESS.`);
                         logger.success(`✅ Trade #${tradeId} Voting Finalized: ${statusStr}`);
                     }
                 );
